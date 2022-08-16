@@ -1,5 +1,5 @@
 <deployment-project plugin="plugin.ezdeploy" plugin-version="1.0">
-  <configuration build-checksum="2983054967" file="/Users/ev/Documents/GitHub/CELL_ID/mac_visualize.prj" location="/Users/ev/Documents/GitHub/CELL_ID" name="mac_visualize" preferred-package-location="/Users/ev/Dropbox/Mac/Documents/GitHub/CELL_ID/mac_visualize/for_redistribution" preferred-package-type="package.type.app" target="target.ezdeploy.standalone" target-name="Application Compiler">
+  <configuration build-checksum="2983054967" file="/Users/ev/Documents/GitHub/NeuroPAL_ID/mac_visualize.prj" location="/Users/ev/Documents/GitHub/NeuroPAL_ID" name="mac_visualize" preferred-package-location="/Users/ev/Dropbox/Mac/Documents/GitHub/CELL_ID/mac_visualize/for_redistribution" preferred-package-type="package.type.app" target="target.ezdeploy.standalone" target-name="Application Compiler">
     <param.appname>NeuroPAL_ID</param.appname>
     <param.icon>${PROJECT_ROOT}/mac_visualize_resources/icon.icns</param.icon>
     <param.icons>
@@ -8,10 +8,10 @@
       <file>${PROJECT_ROOT}/mac_visualize_resources/icon_24.png</file>
       <file>${PROJECT_ROOT}/mac_visualize_resources/icon_16.png</file>
     </param.icons>
-    <param.version>1.8</param.version>
+    <param.version>1.81</param.version>
     <param.authnamewatermark>Amin Nejatbakhsh, Eviatar Yemini, et al.</param.authnamewatermark>
     <param.email />
-    <param.company>Columbia University</param.company>
+    <param.company>Columbia &amp; UMass Chan Medical School</param.company>
     <param.summary>NeuroPAL ID software to perform (semi-) automated identification of neurons in images of NeuroPAL strains.</param.summary>
     <param.description>Please read and cite the following peer-reviewed Cell publication:
 https://www.cell.com/cell/fulltext/S0092-8674(20)31682-2
@@ -34,15 +34,15 @@ https://doi.org/10.1016/j.cell.2020.12.012</param.description>
 Please add it to your dock so you can easily find it.
 
 2. The first time it is launched, the software will be slow to open. Please be patient. Subsequently, it will open much faster.</param.install.notes>
-    <param.target.install.notes>In the following directions, replace MR/v910 by the directory on the target machine where MATLAB is installed, or MR by the directory where the MATLAB Runtime is installed.
+    <param.target.install.notes>In the following directions, replace MR/v912 by the directory on the target machine where MATLAB is installed, or MR by the directory where the MATLAB Runtime is installed.
 
 If the environment variable DYLD_LIBRARY_PATH is undefined, set it to the following string:
 
-MR/v910/runtime/maci64:MR/v910/sys/os/maci64:MR/v910/bin/maci64
+MR/v912/runtime/maci64:MR/v912/sys/os/maci64:MR/v912/bin/maci64
 
 If it is defined, set it to the following:
 
-${DYLD_LIBRARY_PATH}:MR/v910/runtime/maci64:MR/v910/sys/os/maci64:MR/v910/bin/maci64</param.target.install.notes>
+${DYLD_LIBRARY_PATH}:MR/v912/runtime/maci64:MR/v912/sys/os/maci64:MR/v912/bin/maci64</param.target.install.notes>
     <param.intermediate>${PROJECT_ROOT}/mac_visualize/for_testing</param.intermediate>
     <param.files.only>${PROJECT_ROOT}/mac_visualize/for_redistribution_files_only</param.files.only>
     <param.output>${PROJECT_ROOT}/mac_visualize/for_redistribution</param.output>
@@ -157,14 +157,14 @@ ${DYLD_LIBRARY_PATH}:MR/v910/runtime/maci64:MR/v910/sys/os/maci64:MR/v910/bin/ma
       <file>${PROJECT_ROOT}/External_Dependencies/mlapptools-develop/mlapptools.m</file>
     </fileset.depfun>
     <build-deliverables>
-      <file location="${PROJECT_ROOT}/mac_visualize/for_testing" name="readme.txt" optional="true">/Users/ev/Documents/GitHub/CELL_ID/mac_visualize/for_testing/readme.txt</file>
-      <file location="${PROJECT_ROOT}/mac_visualize/for_testing" name="splash.png" optional="false">/Users/ev/Documents/GitHub/CELL_ID/mac_visualize/for_testing/splash.png</file>
-      <file location="${PROJECT_ROOT}/mac_visualize/for_testing" name="NeuroPAL_ID.app" optional="false">/Users/ev/Documents/GitHub/CELL_ID/mac_visualize/for_testing/NeuroPAL_ID.app</file>
-      <file location="${PROJECT_ROOT}/mac_visualize/for_testing" name="run_NeuroPAL_ID.sh" optional="false">/Users/ev/Documents/GitHub/CELL_ID/mac_visualize/for_testing/run_NeuroPAL_ID.sh</file>
+      <file location="${PROJECT_ROOT}/mac_visualize/for_testing" name="NeuroPAL_ID.app" optional="false">/Users/ev/Documents/GitHub/NeuroPAL_ID/mac_visualize/for_testing/NeuroPAL_ID.app</file>
+      <file location="${PROJECT_ROOT}/mac_visualize/for_testing" name="readme.txt" optional="true">/Users/ev/Documents/GitHub/NeuroPAL_ID/mac_visualize/for_testing/readme.txt</file>
+      <file location="${PROJECT_ROOT}/mac_visualize/for_testing" name="splash.png" optional="false">/Users/ev/Documents/GitHub/NeuroPAL_ID/mac_visualize/for_testing/splash.png</file>
+      <file location="${PROJECT_ROOT}/mac_visualize/for_testing" name="run_NeuroPAL_ID.sh" optional="false">/Users/ev/Documents/GitHub/NeuroPAL_ID/mac_visualize/for_testing/run_NeuroPAL_ID.sh</file>
     </build-deliverables>
     <workflow />
     <matlab>
-      <root>/Applications/MATLAB_R2021a.app</root>
+      <root>/Applications/MATLAB_R2022a.app</root>
       <toolboxes>
         <toolbox name="matlabcoder" />
         <toolbox name="neuralnetwork" />
@@ -189,7 +189,7 @@ ${DYLD_LIBRARY_PATH}:MR/v910/runtime/maci64:MR/v910/sys/os/maci64:MR/v910/bin/ma
       <vista>false</vista>
       <linux>false</linux>
       <solaris>false</solaris>
-      <osver>10.14.6</osver>
+      <osver>12.5</osver>
       <os32>false</os32>
       <os64>true</os64>
       <arch>maci64</arch>
