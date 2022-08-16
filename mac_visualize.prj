@@ -1,5 +1,5 @@
 <deployment-project plugin="plugin.ezdeploy" plugin-version="1.0">
-  <configuration build-checksum="2983054967" file="/Users/ev/Documents/GitHub/NeuroPAL_ID/mac_visualize.prj" location="/Users/ev/Documents/GitHub/NeuroPAL_ID" name="mac_visualize" preferred-package-location="/Users/ev/Dropbox/Mac/Documents/GitHub/CELL_ID/mac_visualize/for_redistribution" preferred-package-type="package.type.app" target="target.ezdeploy.standalone" target-name="Application Compiler">
+  <configuration build-checksum="297710525" file="/Users/ev/Documents/GitHub/NeuroPAL_ID/mac_visualize.prj" location="/Users/ev/Documents/GitHub/NeuroPAL_ID" name="mac_visualize" preferred-package-location="/Users/ev/Documents/GitHub/NeuroPAL_ID/mac_visualize/for_redistribution" preferred-package-type="package.type.app" target="target.ezdeploy.standalone" target-name="Application Compiler">
     <param.appname>NeuroPAL_ID</param.appname>
     <param.icon>${PROJECT_ROOT}/mac_visualize_resources/icon.icns</param.icon>
     <param.icons>
@@ -153,8 +153,10 @@ ${DYLD_LIBRARY_PATH}:MR/v912/runtime/maci64:MR/v912/sys/os/maci64:MR/v912/bin/ma
       <file>${PROJECT_ROOT}/Data/NeuroPAL/NeuroPAL_herm_data.mat</file>
       <file>${PROJECT_ROOT}/Data/NeuroPAL/birth_times.mat</file>
       <file>${PROJECT_ROOT}/Data/NeuroPAL/herm_data.mat</file>
+      <file>${PROJECT_ROOT}/External_Dependencies/bfmatlab/bfTestInRange.m</file>
       <file>${PROJECT_ROOT}/External_Dependencies/mlapptools-develop/WidgetID.m</file>
       <file>${PROJECT_ROOT}/External_Dependencies/mlapptools-develop/mlapptools.m</file>
+      <file>/Users/ev/Documents/MATLAB/SupportPackages/R2022a/toolbox/nnet/supportpackages/keras_importer/+nnet/+keras/+layer/BinaryCrossEntropyRegressionLayer.m</file>
     </fileset.depfun>
     <build-deliverables>
       <file location="${PROJECT_ROOT}/mac_visualize/for_testing" name="NeuroPAL_ID.app" optional="false">/Users/ev/Documents/GitHub/NeuroPAL_ID/mac_visualize/for_testing/NeuroPAL_ID.app</file>
