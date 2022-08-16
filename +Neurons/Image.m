@@ -394,7 +394,7 @@ classdef Image < handle
             % Find the neuron.
             for i = 1:length(obj.neurons)
                 if ~obj.neurons(i).is_emphasized && ...
-                        strncmp(name, obj.neurons(i).annotation, length(name))
+                        strcmp(name, obj.neurons(i).annotation)
                     neuron = obj.neurons(i);
                     return;
                 end
