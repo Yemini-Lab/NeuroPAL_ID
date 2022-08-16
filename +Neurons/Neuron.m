@@ -185,14 +185,21 @@ classdef Neuron < handle
                 
             % Neuron has a user ID.
             elseif ~isempty(obj.annotation)
+
+                % Color the marker by confidence in the neuron's ID.
                 if obj.annotation_confidence == 1
-                color = Neurons.Neuron.HIGH_CONFIDENCE_COLOR;
+                    color = Neurons.Neuron.HIGH_CONFIDENCE_COLOR;
                 elseif obj.annotation_confidence == 0.5
                     color = Neurons.Neuron.LOW_CONFIDENCE_COLOR;
                 elseif obj.annotation_confidence <= 0
                     color = Neurons.Neuron.NO_CONFIDENCE_COLOR;
                 end
                 
+                % Emphasis coloring overrides confidence.
+                if obj.is_emphasized
+                    color = Neurons.Neuron.EMPHASIS_COLOR;
+                end
+
             % Neuron has a model ID.
             elseif ~isempty(obj.deterministic_id)
                 color = Neurons.Neuron.AUTO_ID_COLOR;
@@ -235,6 +242,7 @@ classdef Neuron < handle
     properties (Constant, Access = private)
         % Neuron dot colors.
         SELECTED_COLOR = [1,1,1]; % neuron selected (white)
+        EMPHASIS_COLOR = [1,0.6,1]; % user emphasized this neuron (purple)
         NO_CONFIDENCE_COLOR = [1,0,0]; % user added neuron but no ID yet (red)
         HIGH_CONFIDENCE_COLOR = [0,1,0]; % user ID'd neuron as 100% correct (green)
         LOW_CONFIDENCE_COLOR = [1,1,0]; % user ID'd neuron as low probability (yellow)
