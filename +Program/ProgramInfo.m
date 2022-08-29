@@ -5,10 +5,10 @@ classdef ProgramInfo
     properties (Constant, Access = public)
         name = 'NeuroPAL Auto ID'; % program name
         version = 1.8; % software version
-        version_URL = 'https://raw.githubusercontent.com/amin-nejat/CELL_ID/master/version.info';
+        version_URL = 'https://raw.githubusercontent.com/Yemini-Lab/NeuroPAL_ID/master/version.info';
         %website_URL = 'http://hobertlab.org/neuropal/';
         website_URL = 'http://yeminilab.com/neuropal/';
-        bug_URL = 'https://github.com/amin-nejat/CELL_ID/issues';
+        bug_URL = 'https://github.com/Yemini-Lab/NeuroPAL_ID/issues';
     end
     
    % Public methods.
