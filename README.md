@@ -1,7 +1,9 @@
 # NeuroPAL_ID
 
-Shield: [![CC BY-NC-SA 4.0][cc-by-nc-sa-shield]][cc-by-nc-sa]
 Labeling *C. elegans* Neurons from NeuroPAL Images
+
+
+[![CC BY-NC-SA 4.0][cc-by-nc-sa-shield]][cc-by-nc-sa]
 
 
 **GUI environment**
