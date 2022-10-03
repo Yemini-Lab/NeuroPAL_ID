@@ -45,7 +45,24 @@ zScaleI = find(contains(keys, ...
     'Experiment|AcquisitionBlock|AcquisitionModeSetup|ScalingZ #1'), 1);
 numZSlicesI = find(contains(keys, 'Information|Image|SizeZ #1'), 1);
 
-% Did we find the scaling? If not, try Airyscan format.
+% Did we find the scaling? If not, try the legacy format.
+if isempty(xPixelsI)
+    xPixelsI = find(contains(keys, 'Global Information|Image|SizeX'), 1);
+    yPixelsI = find(contains(keys, 'Global Information|Image|SizeY'), 1);
+end
+if isempty(xScaleI)
+    xScaleI = find(contains(keys, ...
+        'Experiment|AcquisitionBlock|AcquisitionModeSetup|ScalingX'), 1);
+    yScaleI = find(contains(keys, ...
+        'Experiment|AcquisitionBlock|AcquisitionModeSetup|ScalingY'), 1);
+    zScaleI = find(contains(keys, ...
+        'Experiment|AcquisitionBlock|AcquisitionModeSetup|ScalingZ'), 1);
+end
+if isempty(numZSlicesI)
+    numZSlicesI = find(contains(keys, 'Information|Image|SizeZ'), 1);
+end
+
+% Did we find the scaling? If not, try the Airyscan format.
 if isempty(xScaleI)
     for i = 1:3
         
@@ -88,7 +105,12 @@ channelsI = find(contains(keys, 'Information|Image|Channel|Name'));
 colorsI = find(contains(keys, ...
     'Experiment|AcquisitionBlock|MultiTrackSetup|TrackSetup|Detector|Color'));
 
-% Did we find the scaling? If not, try Airyscan format.
+% Did we find the color channels? If not, try the legacy format.
+if isempty(numChannelsI)
+    numChannelsI = find(contains(keys, 'Information|Image|SizeC'), 1);
+end
+
+% Did we find the colors? If not, try Airyscan format.
 if isempty(colorsI)
     colorsI = find(contains(keys, 'Global Information|Image|Channel|Color'));
 end
