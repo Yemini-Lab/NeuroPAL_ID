@@ -67,6 +67,7 @@ classdef Image < handle
             %   nsz: the window size around the patch for the  new neuron.
             %   trunc: the truncation value of the Gaussian function used
             %   for fitting.
+
             color = squeeze(volume(round(position(1)),round(position(2)),round(position(3)),:))';
             obj.scale = scale;
             if size(obj.scale,1) > size(obj.scale,2)
