@@ -36,8 +36,10 @@ Here is a link to publication: https://www.cell.com/cell/fulltext/S0092-8674(20)
 
 To open NeuroPAL images the following packages needs to be installed:
 
-https://docs.openmicroscopy.org/bio-formats/5.3.4/users/matlab/index.html
-https://github.com/StackOverflowMATLABchat/mlapptools
+- [Bioformats](https://docs.openmicroscopy.org/bio-formats/5.3.4/users/matlab/index.html)
+- [Mlapptools](https://github.com/StackOverflowMATLABchat/mlapptools)
+- [Statistics and Machine Learning Toolbox](https://www.mathworks.com/products/statistics.html)
+- [Image Processing Toolbox](https://www.mathworks.com/products/image.html)
 
 We also use the following MATLAB functions but we have included them in the software:
 
