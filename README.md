@@ -12,17 +12,18 @@
 
 
 #### Table of Contents
+
 1. **Background**
 2. **Installation**
 3. **Usage Guide**
-    a. Main GUI
-    b. Neuron Detection
-    c. Image Manipulation
-    d. Technical Details
+    1. Main GUI
+    2. Neuron Detection
+    3. Image Manipulation
+    4. Technical Details
 4. **Further Reading**
-    a. Manuals
-    b. References
-    c. Images & Datasets
+    1. Manuals
+    2. References
+    3. Images & Datasets
 5. **Licensing**
 
 ---
