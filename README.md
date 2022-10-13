@@ -5,6 +5,7 @@
 ##### MATLAB application facilitating the labeling of C. elegans neurons using NeuroPAL images.
 
 ![GenImg](https://i.imgur.com/wpz7LKf.png)
+
 [![CC BY-NC-SA 4.0][cc-by-nc-sa-shield]][cc-by-nc-sa]
 
 
@@ -124,12 +125,8 @@ We've listed some of these here:
 - [NeuroPAL Reference Manual](https://www.dropbox.com/s/pxnvow2464m5pcu/NeuroPAL%20Reference%20Manual%20v1.pdf?dl=0)
 - [OH15500 ID Reference Manual](https://www.dropbox.com/s/swhb063ybjbdls1/OH15500%20ID%20Reference%20Manual%20v1.pdf?dl=0)
 - [NeuroPAL Settings for Zeiss LSM Microscopes](https://www.dropbox.com/s/eerdh8ef294vq1l/NeuroPAL%20Microscope%20Settings.zip?dl=0)
-
-
 - [NeuroPAL Reporters + Neuron Colors](https://www.yeminilab.com/s/NeuroPAL-Colors-dd2t.pdf)
 - [Reporters + Expression tested for NeuroPAL](https://www.yeminilab.com/s/Reporters-Tested-for-NeuroPAL-v2.pdf)
-
-
 - [Metabotropic Receptor Reporters](https://www.dropbox.com/s/qiptk26yqkncyq0/Metabotropic-Receptors.zip?dl=0)
 - [NeuroPAL Reporter-Fluorophore Landmarks](https://www.dropbox.com/s/vo2br4q527lymwt/Landmarks.zip?dl=0)
 - [Panneuronal GCaMP6s + TagRFP-T Reporters](https://www.dropbox.com/s/aumzqge4b60jmqj/Panneuronal.zip?dl=0)
@@ -139,8 +136,6 @@ We've listed some of these here:
 
 - [NeuroPAL Zenodo Community](https://zenodo.org/communities/neuropal/?page=1&size=20)
 - [Image Volumes Shown in the ID Manuals (To Practice ID’ing)](https://zenodo.org/record/4516558)
-
-
 - [10 Young-Adult otIs669 (OH15262) Animals](https://zenodo.org/record/3906530)
 - [3D NeuroPAL Atlas (NeuroML - Open Source Brain)](https://www.opensourcebrain.org/projects/neuropal)
 - [OH16230 (21 heads & 21 tails) + OH15500 (7 heads) Data](https://zenodo.org/record/3906530)
