@@ -70,7 +70,6 @@ Once NeuroPAL_ID is on your machine, you can run the program by opening `visuali
 #### Main GUI
 
 The main NeuroPAL GUI is the window that will appear when you open `visualize_light.mlapp` or run our compiled executable file. Though complex, we've written up a quick guide to help you find your way around below:
-(last updated Oct 13 2022)
 
 ![GUI](https://i.imgur.com/OxrAu1i.png)
 
@@ -122,9 +121,7 @@ The `Image` sub-menu in NeuroPAL's main menu ("a" in the main GUI) contains a nu
 
 ## Further Reading
 
-NeuroPAL_ID is a complex piece of software that can be daunting at first but proves worthwhile if you put in the time to learn how to use it. There are several manuals that explore both NeuroPAL and the IDing process at various depths, and we strongly recommend that new users read these to get a sense of how to get the most out of NeuroPAL.
-
-We've listed some of these here:
+NeuroPAL_ID is a complex piece of software that can be daunting at first but proves worthwhile if you put in the time to learn how to use it. There are several manuals that explore both NeuroPAL and the IDing process at various depths, and we strongly recommend that new users read these to get a sense of how to get the most out of NeuroPAL. If you're new and making use of our introductory manuals, you may also want to practice with the [specific image volumes they feature](https://zenodo.org/record/4516558).
 
 ##### Manuals
 - [README 1st: A Quick Start Guide](https://www.dropbox.com/s/t8c0tv073z8p9c8/README%201st%20-%20Quick%20Start%20Guide%20to%20NeuroPAL%20v1.pdf?dl=0)
