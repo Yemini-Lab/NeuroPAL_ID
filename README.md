@@ -29,7 +29,7 @@
 
 ---
 
-### Background
+## Background
 
 
 > Comprehensively resolving neuronal identities in whole-brain images is a major challenge. We achieve this in C. elegans by engineering a multicolor transgene called NeuroPAL (a neuronal polychromatic atlas of landmarks). NeuroPAL worms share a stereotypical multicolor fluorescence map for the entire hermaphrodite nervous system that resolves all neuronal identities. Neurons labeled with NeuroPAL do not exhibit fluorescence in the green, cyan, or yellow emission channels, allowing the transgene to be used with numerous reporters of gene expression or neuronal dynamics. We showcase three applications that leverage NeuroPAL for nervous-system-wide neuronal identification. First, we determine the brainwide expression patterns of all metabotropic receptors for acetylcholine, GABA, and glutamate, completing a map of this communication network. Second, we uncover changes in cell fate caused by transcription factor mutations. Third, we record brainwide activity in response to attractive and repulsive chemosensory cues, characterizing multimodal coding for these stimuli.
@@ -42,7 +42,7 @@ For further details regarding the experimental set up and the methodology involv
 
 --- 
 
-### Installation
+## Installation
 
 For the latest compiled release that can be run independently of MATLAB, please check [here](https://github.com/Yemini-Lab/NeuroPAL_ID/releases), but please note that these may be outdated. To utilize the latest version live on Github, please follow these instructions:
 
@@ -65,9 +65,9 @@ Once NeuroPAL_ID is on your machine, you can run the program by opening `visuali
 
 ---
 
-### Usage Guide
+## Usage Guide
 
-##### Main GUI
+#### Main GUI
 
 The main NeuroPAL GUI is the window that will appear when you open `visualize_light.mlapp` or run our compiled executable file. Though complex, we've written up a quick guide to help you find your way around below:
 (last updated Oct 13 2022)
@@ -88,14 +88,27 @@ The main NeuroPAL GUI is the window that will appear when you open `visualize_li
 |**e**|If you're using our (as yet WIP) auto-identification function, this space is where you can designate the specific method you'd like the program to use. You'll also see a list of neurons the program believes to be nearby as well as an indication of how confident it is in its ID.|
 |**f**|This is where you can easily navigate various ganglia and browse lists of neurons you've identified as well as neurons that should exist in the selected region but that have yet to be ID'd. |
 
-##### Image Manipulation
+#### Image Manipulation
 
-TBD.
+The `Image` sub-menu in NeuroPAL's main menu ("a" in the main GUI) contains a number of options. If you select "Adjust Histogram", a separate window will pop up in which you can adjust the luminosity of individual channels with the guidance of a histogram. Below is a quick guide to that window.
 
-##### Technical Details
+![Hist](https://i.imgur.com/MkPPw8P.png)
 
-**Class, Package, and Usecase Diagrams**
+|Label|Description|
+|:-:|:-|
+|**x**|Maximum intensity projection of your NeuroPAL image.|
+|**y**|A (Pixel Number x Pixel Intensity) histogram of all visible channels.|
+|**z**|A tab group displaying the individual channel gammas and their curves.|
+|||
+|**a**|This is a list of all currently supported channels. Checking a channel will render it both in the image and in all plots.|
+|**b**|This is the min/max menu. Here you can define the minimum and maximum intensities represented in any given channel.|
+|**c**|Clicking on a given channel's lock toggle will prevent it from being edited.|
+|**d**|Clicking on a given channel's reset button will restore it to what it was before the histogram window was opened.|
+|**e**|This is the settings menu. Here you can adjust the gamma across all channels, save your histogram in a guide file, and load and display saved guide files.|
 
+#### Technical Details
+
+#### Class, Package, and Usecase Diagrams
 
 > To build a fast and scalable system we followed object oriented design practices. We identified internally coherent and externally independent classes in our environment and established their properties and behavior, as well as their interactions with other modules. We have separate packages for data handling, methods, logging, biological objects, and user interface. Each of these packages contains relevant classes and the functionalities of the system is built upon the interactions between the classes. For reusability purposes we tried to develop a modular system with independent modules. This allows the users of the system to reuse different compartments of the system for other purposes.
 
@@ -107,7 +120,7 @@ TBD.
 
 ---
 
-### Further Reading
+## Further Reading
 
 NeuroPAL_ID is a complex piece of software that can be daunting at first but proves worthwhile if you put in the time to learn how to use it. There are several manuals that explore both NeuroPAL and the IDing process at various depths, and we strongly recommend that new users read these to get a sense of how to get the most out of NeuroPAL.
 
