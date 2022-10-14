@@ -18,9 +18,8 @@
 2. **Installation**
 3. **Usage Guide**
     1. Main GUI
-    2. Neuron Detection
-    3. Image Manipulation
-    4. Technical Details
+    2. Image Manipulation
+    3. Technical Details
 4. **Further Reading**
     1. Manuals
     2. References
