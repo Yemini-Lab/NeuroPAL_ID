@@ -1,4 +1,4 @@
-classdef Tracker < handle
+classdef Tracker < Segmentation
 
     % Data and methods for tracking cells
     %
@@ -12,11 +12,11 @@ classdef Tracker < handle
     %   z_xy_ratio: float
     %       The resolution (length per voxels) ratio between the z axis and the x-y plane, used in tracking.
     %       Does not need to very precise
-    %   z_scaling: int
+    %   z_scaling: int 
     %       An integer (>= 1) for interpolating/smoothing images along z direction.
     %       z_scaling = 1 makes no interpolation but only smoothing.
     %   noise_level: float
-    %       A threshold to discriminate noise/artifacts from cell regions, used in preprocess._normalize_image function
+    %       A threshold to discriminate noise/artifacts from cell regions, used in preprocess.normalize_image function
     %   min_size: int
     %       A threshold of the minimum cell size (unit: voxels) to remove tiny regions that may be non-cell objects,
     %       used in watershed.watershed_3d function
@@ -162,18 +162,18 @@ classdef Tracker < handle
 
         function retrain_preprocess(obj)
             obj.image_raw_vol1 = read_image_ts(1, obj.paths.raw_image, obj.paths.image_name, [0, obj.z_siz]);
-            obj.train_image_norm = _normalize_image(obj.image_raw_vol1, obj.noise_level);
-            obj.label_vol1 = obj._remove_2d_boundary(obj.segmentation_manual_relabels) > 0;
-            obj.train_label_norm = _normalize_label(obj.label_vol1);
+            obj.train_image_norm = normalize_image(obj.image_raw_vol1, obj.noise_level);
+            obj.label_vol1 = obj.remove_2d_boundary(obj.segmentation_manual_relabels) > 0;
+            obj.train_label_norm = normalize_label(obj.label_vol1);
             fprintf('Images were normalized\n')
         
-            obj.train_subimage = _divide_img(obj.train_image_norm, obj.unet_model.input_shape(2:4));
-            obj.train_subcells = _divide_img(obj.train_label_norm, obj.unet_model.input_shape(2:4));
+            obj.train_subimage = divide_img(obj.train_image_norm, obj.unet_model.input_shape(2:4));
+            obj.train_subcells = divide_img(obj.train_label_norm, obj.unet_model.input_shape(2:4));
             fprintf('Images were divided\n') 
         
             image_gen = ImageDataGenerator(rotation_range=90, width_shift_range=0.2, height_shift_range=0.2, shear_range=0.2, horizontal_flip=true, fill_mode='reflect');
         
-            obj.train_generator = _augmentation_generator(obj.train_subimage, obj.train_subcells, image_gen, batch_siz=8);
+            obj.train_generator = augmentation_generator(obj.train_subimage, obj.train_subcells, image_gen, batch_siz=8);
             obj.valid_data = [obj.train_subimage, obj.train_subcells];
             fprintf('Data for training 3D U-Net were prepared\n')
         end
@@ -196,7 +196,7 @@ classdef Tracker < handle
                 weights_name = 'unet_weights_retrain_';
             end
         
-            obj._retrain_preprocess()
+            obj.retrain_preprocess()
         
             obj.unet_model.compile(loss='binary_crossentropy', optimizer="adam")
             obj.unet_model.load_weights(fullfile(obj.paths.unet_weights, 'weights_initial.h5'))
@@ -205,26 +205,11 @@ classdef Tracker < handle
             val_loss = obj.unet_model.evaluate(obj.train_subimage, obj.train_subcells);
             fprintf('val_loss before retraining: %d\n', val_loss)
             obj.val_losses = val_loss;
-            obj._draw_retrain(step="before retrain")
+            obj.draw_retrain(step="before retrain")
         
             for step = 1:iteration
-                obj.unet_model.fit_generator(obj.train_generator
+                obj.unet_model.fit_generator(obj.train_generator)
             end
-        end
-
-        function draw_retrain(obj, step)
-            % Draw the ground truth and the updated predictions during retraining the unet
-            train_prediction = squeeze(...
-                unet3_prediction(expand_dims(obj.train_image_norm, axis=(0, 4)), obj.unet_model));
-            fig = figure;
-            axs = axes(fig, 'NextPlot', 'add', 'XTick', [], 'YTick', []);
-            imagesc(axs, [max(obj.label_vol1, [], 3), max(train_prediction, [], 3) > 0.5], ...
-                'CDataMapping', 'scaled', 'AlphaData', 0.5)
-            colormap(axs, gray)
-            title(axs, ["Cell regions from manual segmentation at vol 1", ...
-                sprintf("Cell prediction at step %d at vol 1", step)], ...
-                'FontSize', 16, 'FontWeight', 'bold')
-            pause(0.1)
         end
 
         function select_unet_weights(obj, step, weights_name)
@@ -246,11 +231,11 @@ classdef Tracker < handle
 
         function interpolate_seg(self)
             % _interpolate layers in z axis
-            self.seg_cells_interpolated_corrected = self._interpolate();
-            self.Z_RANGE_INTERP = self.z_scaling // 2:self.z_scaling:self.seg_cells_interpolated_corrected.shape(3);
+            self.seg_cells_interpolated_corrected = self.interpolate();
+            self.Z_RANGE_INTERP = self.z_scaling / 2:self.z_scaling:self.seg_cells_interpolated_corrected.shape(3);
         
             % re-segmentation
-            self.seg_cells_interpolated_corrected = self._relabel_separated_cells(self.seg_cells_interpolated_corrected);
+            self.seg_cells_interpolated_corrected = self.relabel_separated_cells(self.seg_cells_interpolated_corrected);
             self.segmentation_manual_relabels = self.seg_cells_interpolated_corrected(:,:,self.Z_RANGE_INTERP);
         
             % save labels in the first volume (interpolated)
@@ -258,7 +243,7 @@ classdef Tracker < handle
         
             % calculate coordinates of cell centers at t=1
             center_points_t0 = snm.center_of_mass(self.segmentation_manual_relabels > 0, self.segmentation_manual_relabels, 1:self.segmentation_manual_relabels.max());
-            r_coordinates_manual_vol1 = self._transform_layer_to_real(center_points_t0);
+            r_coordinates_manual_vol1 = self.transform_layer_to_real(center_points_t0);
             self.r_coordinates_tracked_t0 = r_coordinates_manual_vol1;
             self.cell_num_t0 = size(r_coordinates_manual_vol1, 1);
         end
@@ -309,7 +294,7 @@ classdef Tracker < handle
 
         function tracked_labels = transform_motion_to_image(self, cells_on_boundary_local, i_disp_from_vol1_updated)
             % Transform the predicted movements to the moved labels in 3D image
-            [i_tracked_cells_corrected, i_overlap_corrected] = self._transform_cells_quick(i_disp_from_vol1_updated);
+            [i_tracked_cells_corrected, i_overlap_corrected] = self.transform_cells_quick(i_disp_from_vol1_updated);
             % re-calculate boundaries by _watershed
             i_tracked_cells_corrected(i_overlap_corrected > 1) = 0;
             for i = cells_on_boundary_local == 1

@@ -1,4 +1,4 @@
-classdef Segmentation < handle
+classdef Segmentation
     % Class for segmentation. Only use it through the Tracker instance.
     
     properties
