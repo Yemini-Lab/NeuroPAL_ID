@@ -122,7 +122,7 @@ classdef Segmentation
         
             self.vol = 1;
             [image_cell_bg, l_center_coordinates, segmentation_auto, image_gcn, r_coordinates_segment] = ...
-                self._segment(self.vol, method, true);
+                self.segment(self.vol, method, true);
             self.segresult.update_results(image_cell_bg, l_center_coordinates, segmentation_auto, image_gcn, r_coordinates_segment);
             self.r_coordinates_segment_t0 = self.segresult.r_coordinates_segment.copy();
             use_8_bit = true;
@@ -145,20 +145,20 @@ classdef Segmentation
         
             % image_gcn will be used to correct tracking results
             image_gcn = image_raw.copy() / 65536.0;
-            image_cell_bg = self._predict_cellregions(image_raw, vol);
+            image_cell_bg = self.predict_cellregions(image_raw, vol);
             if max(image_cell_bg(:)) <= 0.5
                 error("No cell was detected by 3D U-Net! Try to reduce the noise_level.");
             end
         
             % segment connected cell-like regions using _watershed
-            segmentation_auto = self._watershed(image_cell_bg, method);
+            segmentation_auto = self.watershed(image_cell_bg, method);
             if max(segmentation_auto(:)) == 0
                 error("No cell was detected by watershed! Try to reduce the min_size.");
             end
         
             % calculate coordinates of the centers of each segmented cell
             l_center_coordinates = snm.center_of_mass(segmentation_auto > 0, segmentation_auto, 1:segmentation_auto.max() + 1);
-            r_coordinates_segment = self._transform_layer_to_real(l_center_coordinates);
+            r_coordinates_segment = self.transform_layer_to_real(l_center_coordinates);
         end
 
         function image_cell_bg = predict_cellregions(self, image_raw, vol)
@@ -173,7 +173,7 @@ classdef Segmentation
         function image_cell_bg = save_unet_regions(self, image_raw, vol)
             % Predict the cell regions by 3D U-Net and cache the prediction
             % pre-processing: local contrast normalization
-            image_norm = expand_dims(_normalize_image(image_raw, self.noise_level), [1, 5]);
+            image_norm = expand_dims(normalize_image(image_raw, self.noise_level), [1, 5]);
             % predict cell-like regions using 3D U-net
             image_cell_bg = unet3_prediction(image_norm, self.unet_model, 'shrink', self.shrink);
             save(self.paths.unet_cache + "t%04i.npy", '-v7.3', '-mat', 'vol', 'image_cell_bg');
