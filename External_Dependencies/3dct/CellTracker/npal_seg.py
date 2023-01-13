@@ -376,16 +376,8 @@ r_coordinates_segment = new_disp
 segresult.update_results(image_cell_bg, l_center_coordinates, segmentation_auto, image_gcn, r_coordinates_segment)
 r_coordinates_segment_t0 = segresult.r_coordinates_segment.copy()
 
+neuron_info = [(round(x, 2), round(y, 2), round(z, 2)) for x, y, z in l_center_coordinates]
+
 # save the segmented cells of volume #1
 save_img3(z_siz=z_siz, img=segresult.segmentation_auto,
-          path="seg_data/auto_vol1/auto_t%04i_z%04i.tif", use_8_bit=True)
-
-for filename in os.listdir('seg_data/data/'):
-    file_path = os.path.join('seg_data/data/', filename)
-    try:
-        if os.path.isfile(file_path) or os.path.islink(file_path):
-            os.unlink(file_path)
-        elif os.path.isdir(file_path):
-            shutil.rmtree(file_path)
-    except Exception as e:
-        print('Failed to delete %s. Reason: %s' % (file_path, e))
+          path="seg_data/auto_vol1/auto_t%i_z%i.tif", use_8_bit=True)
