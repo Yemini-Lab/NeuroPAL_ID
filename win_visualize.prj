@@ -1,5 +1,5 @@
 <deployment-project plugin="plugin.ezdeploy" plugin-version="1.0">
-  <configuration build-checksum="3443809293" file="Z:\Documents\GitHub\CELL_ID\win_visualize.prj" location="Z:\Documents\GitHub\CELL_ID" name="win_visualize" preferred-package-location="Z:\Documents\GitHub\CELL_ID\win_visualize\for_redistribution" preferred-package-type="package.type.exe" target="target.ezdeploy.standalone" target-name="Application Compiler">
+  <configuration build-checksum="3443809293" file="C:\Users\sep27\Documents\GitHub\gitty\NeuroPAL_ID\win_visualize.prj" location="C:\Users\sep27\Documents\GitHub\gitty\NeuroPAL_ID" name="win_visualize" preferred-package-location="Z:\Documents\GitHub\CELL_ID\win_visualize\for_redistribution" preferred-package-type="package.type.exe" target="target.ezdeploy.standalone" target-name="Application Compiler">
     <param.appname>NeuroPAL_ID</param.appname>
     <param.icon>${PROJECT_ROOT}\win_visualize_resources\icon.ico</param.icon>
     <param.icons>
@@ -9,9 +9,9 @@
       <file>${PROJECT_ROOT}\win_visualize_resources\icon_16.png</file>
     </param.icons>
     <param.version>1.8</param.version>
-    <param.authnamewatermark>Amin Nejatbakhsh, Eviatar Yemini, et al.</param.authnamewatermark>
+    <param.authnamewatermark>K. Rusch, E. Yemini, A. Nejatbakhsh, et al</param.authnamewatermark>
     <param.email />
-    <param.company>Columbia University</param.company>
+    <param.company>UMass Chan Med School, Columbia University</param.company>
     <param.summary>NeuroPAL ID software to perform (semi-) automated identification of neurons in images of NeuroPAL strains.</param.summary>
     <param.description>Please read and cite the following peer-reviewed Cell publication:
 https://www.cell.com/cell/fulltext/S0092-8674(20)31682-2
@@ -150,13 +150,13 @@ Please add it to your desktop so you can easily find it.
       <file>${PROJECT_ROOT}\External_Dependencies\mlapptools-develop\WidgetID.m</file>
     </fileset.depfun>
     <build-deliverables>
-      <file location="${PROJECT_ROOT}\win_visualize\for_testing" name="NeuroPAL_ID.exe" optional="false">Z:\Documents\GitHub\CELL_ID\win_visualize\for_testing\NeuroPAL_ID.exe</file>
-      <file location="${PROJECT_ROOT}\win_visualize\for_testing" name="readme.txt" optional="true">Z:\Documents\GitHub\CELL_ID\win_visualize\for_testing\readme.txt</file>
-      <file location="${PROJECT_ROOT}\win_visualize\for_testing" name="splash.png" optional="false">Z:\Documents\GitHub\CELL_ID\win_visualize\for_testing\splash.png</file>
+      <file location="${PROJECT_ROOT}\win_visualize\for_testing" name="readme.txt" optional="true">C:\Users\sep27\Documents\GitHub\gitty\NeuroPAL_ID\win_visualize\for_testing\readme.txt</file>
+      <file location="${PROJECT_ROOT}\win_visualize\for_testing" name="NeuroPAL_ID.exe" optional="false">C:\Users\sep27\Documents\GitHub\gitty\NeuroPAL_ID\win_visualize\for_testing\NeuroPAL_ID.exe</file>
+      <file location="${PROJECT_ROOT}\win_visualize\for_testing" name="splash.png" optional="false">C:\Users\sep27\Documents\GitHub\gitty\NeuroPAL_ID\win_visualize\for_testing\splash.png</file>
     </build-deliverables>
     <workflow />
     <matlab>
-      <root>C:\Program Files\MATLAB\R2021a</root>
+      <root>C:\Program Files\MATLAB\R2022b</root>
       <toolboxes>
         <toolbox name="matlabcoder" />
         <toolbox name="neuralnetwork" />
