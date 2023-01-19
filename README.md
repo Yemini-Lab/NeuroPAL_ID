@@ -19,7 +19,8 @@
 3. **Usage Guide**
     1. Main GUI
     2. Image Manipulation
-    3. Technical Details
+    3. Neuron Segmentation
+    4. Technical Details
 4. **Further Reading**
     1. Manuals
     2. References
@@ -103,6 +104,22 @@ The `Image` sub-menu in NeuroPAL's main menu ("a" in the main GUI) contains a nu
 |**c**|Clicking on a given channel's lock toggle will prevent it from being edited.|
 |**d**|Clicking on a given channel's reset button will restore it to what it was before the histogram window was opened.|
 |**e**|This is the settings menu. Here you can adjust the gamma across all channels, save your histogram in a guide file, and load and display saved guide files.|
+
+#### Neuron Segmentation
+
+The `Neurons` sub-menu in NeuroPAL's main menu ("a" in the main GUI) contains a number of options. If you select "Auto Segmentation", a separate window will pop up allowing you to segment the image and obtain a list of automatically detected neuron centers. Below is a quick guide to that window.
+
+![Hist](https://i.imgur.com/iQ7lv0y.png)
+
+|Label|Description|
+|:-:|:-|
+|**x**|By default, a maximum intensity projection of your NeuroPAL image. Can also be set to display a particular z-slice.|
+|**y**|A slider allowing you to browse specific z-slices.|
+|||
+|**a**|This panel features 3 sub-menus: "Neuron", which displays information on neurons post-segmentation (unpopulated by default) and allows users to either export neuron centers or pass them back into the main NeuroPAL_ID window, "Image", which allows you to select a specific range of slices to segment or to switch back to the maximum projection, and "Credit", which features information regarding the origins of the particular segmentation module being used.|
+|**b**|This panel features the core controls of the auto-segmentation window. The black out tool allows you to zero out specific sections of the image (such as the gut) to minimize false positives. The histogram tool will open the histogram window described earlier. The "Generate" button starts the segmentation process and the "Reset" button undoes all changes made to the image since the window was opened.|
+|**c**|This panel allows users to edit the parameters of the segmentation process. Hovering over each label will show information regarding what each parameter means.|
+|**d**|These panels allow users to change some of the segmentation settings. By default, the noise filter level is calculated automatically using the 95th percentile of pixels, but it can also be set manually. The cell filter specifies the measure by which all detected segments are filtered -- either by the minimum size (in microns) or by the neuron count (in which case only the n biggest segments are kept).|
 
 #### Technical Details
 
