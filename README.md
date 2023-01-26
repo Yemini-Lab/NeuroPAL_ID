@@ -50,13 +50,11 @@ For the latest compiled release that can be run independently of MATLAB, please 
 
 1. Open Git Bash to your preferred working directory.
 2. Use `git clone https://github.com/Yemini-Lab/NeuroPAL_ID.git`
-3. (Optional) To enable segmentation functionality, run `pip install -r requirements.txt` in the `NeuroPAL_ID` directory.
 
 **Directly from Github:**
 
 1. Click on [the green "Code" button](https://i.imgur.com/Q3XhxSp.png) above and download the repositry as a ZIP file.
 2. Extract it into your folder of choice.
-3. (Optional) To enable segmentation functionality, run `pip install -r requirements.txt` in the `NeuroPAL_ID` directory.
 
 Once NeuroPAL_ID is on your machine, you can run the program by opening `visualize_light.mlapp` and running it through the MATLAB App Designer. To do so, you'll need to install the appropriate dependencies first. The program comes pre-packaged with [the Lightspeed toolbox's logsumexp script](https://github.com/tminka/lightspeed/blob/master/logsumexp.m) and [Yi Cao's implementation of the Hungarian algorithm](https://www.mathworks.com/matlabcentral/fileexchange/20328-munkres-assignment-algorithm), but you will need to install the following yourself:
 
@@ -64,6 +62,8 @@ Once NeuroPAL_ID is on your machine, you can run the program by opening `visuali
 - [Bioformats Toolbox](https://downloads.openmicroscopy.org/bio-formats/5.3.4/)
 - [Image Processing Toolbox](https://www.mathworks.com/products/image.html)
 - [Statistics and Machine Learning Toolbox](https://www.mathworks.com/products/statistics.html)
+
+#### Segmentation Dependencies
 
 If you want to use the segmentation functionality *and your NeuroPAL_ID is uncompiled,* you will also need to have [Python 3.9+](https://www.python.org/downloads/) installed with the following libraries:
 
@@ -75,6 +75,8 @@ If you want to use the segmentation functionality *and your NeuroPAL_ID is uncom
 - scipy==1.10.0
 - skimage==0.0
 - tensorflow==2.10.0
+
+You can install these libraries all at once by running `pip install -r requirements.txt` in the `NeuroPAL_ID` directory.
 
 ---
 
