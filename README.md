@@ -63,6 +63,21 @@ Once NeuroPAL_ID is on your machine, you can run the program by opening `visuali
 - [Image Processing Toolbox](https://www.mathworks.com/products/image.html)
 - [Statistics and Machine Learning Toolbox](https://www.mathworks.com/products/statistics.html)
 
+**Segmentation Requirements**
+
+If you want to use the segmentation functionality *and your NeuroPAL_ID is uncompiled,* you will also need to have [Python 3.9+](https://www.python.org/downloads/) installed with the following libraries:
+
+- matplotlib==3.5.0
+- numpy==1.23.4
+- opencv_python==4.5.5.64
+- Pillow==9.4.0
+- scikit_learn==1.2.1
+- scipy==1.10.0
+- skimage==0.0
+- tensorflow==2.10.0
+
+If you have python installed, you can run `pip install -r requirements.txt` in the `NeuroPAL_ID` directory to install all libraries at once.
+
 ---
 
 ## Usage Guide
