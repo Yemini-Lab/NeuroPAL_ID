@@ -65,7 +65,7 @@ Once NeuroPAL_ID is on your machine, you can run the program by opening `visuali
 
 #### Segmentation Dependencies
 
-If you want to use the segmentation functionality *and your NeuroPAL_ID is uncompiled,* you will also need to have [Python 3.9+](https://www.python.org/downloads/) installed with the following libraries:
+If you're using an uncompiled version of NeuroPAL_ID, [Python 3.9+](https://www.python.org/downloads/) must be installed for segmentation to work. You will also need to either run `pip install -r requirements.txt` in the `NeuroPAL_ID` directory or install the following dependencies yourself:
 
 - matplotlib==3.5.0
 - numpy==1.23.4
@@ -75,8 +75,6 @@ If you want to use the segmentation functionality *and your NeuroPAL_ID is uncom
 - scipy==1.10.0
 - skimage==0.0
 - tensorflow==2.10.0
-
-You can install these libraries all at once by running `pip install -r requirements.txt` in the `NeuroPAL_ID` directory.
 
 ---
 
