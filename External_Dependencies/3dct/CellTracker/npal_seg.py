@@ -86,7 +86,7 @@ def read_image_ts(vol, path, name, z_range, print_=False):
     """
     image_raw = []
     for z in range(z_range[0], z_range[1]):
-        image_raw.append(cv2.imread(f"{path}/npal_worm_c1_{z}.tiff"))
+        image_raw.append(cv2.imread(f"{path}/npal_worm_c1_{z}.tif"))
 
     img_array = np.array(image_raw)
     img_array = img_array[:, :, :, :-2]
@@ -342,10 +342,10 @@ def save_img3(z_siz, img, path, use_8_bit: bool):
 segresult = SegResults()
 
 for file in os.listdir("seg_data/"):
-    if file.endswith(".tiff"):
+    if file.endswith(".tif"):
         os.replace(f"seg_data/{file}", f"seg_data/data/{file}")
 
-image_raw = read_image_ts(1, 'seg_data/data', 'npal_worm_c1_%i.tiff', (0, z_siz), print_=False)
+image_raw = read_image_ts(1, 'seg_data/data', 'npal_worm_c1_%i.tif', (0, z_siz), print_=False)
 
 # image_gcn will be used to correct tracking results
 image_gcn = (image_raw.copy() / 65536.0)
