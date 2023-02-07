@@ -4,5 +4,5 @@ opencv_python==4.5.5.64
 Pillow==9.4.0
 scikit_learn==1.2.1
 scipy==1.10.0
-skimage==0.0
+scikit-image
 tensorflow==2.10.0
