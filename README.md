@@ -76,7 +76,7 @@ If you're using an uncompiled version of NeuroPAL_ID, [Python 3.9+](https://www.
 - skimage==0.0
 - tensorflow==2.10.0
 
-* = Please note that newer versions of python may not be compatible with the your particular version of Matlab. Review [this chart](https://www.mathworks.com/support/requirements/python-compatibility.html) to ensure CPython compatibility.
+\* = Please note that newer versions of python may not be compatible with the your particular version of Matlab. Review [this chart](https://www.mathworks.com/support/requirements/python-compatibility.html) to ensure CPython compatibility.
 
 ---
 
