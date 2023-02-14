@@ -102,3 +102,4 @@ NeuroPAL_ID_resources
 win_visualize/for_redistribution_files_only/NeuroPAL_ID.exe
 win_visualize/for_testing/NeuroPAL_ID.exe
 win_visualize/PackagingLog.html
+*.tif
