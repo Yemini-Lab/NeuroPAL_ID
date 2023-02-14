@@ -76,7 +76,8 @@ If you're using an uncompiled version of NeuroPAL_ID, [Python 3.9+](https://www.
 - scikit-image
 - tensorflow==2.10.0
 
-\* Please note that newer versions of python may not be compatible with your particular version of Matlab. Review [this chart](https://www.mathworks.com/support/requirements/python-compatibility.html) to ensure CPython compatibility.
+\* Please note that newer versions of python may not be compatible with your particular version of Matlab. Review [this chart](https://www.mathworks.com/support/requirements/python-compatibility.html) to ensure CPython compatibility.   
+
 \*\* If you're using a Mac, please note that you will need to remove `tensorflow` from the .txt and use `pip install tensorflow-macos, tensorflow-metal` instead.
 
 ---
