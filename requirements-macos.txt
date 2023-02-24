@@ -1,0 +1,9 @@
+matplotlib==3.5.0
+numpy==1.23.4
+opencv_python==4.5.5.64
+Pillow==9.4.0
+scikit_learn==1.2.1
+scipy==1.10.0
+scikit-image
+tensorflow-macos
+tensorflow-metal
