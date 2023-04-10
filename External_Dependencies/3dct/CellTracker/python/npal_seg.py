@@ -1,6 +1,7 @@
 import os
 import cv2
 import sys
+import csv
 import math
 import itertools
 import numpy as np
@@ -17,16 +18,22 @@ from scipy.ndimage import filters, distance_transform_edt
 from skimage.segmentation import find_boundaries, watershed
 from skimage.segmentation import relabel_sequential, find_boundaries
 
-z_siz = len([f for f in os.listdir('seg_data/data/') if os.path.isfile(os.path.join('seg_data/data/', f))])
+dirname = Path(sys.argv[1])
+seg_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(dirname))))), 'seg_data')
+data_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(dirname))))), 'seg_data', 'data')
+model_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(dirname))))), 'seg_data', 'models', 'unet')
+weight_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(dirname))))), 'seg_data', 'models', 'unet-weights')
+
+z_siz = len([f for f in os.listdir(data_path) if os.path.isfile(os.path.join(data_path, f))])
 cell_num = 0
-min_size = float(sys.argv[1])
-z_xy_ratio = float(sys.argv[2])
-noise_level = float(sys.argv[3])
+min_size = float(sys.argv[2])
+z_xy_ratio = float(sys.argv[3])
+noise_level = float(sys.argv[4])
 shrink = (24, 24, 2)
 
-unet_model = load_model('seg_data/models/unet/')
-unet_model.save_weights('seg_data/models/unet-weights/')
-unet_model.load_weights('seg_data/models/unet-weights/')
+unet_model = load_model(model_path)
+unet_model.save_weights(weight_path)
+unet_model.load_weights(weight_path)
 
 class SegResults:
     """
@@ -341,11 +348,11 @@ def save_img3(z_siz, img, path, use_8_bit: bool):
 
 segresult = SegResults()
 
-for file in os.listdir("seg_data/"):
+for file in os.listdir(seg_path):
     if file.endswith(".tif"):
-        os.replace(f"seg_data/{file}", f"seg_data/data/{file}")
+        os.replace(os.path.join(seg_path,file), os.path.join(data_path,file))
 
-image_raw = read_image_ts(1, 'seg_data/data', 'npal_worm_c1_%i.tif', (0, z_siz), print_=False)
+image_raw = read_image_ts(1, data_path, 'npal_worm_c1_%i.tif', (0, z_siz), print_=False)
 
 # image_gcn will be used to correct tracking results
 image_gcn = (image_raw.copy() / 65536.0)
@@ -376,8 +383,19 @@ r_coordinates_segment = new_disp
 segresult.update_results(image_cell_bg, l_center_coordinates, segmentation_auto, image_gcn, r_coordinates_segment)
 r_coordinates_segment_t0 = segresult.r_coordinates_segment.copy()
 
-neuron_info = [(round(x, 2), round(y, 2), round(z, 2)) for x, y, z in l_center_coordinates]
+# Assuming the desired filename is "neuron_info.csv"
+filename = os.path.join(seg_path, "neuron_info.csv")
+
+# Open the file for writing
+with open(filename, 'w', newline='') as csvfile:
+
+    # Create the csv writer object
+    writer = csv.writer(csvfile)
+
+    # Loop through the neuron_info list and write each row to the csv file
+    for x, y, z in l_center_coordinates:
+        writer.writerow([round(x, 2), round(y, 2), round(z, 2)])
 
 # save the segmented cells of volume #1
 save_img3(z_siz=z_siz, img=segresult.segmentation_auto,
-          path="seg_data/auto_vol1/auto_t%i_z%i.tif", use_8_bit=True)
+          path=os.path.join(seg_path,'auto_vol1','auto_t%i_z%i.tif'), use_8_bit=True)
