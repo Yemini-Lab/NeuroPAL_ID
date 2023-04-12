@@ -73,7 +73,7 @@ If you're using an uncompiled version of NeuroPAL_ID, [Python 3.9+](https://www.
 - Pillow==9.4.0
 - scikit_learn==1.2.1
 - scipy==1.10.0
-- scikit-image
+- scikit-image==0.19.3
 - tensorflow==2.10.0 (tensorflow-macos & tensorflow-metal if on mac)
 
 \* Please note that newer versions of python may not be compatible with your particular version of Matlab. Review [this chart](https://www.mathworks.com/support/requirements/python-compatibility.html) to ensure CPython compatibility.   
