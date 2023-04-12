@@ -11,16 +11,23 @@ from functools import partial
 
 
 import numpy as np
-from tensorflow.keras.layers import Conv3D, LeakyReLU, Input, MaxPooling3D, UpSampling3D, concatenate, \
-    BatchNormalization
+from tensorflow.keras.layers import (
+    Conv3D,
+    LeakyReLU,
+    Input,
+    MaxPooling3D,
+    UpSampling3D,
+    concatenate,
+    BatchNormalization,
+)
 from tensorflow.keras.models import Model
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 
 from preprocess import load_image, _make_folder, _normalize_image, _normalize_label
 
-warnings.filterwarnings('ignore')
+warnings.filterwarnings("ignore")
 
-TITLE_STYLE = {'fontsize': 16, 'verticalalignment': 'bottom'}
+TITLE_STYLE = {"fontsize": 16, "verticalalignment": "bottom"}
 
 
 def unet3_a():
@@ -60,7 +67,7 @@ def unet3_b():
 
     output_m2 = _conv3d_relu_bn(64, up_level0)
     output_m1 = _conv3d_relu_bn(64, output_m2)
-    predictions = Conv3D(1, 1, padding='same', activation='sigmoid')(output_m1)
+    predictions = Conv3D(1, 1, padding="same", activation="sigmoid")(output_m1)
 
     unet_model = Model(inputs=inputs, outputs=predictions)
 
@@ -93,7 +100,7 @@ def _unet3_depth3(inputs, pool_size, up_size):
     up_level0 = upscale_p(16, 16, up_size, conv_level0, up_level1)
     output_m2 = _conv3d_leakyrelu_bn(8, up_level0)
     output_m1 = _conv3d_leakyrelu_bn(8, output_m2)
-    predictions = Conv3D(1, 1, padding='same', activation='sigmoid')(output_m1)
+    predictions = Conv3D(1, 1, padding="same", activation="sigmoid")(output_m1)
     unet_model = Model(inputs=inputs, outputs=predictions)
     return unet_model
 
@@ -114,7 +121,7 @@ def _conv3d_leakyrelu_bn(filter_num, inputs):
     outputs : numpy.ndarray
         output (multiple 3D images)
     """
-    outputs = Conv3D(filter_num, 3, padding='same')(inputs)
+    outputs = Conv3D(filter_num, 3, padding="same")(inputs)
     outputs = LeakyReLU()(outputs)
     outputs = BatchNormalization()(outputs)
     return outputs
@@ -136,7 +143,7 @@ def _conv3d_relu_bn(filter_num, inputs):
     outputs : numpy.ndarray
         Output (multiple 3D images)
     """
-    conv_2 = Conv3D(filter_num, 3, padding='same', activation='relu')(inputs)
+    conv_2 = Conv3D(filter_num, 3, padding="same", activation="relu")(inputs)
     conv_2 = BatchNormalization()(conv_2)
     return conv_2
 
@@ -218,38 +225,63 @@ def unet3_prediction(img, model, shrink=(24, 24, 2)):
     out_img : numpy.ndarray
         Predicted cell regions, shape: (sample, x, y, z, channel)
     """
-    out_centr_siz1 = model.output_shape[1] - shrink[0] * 2  # size of the center part of the prediciton by unet
+    out_centr_siz1 = (
+        model.output_shape[1] - shrink[0] * 2
+    )  # size of the center part of the prediciton by unet
     out_centr_siz2 = model.output_shape[2] - shrink[1] * 2
     out_centr_siz3 = model.output_shape[3] - shrink[2] * 2
 
     x_siz, y_siz, z_siz = img.shape[1:4]  # size of the input sub_images
 
-    _x_siz, _num_x = _get_sizes_padded_im(x_siz,
-                                          out_centr_siz1)  # size of the expanded sub_images and number of subregions
+    _x_siz, _num_x = _get_sizes_padded_im(
+        x_siz, out_centr_siz1
+    )  # size of the expanded sub_images and number of subregions
     _y_siz, _num_y = _get_sizes_padded_im(y_siz, out_centr_siz2)
     _z_siz, _num_z = _get_sizes_padded_im(z_siz, out_centr_siz3)
 
     before1, before2, before3 = shrink  # "pad_width" for numpy.pad()
-    after1, after2, after3 = before1 + (_x_siz - x_siz), before2 + (_y_siz - y_siz), before3 + (_z_siz - z_siz)
+    after1, after2, after3 = (
+        before1 + (_x_siz - x_siz),
+        before2 + (_y_siz - y_siz),
+        before3 + (_z_siz - z_siz),
+    )
 
-    img_padded = np.pad(img[0, :, :, :, 0], ((before1, after1), (before2, after2), (before3, after3)), 'reflect')
+    img_padded = np.pad(
+        img[0, :, :, :, 0],
+        ((before1, after1), (before2, after2), (before3, after3)),
+        "reflect",
+    )
     img_padded = np.expand_dims(img_padded, axis=(0, 4))
 
-    slice_prediction_center = np.s_[0, before1: before1 + out_centr_siz1,
-                              before2: before2 + out_centr_siz2,
-                              before3: before3 + out_centr_siz3, 0]
+    slice_prediction_center = np.s_[
+        0,
+        before1 : before1 + out_centr_siz1,
+        before2 : before2 + out_centr_siz2,
+        before3 : before3 + out_centr_siz3,
+        0,
+    ]
 
-    unet_siz1, unet_siz2, unet_siz3 = model.input_shape[1:4]  # size of the input for the unet model
+    unet_siz1, unet_siz2, unet_siz3 = model.input_shape[
+        1:4
+    ]  # size of the input for the unet model
 
     # the expanded sub_images was predicted on each sub-sub_images
-    expanded_img = np.zeros((1, _x_siz, _y_siz, _z_siz, 1), dtype='float32')
+    expanded_img = np.zeros((1, _x_siz, _y_siz, _z_siz, 1), dtype="float32")
     for i, j, k in itertools.product(range(_num_x), range(_num_y), range(_num_z)):
-        slice_prediction = np.s_[:, i * out_centr_siz1: i * out_centr_siz1 + unet_siz1,
-                           j * out_centr_siz2: j * out_centr_siz2 + unet_siz2,
-                           k * out_centr_siz3: k * out_centr_siz3 + unet_siz3, :]
-        slice_write = np.s_[0, i * out_centr_siz1: (i + 1) * out_centr_siz1,
-                      j * out_centr_siz2: (j + 1) * out_centr_siz2,
-                      k * out_centr_siz3: (k + 1) * out_centr_siz3, 0]
+        slice_prediction = np.s_[
+            :,
+            i * out_centr_siz1 : i * out_centr_siz1 + unet_siz1,
+            j * out_centr_siz2 : j * out_centr_siz2 + unet_siz2,
+            k * out_centr_siz3 : k * out_centr_siz3 + unet_siz3,
+            :,
+        ]
+        slice_write = np.s_[
+            0,
+            i * out_centr_siz1 : (i + 1) * out_centr_siz1,
+            j * out_centr_siz2 : (j + 1) * out_centr_siz2,
+            k * out_centr_siz3 : (k + 1) * out_centr_siz3,
+            0,
+        ]
         prediction_subregion = model.predict(img_padded[slice_prediction])
         expanded_img[slice_write] = prediction_subregion[slice_prediction_center]
     out_img = expanded_img[:, 0:x_siz, 0:y_siz, 0:z_siz, :]
@@ -298,12 +330,27 @@ def _divide_img(img, unet_siz):
     x_siz, y_siz, z_siz = img.shape
     x_input, y_input, z_input = unet_siz
     img_list = []
-    for i, j, k in itertools.product(range(x_siz * 2 // x_input), range(y_siz * 2 // y_input),
-                                     range(z_siz * 2 // z_input)):
-        idx_x = i * x_input // 2 if i * x_input // 2 + x_input <= x_siz else x_siz - x_input
-        idx_y = j * y_input // 2 if j * y_input // 2 + y_input <= y_siz else y_siz - y_input
-        idx_z = k * z_input // 2 if k * z_input // 2 + z_input <= z_siz else z_siz - z_input
-        img_list.append(img[idx_x:idx_x + x_input, idx_y:idx_y + y_input, idx_z:idx_z + z_input])
+    for i, j, k in itertools.product(
+        range(x_siz * 2 // x_input),
+        range(y_siz * 2 // y_input),
+        range(z_siz * 2 // z_input),
+    ):
+        idx_x = (
+            i * x_input // 2 if i * x_input // 2 + x_input <= x_siz else x_siz - x_input
+        )
+        idx_y = (
+            j * y_input // 2 if j * y_input // 2 + y_input <= y_siz else y_siz - y_input
+        )
+        idx_z = (
+            k * z_input // 2 if k * z_input // 2 + z_input <= z_siz else z_siz - z_input
+        )
+        img_list.append(
+            img[
+                idx_x : idx_x + x_input,
+                idx_y : idx_y + y_input,
+                idx_z : idx_z + z_input,
+            ]
+        )
     return np.expand_dims(np.array(img_list), axis=4)
 
 
@@ -331,14 +378,24 @@ def _augmentation_generator(sub_images, sub_cells, img_gen, batch_siz):
     """
     num_subimgs, x_siz, y_siz, z_siz = np.shape(sub_images)[0:4]
     while 1:
-        seed_aug = np.random.randint(1, 100000)  # defined a random seed to apply the same augmentation
-        image_gen = np.zeros((batch_siz, x_siz, y_siz, z_siz, 1), dtype='float32')
-        cell_gen = np.zeros((batch_siz, x_siz, y_siz, z_siz, 1), dtype='int32')
+        seed_aug = np.random.randint(
+            1, 100000
+        )  # defined a random seed to apply the same augmentation
+        image_gen = np.zeros((batch_siz, x_siz, y_siz, z_siz, 1), dtype="float32")
+        cell_gen = np.zeros((batch_siz, x_siz, y_siz, z_siz, 1), dtype="int32")
         start = np.random.randint(0, num_subimgs - batch_siz)
         for z in range(0, z_siz):
-            gx = img_gen.flow(sub_images[start:start + batch_siz, :, :, z, :], batch_size=batch_siz, seed=seed_aug)
+            gx = img_gen.flow(
+                sub_images[start : start + batch_siz, :, :, z, :],
+                batch_size=batch_siz,
+                seed=seed_aug,
+            )
             image_gen[:, :, :, z, :] = gx.next()
-            gy = img_gen.flow(sub_cells[start:start + batch_siz, :, :, z, :], batch_size=batch_siz, seed=seed_aug)
+            gy = img_gen.flow(
+                sub_cells[start : start + batch_siz, :, :, z, :],
+                batch_size=batch_siz,
+                seed=seed_aug,
+            )
             cell_gen[:, :, :, z, :] = gy.next()
         yield image_gen, cell_gen
 
@@ -412,8 +469,8 @@ class TrainingUNet3D:
         self.val_losses = None
         self.models_path = ""
         self._make_folders()
-        self.model.compile(loss='binary_crossentropy', optimizer="adam")
-        self.model.save_weights(os.path.join(self.models_path, 'weights_initial.h5'))
+        self.model.compile(loss="binary_crossentropy", optimizer="adam")
+        self.model.save_weights(os.path.join(self.models_path, "weights_initial.h5"))
 
     def _make_folders(self):
         """
@@ -449,12 +506,21 @@ class TrainingUNet3D:
         percentile_bottom : float, optional
             A percentile to indicate the lower limitation for showing the images. Default: 10
         """
-        axs = self._subplots_4images(percentile_bottom, percentile_top,
-                                     (self.train_image, self.train_label, self.valid_image, self.valid_label))
+        axs = self._subplots_4images(
+            percentile_bottom,
+            percentile_top,
+            (self.train_image, self.train_label, self.valid_image, self.valid_label),
+        )
         axs[0, 0].set_title("Max projection of image (train)", fontdict=TITLE_STYLE)
-        axs[0, 1].set_title("Max projection of cell annotation (train)", fontdict=TITLE_STYLE)
-        axs[1, 0].set_title("Max projection of image (validation)", fontdict=TITLE_STYLE)
-        axs[1, 1].set_title("Max projection of cell annotation (validation)", fontdict=TITLE_STYLE)
+        axs[0, 1].set_title(
+            "Max projection of cell annotation (train)", fontdict=TITLE_STYLE
+        )
+        axs[1, 0].set_title(
+            "Max projection of image (validation)", fontdict=TITLE_STYLE
+        )
+        axs[1, 1].set_title(
+            "Max projection of cell annotation (validation)", fontdict=TITLE_STYLE
+        )
         plt.tight_layout()
         plt.pause(0.1)
 
@@ -468,16 +534,32 @@ class TrainingUNet3D:
         self.valid_label_norm = _normalize_label(self.valid_label)
         print("Images were normalized")
 
-        self.train_subimage = _divide_img(self.train_image_norm, self.model.input_shape[1:4])
-        self.valid_subimage = _divide_img(self.valid_image_norm, self.model.input_shape[1:4])
-        self.train_subcells = _divide_img(self.train_label_norm, self.model.input_shape[1:4])
-        self.valid_subcells = _divide_img(self.valid_label_norm, self.model.input_shape[1:4])
+        self.train_subimage = _divide_img(
+            self.train_image_norm, self.model.input_shape[1:4]
+        )
+        self.valid_subimage = _divide_img(
+            self.valid_image_norm, self.model.input_shape[1:4]
+        )
+        self.train_subcells = _divide_img(
+            self.train_label_norm, self.model.input_shape[1:4]
+        )
+        self.valid_subcells = _divide_img(
+            self.valid_label_norm, self.model.input_shape[1:4]
+        )
         print("Images were divided")
 
-        image_gen = ImageDataGenerator(rotation_range=90, width_shift_range=0.2, height_shift_range=0.2,
-                                       shear_range=0.2, horizontal_flip=True, fill_mode='reflect')
+        image_gen = ImageDataGenerator(
+            rotation_range=90,
+            width_shift_range=0.2,
+            height_shift_range=0.2,
+            shear_range=0.2,
+            horizontal_flip=True,
+            fill_mode="reflect",
+        )
 
-        self.train_generator = _augmentation_generator(self.train_subimage, self.train_subcells, image_gen, batch_siz=8)
+        self.train_generator = _augmentation_generator(
+            self.train_subimage, self.train_subcells, image_gen, batch_siz=8
+        )
         self.valid_data = (self.valid_subimage, self.valid_subcells)
         print("Data for training 3D U-Net were prepared")
 
@@ -492,13 +574,28 @@ class TrainingUNet3D:
         percentile_bottom : float, optional
             A percentile to indicate the lower limitation for showing the images. Default: 10
         """
-        axs = self._subplots_4images(percentile_bottom, percentile_top,
-                                     (self.train_image_norm, self.train_label_norm, self.valid_image_norm,
-                                      self.valid_label_norm))
-        axs[0, 0].set_title("Max projection of normalized image (train)", fontdict=TITLE_STYLE)
-        axs[0, 1].set_title("Max projection of cell annotation (train)", fontdict=TITLE_STYLE)
-        axs[1, 0].set_title("Max projection of normalized image (validation)", fontdict=TITLE_STYLE)
-        axs[1, 1].set_title("Max projection of cell annotation (validation)", fontdict=TITLE_STYLE)
+        axs = self._subplots_4images(
+            percentile_bottom,
+            percentile_top,
+            (
+                self.train_image_norm,
+                self.train_label_norm,
+                self.valid_image_norm,
+                self.valid_label_norm,
+            ),
+        )
+        axs[0, 0].set_title(
+            "Max projection of normalized image (train)", fontdict=TITLE_STYLE
+        )
+        axs[0, 1].set_title(
+            "Max projection of cell annotation (train)", fontdict=TITLE_STYLE
+        )
+        axs[1, 0].set_title(
+            "Max projection of normalized image (validation)", fontdict=TITLE_STYLE
+        )
+        axs[1, 1].set_title(
+            "Max projection of cell annotation (validation)", fontdict=TITLE_STYLE
+        )
         plt.tight_layout()
         plt.pause(0.1)
 
@@ -509,9 +606,13 @@ class TrainingUNet3D:
         vmax_valid = np.percentile(imgs[2], percentile_top)
         vmin_train = np.percentile(imgs[0], percentile_bottom)
         vmin_valid = np.percentile(imgs[2], percentile_bottom)
-        axs[0, 0].imshow(np.max(imgs[0], axis=2), vmin=vmin_train, vmax=vmax_train, cmap="gray")
+        axs[0, 0].imshow(
+            np.max(imgs[0], axis=2), vmin=vmin_train, vmax=vmax_train, cmap="gray"
+        )
         axs[0, 1].imshow(np.max(imgs[1], axis=2), cmap="gray")
-        axs[1, 0].imshow(np.max(imgs[2], axis=2), vmin=vmin_valid, vmax=vmax_valid, cmap="gray")
+        axs[1, 0].imshow(
+            np.max(imgs[2], axis=2), vmin=vmin_valid, vmax=vmax_valid, cmap="gray"
+        )
         axs[1, 1].imshow(np.max(imgs[3], axis=2), cmap="gray")
         return axs
 
@@ -531,11 +632,18 @@ class TrainingUNet3D:
         fig, axs = plt.subplots(4, 8, figsize=(20, int(24 * self.x_siz / self.y_siz)))
         idx = np.random.randint(self.train_subimage.shape[0], size=16)
         for i, j in itertools.product(range(4), range(4)):
-            axs[i, 2 * j].imshow(np.max(self.train_subimage[idx[i * 4 + j], :, :, :, 0], axis=2), vmin=vmin_train,
-                                 vmax=vmax_train, cmap="gray")
+            axs[i, 2 * j].imshow(
+                np.max(self.train_subimage[idx[i * 4 + j], :, :, :, 0], axis=2),
+                vmin=vmin_train,
+                vmax=vmax_train,
+                cmap="gray",
+            )
             axs[i, 2 * j].axis("off")
         for i, j in itertools.product(range(4), range(4)):
-            axs[i, 2 * j + 1].imshow(np.max(self.train_subcells[idx[i * 4 + j], :, :, :, 0], axis=2), cmap="gray")
+            axs[i, 2 * j + 1].imshow(
+                np.max(self.train_subcells[idx[i * 4 + j], :, :, :, 0], axis=2),
+                cmap="gray",
+            )
             axs[i, 2 * j + 1].axis("off")
         plt.tight_layout()
         plt.pause(0.1)
@@ -556,20 +664,28 @@ class TrainingUNet3D:
         The training can be stopped by pressing Ctrl + C if users feel the prediction is good enough during training.
         Every time the validation loss was reduced, the weights file will be stored into the /models folder
         """
-        self.model.load_weights(os.path.join(self.models_path, 'weights_initial.h5'))
+        self.model.load_weights(os.path.join(self.models_path, "weights_initial.h5"))
         for step in range(1, iteration + 1):
-            self.model.fit_generator(self.train_generator, validation_data=self.valid_data, epochs=1,
-                                     steps_per_epoch=60)
+            self.model.fit_generator(
+                self.train_generator,
+                validation_data=self.valid_data,
+                epochs=1,
+                steps_per_epoch=60,
+            )
             if step == 1:
                 self.val_losses = [self.model.history.history["val_loss"][-1]]
                 print("val_loss at step 1: ", min(self.val_losses))
-                self.model.save_weights(os.path.join(self.models_path, weights_name + f"step{step}.h5"))
+                self.model.save_weights(
+                    os.path.join(self.models_path, weights_name + f"step{step}.h5")
+                )
                 self._draw_prediction(step)
             else:
                 loss = self.model.history.history["val_loss"][-1]
                 if loss < min(self.val_losses):
                     print("val_loss updated from ", min(self.val_losses), " to ", loss)
-                    self.model.save_weights(os.path.join(self.models_path, weights_name + f"step{step}.h5"))
+                    self.model.save_weights(
+                        os.path.join(self.models_path, weights_name + f"step{step}.h5")
+                    )
                     self._draw_prediction(step)
                 self.val_losses.append(loss)
 
@@ -584,18 +700,37 @@ class TrainingUNet3D:
         weights_name : str, optional
             The prefix of the weights file to be restored.
         """
-        self.model.load_weights(os.path.join(self.models_path, weights_name + f"step{step}.h5"))
+        self.model.load_weights(
+            os.path.join(self.models_path, weights_name + f"step{step}.h5")
+        )
         self.model.save(os.path.join(self.models_path, "unet3_pretrained.h5"))
 
     def _draw_prediction(self, step, percentile_top=99.9, percentile_bottom=10):
         """Draw the predictions in current step"""
-        train_prediction = np.squeeze(unet3_prediction(np.expand_dims(self.train_image_norm, axis=(0, 4)), self.model))
-        valid_prediction = np.squeeze(unet3_prediction(np.expand_dims(self.valid_image_norm, axis=(0, 4)), self.model))
-        axs = self._subplots_4images(percentile_bottom, percentile_top,
-                                     (self.train_image, train_prediction, self.valid_image, valid_prediction))
+        train_prediction = np.squeeze(
+            unet3_prediction(
+                np.expand_dims(self.train_image_norm, axis=(0, 4)), self.model
+            )
+        )
+        valid_prediction = np.squeeze(
+            unet3_prediction(
+                np.expand_dims(self.valid_image_norm, axis=(0, 4)), self.model
+            )
+        )
+        axs = self._subplots_4images(
+            percentile_bottom,
+            percentile_top,
+            (self.train_image, train_prediction, self.valid_image, valid_prediction),
+        )
         axs[0, 0].set_title("Image (train)", fontdict=TITLE_STYLE)
-        axs[0, 1].set_title(f"Cell prediction at step {step} (train)", fontdict=TITLE_STYLE)
-        axs[1, 0].set_title("Max projection of image (validation)", fontdict=TITLE_STYLE)
-        axs[1, 1].set_title(f"Cell prediction at step {step} (validation)", fontdict=TITLE_STYLE)
+        axs[0, 1].set_title(
+            f"Cell prediction at step {step} (train)", fontdict=TITLE_STYLE
+        )
+        axs[1, 0].set_title(
+            "Max projection of image (validation)", fontdict=TITLE_STYLE
+        )
+        axs[1, 1].set_title(
+            f"Cell prediction at step {step} (validation)", fontdict=TITLE_STYLE
+        )
         plt.tight_layout()
         plt.pause(0.1)

@@ -85,7 +85,7 @@ def load_image(folder_path, print_=True):
 def lcn_cpu(img3d, noise_level, filter_size=(27, 27, 1)):
     """
     Local contrast normalization by cpu
-    
+
     Parameters
     ----------
     img3d : numpy.ndarray
@@ -107,9 +107,9 @@ def lcn_cpu(img3d, noise_level, filter_size=(27, 27, 1)):
     """
     filter = np.ones(filter_size)
     filter = filter / filter.size
-    avg = ndimage.convolve(img3d, filter, mode='reflect')
+    avg = ndimage.convolve(img3d, filter, mode="reflect")
     diff_sqr = np.square(img3d - avg)
-    std = np.sqrt(ndimage.convolve(diff_sqr, filter, mode='reflect'))
+    std = np.sqrt(ndimage.convolve(diff_sqr, filter, mode="reflect"))
     norm = np.divide(img3d - avg, std + noise_level)
     return norm
 
@@ -129,7 +129,9 @@ def conv3d_keras(filter_size, img3d_siz):
         The keras model to apply 3D convolution
     """
     inputs = Input((img3d_siz[0], img3d_siz[1], img3d_siz[2], 1))
-    conv_3d = Conv3D(1, filter_size, kernel_initializer=keras.initializers.Ones(), padding='same')(inputs)
+    conv_3d = Conv3D(
+        1, filter_size, kernel_initializer=keras.initializers.Ones(), padding="same"
+    )(inputs)
     return Model(inputs=inputs, outputs=conv_3d)
 
 
@@ -159,7 +161,7 @@ def lcn_gpu(img3d, noise_level=5, filter_size=(27, 27, 1)):
     img3d_siz = img3d.shape
     volume = filter_size[0] * filter_size[1] * filter_size[2]
     conv3d_model = conv3d_keras(filter_size, img3d_siz)
-    img3d = np.expand_dims(img3d, axis=(0,4))
+    img3d = np.expand_dims(img3d, axis=(0, 4))
     avg = conv3d_model.predict(img3d) / volume
     diff_sqr = np.square(img3d - avg)
     std = np.sqrt(conv3d_model.predict(diff_sqr) / volume)

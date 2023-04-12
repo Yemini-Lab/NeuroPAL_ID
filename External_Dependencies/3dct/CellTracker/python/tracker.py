@@ -30,14 +30,21 @@ from skimage.measure import label
 from skimage.segmentation import relabel_sequential, find_boundaries
 
 from preprocess import _make_folder, _normalize_image, _normalize_label, load_image
-from track import pr_gls_quick, initial_matching_quick, gaussian_filter, \
-    get_reference_vols, get_subregions, tracking_plot_xy, tracking_plot_zx
+from track import (
+    pr_gls_quick,
+    initial_matching_quick,
+    gaussian_filter,
+    get_reference_vols,
+    get_subregions,
+    tracking_plot_xy,
+    tracking_plot_zx,
+)
 from unet3d import unet3_prediction, _divide_img, _augmentation_generator
 from watershed import watershed_2d, watershed_3d, watershed_2d_markers
 
-#mpl.rcParams['image.interpolation'] = 'none'
+# mpl.rcParams['image.interpolation'] = 'none'
 
-TITLE_STYLE = {'fontsize': 16, 'verticalalignment': 'bottom'}
+TITLE_STYLE = {"fontsize": 16, "verticalalignment": "bottom"}
 
 REP_NUM_PRGLS = 5
 REP_NUM_CORRECTION = 20
@@ -160,7 +167,7 @@ def save_img3(z_siz, img, path, use_8_bit: bool):
         Image.fromarray(img2d).save(path % (1, z))
 
 
-def save_img3ts(z_range, img, path, t, use_8_bit: bool=True):
+def save_img3ts(z_range, img, path, t, use_8_bit: bool = True):
     """
     Save a 3D image at time t as 2D image sequence
 
@@ -219,31 +226,47 @@ class Draw:
         -------
         anim : matplotlib.animation.ArtistAnimation
             The animation including each layer of the raw image and the segmentation results
-            
+
         Notes
         -----
         The lower limitation of intensities for showing the raw image is set to lower 10% by default.
         """
         axs, figs = self._subplots_3()
         axs[0].set_title(f"Raw image at vol {self.vol}", fontdict=TITLE_STYLE)
-        axs[1].set_title(f"Cell regions at vol {self.vol} by U-Net", fontdict=TITLE_STYLE)
+        axs[1].set_title(
+            f"Cell regions at vol {self.vol} by U-Net", fontdict=TITLE_STYLE
+        )
         axs[2].set_title(f"Auto-_segment at vol {self.vol}", fontdict=TITLE_STYLE)
         anim_obj = []
         vmax = np.percentile(self.segresult.image_gcn, percentile_high)
         vmin = np.percentile(self.segresult.image_gcn, 10)
         for z in range(self.z_siz):
-            obj1 = axs[0].imshow(self.segresult.image_gcn[:, :, z],
-                                 vmin=vmin, vmax=vmax, cmap="gray")
-            obj2 = axs[1].imshow(self.segresult.image_cell_bg[0, :, :, z, 0] > 0.5, cmap="gray")
-            obj3 = axs[2].imshow(self.segresult.segmentation_auto[:, :, z],
-                                 vmin=0, vmax=self.cell_num, cmap=get_random_cmap(num=self.cell_num))
+            obj1 = axs[0].imshow(
+                self.segresult.image_gcn[:, :, z], vmin=vmin, vmax=vmax, cmap="gray"
+            )
+            obj2 = axs[1].imshow(
+                self.segresult.image_cell_bg[0, :, :, z, 0] > 0.5, cmap="gray"
+            )
+            obj3 = axs[2].imshow(
+                self.segresult.segmentation_auto[:, :, z],
+                vmin=0,
+                vmax=self.cell_num,
+                cmap=get_random_cmap(num=self.cell_num),
+            )
             anim_obj.append([obj1, obj2, obj3])
         anim = animation.ArtistAnimation(figs, anim_obj, interval=200).to_jshtml()
 
-        axs[0].imshow(np.max(self.segresult.image_gcn, axis=2), vmin=vmin, vmax=vmax, cmap="gray")
-        axs[1].imshow(np.max(self.segresult.image_cell_bg[0, :, :, :, 0] > 0.5, axis=2), cmap="gray")
-        axs[2].imshow(np.max(self.segresult.segmentation_auto, axis=2),
-                      cmap=get_random_cmap(num=self.cell_num))
+        axs[0].imshow(
+            np.max(self.segresult.image_gcn, axis=2), vmin=vmin, vmax=vmax, cmap="gray"
+        )
+        axs[1].imshow(
+            np.max(self.segresult.image_cell_bg[0, :, :, :, 0] > 0.5, axis=2),
+            cmap="gray",
+        )
+        axs[2].imshow(
+            np.max(self.segresult.segmentation_auto, axis=2),
+            cmap=get_random_cmap(num=self.cell_num),
+        )
         print("Segmentation results (max projection):")
         return anim
 
@@ -252,8 +275,8 @@ class Draw:
         Draw the cell regions and the interpolated/smoothed manual segmentation with max-projection in volume 1
         """
         results = {
-            'img' : np.max(self.seg_cells_interpolated_corrected, axis=2),
-            'coords' : self.r_coordinates_tracked_t0,
+            "img": np.max(self.seg_cells_interpolated_corrected, axis=2),
+            "coords": self.r_coordinates_tracked_t0,
         }
         return results
 
@@ -262,26 +285,52 @@ class Draw:
         Draw the cell regions and the interpolated/smoothed manual segmentation with max-projection in volume 1
         """
         axm, figm = self._subplots_2_horizontal()
-        axm[0].imshow(np.max(self.segresult.image_cell_bg[0, :, :, :, 0], axis=2) > 0.5, cmap="gray")
-        axm[0].set_title(f"Cell regions at vol {self.vol} by U-Net", fontdict=TITLE_STYLE)
-        axm[1].imshow(np.max(self.seg_cells_interpolated_corrected, axis=2),
-                      cmap=get_random_cmap(num=self.cell_num_t0))
+        axm[0].imshow(
+            np.max(self.segresult.image_cell_bg[0, :, :, :, 0], axis=2) > 0.5,
+            cmap="gray",
+        )
+        axm[0].set_title(
+            f"Cell regions at vol {self.vol} by U-Net", fontdict=TITLE_STYLE
+        )
+        axm[1].imshow(
+            np.max(self.seg_cells_interpolated_corrected, axis=2),
+            cmap=get_random_cmap(num=self.cell_num_t0),
+        )
         axm[1].set_title(f"Manual _segment at vol 1", fontdict=TITLE_STYLE)
 
-    def _draw_transformation(self, ax, r_coordinates_predicted_pre, r_coordinates_segmented_post,
-                             r_coordinates_predicted_post, layercoord, draw_point=True):
+    def _draw_transformation(
+        self,
+        ax,
+        r_coordinates_predicted_pre,
+        r_coordinates_segmented_post,
+        r_coordinates_predicted_post,
+        layercoord,
+        draw_point=True,
+    ):
         """
         Draw each iteration of the tracking by FFN + PR-GLS
         """
         element1 = tracking_plot_xy(
-            ax[0], r_coordinates_predicted_pre, r_coordinates_segmented_post, r_coordinates_predicted_post,
-            (self.y_siz, self.x_siz), draw_point, layercoord)
+            ax[0],
+            r_coordinates_predicted_pre,
+            r_coordinates_segmented_post,
+            r_coordinates_predicted_post,
+            (self.y_siz, self.x_siz),
+            draw_point,
+            layercoord,
+        )
         element2 = tracking_plot_zx(
-            ax[1], r_coordinates_predicted_pre, r_coordinates_segmented_post, r_coordinates_predicted_post,
-            (self.y_siz, self.z_siz), draw_point, layercoord)
+            ax[1],
+            r_coordinates_predicted_pre,
+            r_coordinates_segmented_post,
+            r_coordinates_predicted_post,
+            (self.y_siz, self.z_siz),
+            draw_point,
+            layercoord,
+        )
         if layercoord:
-            ax[0].set_aspect('equal', 'box')
-            ax[1].set_aspect('equal', 'box')
+            ax[0].set_aspect("equal", "box")
+            ax[1].set_aspect("equal", "box")
         return element1 + element2
 
     def draw_correction(self, i_disp_from_vol1_updated, r_coor_predicted):
@@ -309,17 +358,28 @@ class Draw:
             [ax[0], ax[1]],
             self._transform_real_to_layer(r_coor_predicted),
             self._transform_real_to_layer(self.segresult.r_coordinates_segment),
-            self._transform_real_to_layer(self.r_coordinates_tracked_t0) +
-            self._transform_interpolated_to_layer(i_disp_from_vol1_updated),
-            layercoord=True, draw_point=False)
-        ax[0].imshow(np.max(self.segresult.image_cell_bg[0, :, :, :, 0], axis=2) > 0.5, cmap="gray",
-                     extent=(0, self.y_siz - 1, self.x_siz - 1, 0))
-        ax[1].imshow(np.max(self.segresult.image_cell_bg[0, :, :, :, 0], axis=0).T > 0.5, aspect=self.z_xy_ratio,
-                     cmap="gray", extent=(0, self.y_siz - 1, self.z_siz - 1, 0))
+            self._transform_real_to_layer(self.r_coordinates_tracked_t0)
+            + self._transform_interpolated_to_layer(i_disp_from_vol1_updated),
+            layercoord=True,
+            draw_point=False,
+        )
+        ax[0].imshow(
+            np.max(self.segresult.image_cell_bg[0, :, :, :, 0], axis=2) > 0.5,
+            cmap="gray",
+            extent=(0, self.y_siz - 1, self.x_siz - 1, 0),
+        )
+        ax[1].imshow(
+            np.max(self.segresult.image_cell_bg[0, :, :, :, 0], axis=0).T > 0.5,
+            aspect=self.z_xy_ratio,
+            cmap="gray",
+            extent=(0, self.y_siz - 1, self.z_siz - 1, 0),
+        )
 
         return None
 
-    def draw_overlapping(self, cells_on_boundary_local, volume2, i_disp_from_vol1_updated):
+    def draw_overlapping(
+        self, cells_on_boundary_local, volume2, i_disp_from_vol1_updated
+    ):
         """
         Draw the overlapping of cell regions (gray) and the labels before/after matching
 
@@ -332,7 +392,9 @@ class Draw:
         i_disp_from_vol1_updated : numpy.ndarray
             The displacement of each cell from volume 1. Interpolated coordinates.
         """
-        self.tracked_labels = self._transform_motion_to_image(cells_on_boundary_local, i_disp_from_vol1_updated)
+        self.tracked_labels = self._transform_motion_to_image(
+            cells_on_boundary_local, i_disp_from_vol1_updated
+        )
         self._draw_matching(volume2)
         plt.pause(0.1)
         return None
@@ -345,54 +407,95 @@ class Draw:
         plt.tight_layout()
         return None
 
-    def _draw_matching_6panel(self, target_volume, ax, r_coor_predicted_mean, i_disp_from_vol1_updated):
+    def _draw_matching_6panel(
+        self, target_volume, ax, r_coor_predicted_mean, i_disp_from_vol1_updated
+    ):
         """Draw the tracking process in a specific volume"""
         for ax_i in ax:
             ax_i.cla()
         plt.suptitle(f"Tracking results at vol {target_volume}", size=16)
 
-        _ = self._draw_transformation([ax[0], ax[1]], self.history.r_tracked_coordinates[target_volume - 2],
-                                      self.segresult.r_coordinates_segment, r_coor_predicted_mean, layercoord=False)
-        self._draw_correction([ax[2], ax[3]], r_coor_predicted_mean, i_disp_from_vol1_updated)
+        _ = self._draw_transformation(
+            [ax[0], ax[1]],
+            self.history.r_tracked_coordinates[target_volume - 2],
+            self.segresult.r_coordinates_segment,
+            r_coor_predicted_mean,
+            layercoord=False,
+        )
+        self._draw_correction(
+            [ax[2], ax[3]], r_coor_predicted_mean, i_disp_from_vol1_updated
+        )
         self._draw_after_matching(ax[4], ax[5], target_volume, legend=False)
         self._set_layout_anim()
         for axi in ax:
             plt.setp(axi.get_xticklabels(), visible=False)
             plt.setp(axi.get_yticklabels(), visible=False)
-            axi.tick_params(axis='both', which='both', length=0)
+            axi.tick_params(axis="both", which="both", length=0)
             axi.axis("off")
         return None
 
     def _draw_before_matching(self, ax1, ax2, volume2):
         """Draw overlapping of cells and labels before matching"""
-        ax1.imshow(np.max(self.segresult.image_cell_bg[0, :, :, :, 0], axis=2) > 0.5, cmap="gray")
-        ax1.imshow(np.max(self.seg_cells_interpolated_corrected[:, :, self.Z_RANGE_INTERP], axis=2),
-                   cmap=get_random_cmap(num=self.cell_num_t0), alpha=ALPHA_BLEND)
+        ax1.imshow(
+            np.max(self.segresult.image_cell_bg[0, :, :, :, 0], axis=2) > 0.5,
+            cmap="gray",
+        )
+        ax1.imshow(
+            np.max(
+                self.seg_cells_interpolated_corrected[:, :, self.Z_RANGE_INTERP], axis=2
+            ),
+            cmap=get_random_cmap(num=self.cell_num_t0),
+            alpha=ALPHA_BLEND,
+        )
 
-        ax2.imshow(np.max(self.segresult.image_cell_bg[0, :, :, :, 0], axis=0).T > 0.5, aspect=self.z_xy_ratio,
-                   cmap="gray")
-        ax2.imshow(np.max(self.seg_cells_interpolated_corrected[:, :, self.Z_RANGE_INTERP], axis=0).T,
-                   cmap=get_random_cmap(num=self.cell_num_t0), aspect=self.z_xy_ratio, alpha=ALPHA_BLEND)
-        ax1.set_title(f"Before matching: Cells at vol {volume2} + Labels at vol {self.vol} (y-x plane)",
-                      fontdict=TITLE_STYLE)
-        ax2.set_title(f"Before matching (y-z plane)",
-                      fontdict=TITLE_STYLE)
+        ax2.imshow(
+            np.max(self.segresult.image_cell_bg[0, :, :, :, 0], axis=0).T > 0.5,
+            aspect=self.z_xy_ratio,
+            cmap="gray",
+        )
+        ax2.imshow(
+            np.max(
+                self.seg_cells_interpolated_corrected[:, :, self.Z_RANGE_INTERP], axis=0
+            ).T,
+            cmap=get_random_cmap(num=self.cell_num_t0),
+            aspect=self.z_xy_ratio,
+            alpha=ALPHA_BLEND,
+        )
+        ax1.set_title(
+            f"Before matching: Cells at vol {volume2} + Labels at vol {self.vol} (y-x plane)",
+            fontdict=TITLE_STYLE,
+        )
+        ax2.set_title(f"Before matching (y-z plane)", fontdict=TITLE_STYLE)
 
     def _draw_after_matching(self, ax1, ax2, volume2, legend=True):
         """Draw overlapping of cells and labels after matching"""
-        ax1.imshow(np.max(self.segresult.image_cell_bg[0, :, :, :, 0], axis=2) > 0.5, cmap="gray")
-        ax1.imshow(np.max(self.tracked_labels, axis=2),
-                   cmap=get_random_cmap(num=self.cell_num_t0), alpha=ALPHA_BLEND)
+        ax1.imshow(
+            np.max(self.segresult.image_cell_bg[0, :, :, :, 0], axis=2) > 0.5,
+            cmap="gray",
+        )
+        ax1.imshow(
+            np.max(self.tracked_labels, axis=2),
+            cmap=get_random_cmap(num=self.cell_num_t0),
+            alpha=ALPHA_BLEND,
+        )
 
-        ax2.imshow(np.max(self.segresult.image_cell_bg[0, :, :, :, 0], axis=0).T > 0.5, aspect=self.z_xy_ratio,
-                   cmap="gray")
-        ax2.imshow(np.max(self.tracked_labels, axis=0).T, cmap=get_random_cmap(num=self.cell_num_t0),
-                   aspect=self.z_xy_ratio, alpha=ALPHA_BLEND)
+        ax2.imshow(
+            np.max(self.segresult.image_cell_bg[0, :, :, :, 0], axis=0).T > 0.5,
+            aspect=self.z_xy_ratio,
+            cmap="gray",
+        )
+        ax2.imshow(
+            np.max(self.tracked_labels, axis=0).T,
+            cmap=get_random_cmap(num=self.cell_num_t0),
+            aspect=self.z_xy_ratio,
+            alpha=ALPHA_BLEND,
+        )
         if legend:
-            ax1.set_title(f"After matching: Cells at vol {volume2} + Labels at vol {volume2} (y-x plane)",
-                          fontdict=TITLE_STYLE)
-            ax2.set_title(f"After matching (y-z plane)",
-                          fontdict=TITLE_STYLE)
+            ax1.set_title(
+                f"After matching: Cells at vol {volume2} + Labels at vol {volume2} (y-x plane)",
+                fontdict=TITLE_STYLE,
+            )
+            ax2.set_title(f"After matching (y-z plane)", fontdict=TITLE_STYLE)
         return None
 
     def _subplots_ffnprgls_animation(self):
@@ -458,7 +561,9 @@ class Draw:
         """Overridden in Tracker"""
         raise NotImplementedError("Must override this method")
 
-    def _transform_motion_to_image(self, cells_on_boundary_local, i_disp_from_vol1_updated):
+    def _transform_motion_to_image(
+        self, cells_on_boundary_local, i_disp_from_vol1_updated
+    ):
         """Overridden in Tracker"""
         raise NotImplementedError("Must override this method")
 
@@ -492,8 +597,14 @@ class SegResults:
         self.image_gcn = None
         self.r_coordinates_segment = None
 
-    def update_results(self, image_cell_bg, l_center_coordinates, segmentation_auto,
-                       image_gcn, r_coordinates_segment):
+    def update_results(
+        self,
+        image_cell_bg,
+        l_center_coordinates,
+        segmentation_auto,
+        image_gcn,
+        r_coordinates_segment,
+    ):
         """Update the attributes of a SegResults instance"""
         self.image_cell_bg = image_cell_bg
         self.l_center_coordinates = l_center_coordinates
@@ -546,7 +657,9 @@ class Segmentation:
                 self.noise_level = noise_level
             if min_size is not None:
                 self.min_size = min_size
-            print(f"Parameters were modified: noise_level={self.noise_level}, min_size={self.min_size}")
+            print(
+                f"Parameters were modified: noise_level={self.noise_level}, min_size={self.min_size}"
+            )
             for f in os.listdir(self.paths.unet_cache):
                 os.remove(os.path.join(self.paths.unet_cache, f))
             print(f"All files under /unet folder were deleted")
@@ -568,7 +681,9 @@ class Segmentation:
 
     def _transform_real_to_interpolated(self, r_disp):
         """Transform the coordinates from real to interpolated"""
-        return np.rint(self._transform_disps(r_disp, self.z_scaling / self.z_xy_ratio)).astype(int)
+        return np.rint(
+            self._transform_disps(r_disp, self.z_scaling / self.z_xy_ratio)
+        ).astype(int)
 
     def _transform_real_to_layer(self, r_disp):
         """Transform the coordinates from real to layer"""
@@ -583,27 +698,42 @@ class Segmentation:
         Load the pretrained unet model (keras Model file like "xxx.h5") and save its weights for retraining
         """
         print(os.path.join(self.paths.models, self.paths.unet_model_file))
-        self.unet_model = load_model(os.path.join(self.paths.models, self.paths.unet_model_file))
-        self.unet_model.save_weights(os.path.join(self.paths.unet_weights, 'weights_initial.h5'))
+        self.unet_model = load_model(
+            os.path.join(self.paths.models, self.paths.unet_model_file)
+        )
+        self.unet_model.save_weights(
+            os.path.join(self.paths.unet_weights, "weights_initial.h5")
+        )
         print("Loaded the 3D U-Net model")
 
     def segment_vol1(self, method="min_size"):
         self.vol = 1
-        self.segresult.update_results(*self._segment(self.vol, method=method, print_shape=True))
+        self.segresult.update_results(
+            *self._segment(self.vol, method=method, print_shape=True)
+        )
         self.r_coordinates_segment_t0 = self.segresult.r_coordinates_segment.copy()
         use_8_bit = True if self.segresult.segmentation_auto.max() <= 255 else False
 
         # save the segmented cells of volume #1
-        save_img3(z_siz=self.z_siz, img=self.segresult.segmentation_auto,
-                  path=self.paths.auto_segmentation_vol1 + "auto_t%04i_z%04i.tif", use_8_bit=use_8_bit)
+        save_img3(
+            z_siz=self.z_siz,
+            img=self.segresult.segmentation_auto,
+            path=self.paths.auto_segmentation_vol1 + "auto_t%04i_z%04i.tif",
+            use_8_bit=use_8_bit,
+        )
         print(f"Segmented volume 1 and saved it")
 
     def _segment(self, vol, method, print_shape=False):
-        image_raw = read_image_ts(vol, self.paths.raw_image, self.paths.image_name, (0, self.z_siz),
-                                  print_=print_shape)
+        image_raw = read_image_ts(
+            vol,
+            self.paths.raw_image,
+            self.paths.image_name,
+            (0, self.z_siz),
+            print_=print_shape,
+        )
 
         # image_gcn will be used to correct tracking results
-        image_gcn = (image_raw.copy() / 65536.0)
+        image_gcn = image_raw.copy() / 65536.0
 
         print(image_raw)
 
@@ -613,19 +743,32 @@ class Segmentation:
         print(np.max(image_cell_bg))
 
         if np.max(image_cell_bg) <= 0.5:
-            raise ValueError("No cell was detected by 3D U-Net! Try to reduce the noise_level.")
+            raise ValueError(
+                "No cell was detected by 3D U-Net! Try to reduce the noise_level."
+            )
 
         # segment connected cell-like regions using _watershed
         segmentation_auto = self._watershed(image_cell_bg, method)
         if np.max(segmentation_auto) == 0:
-            raise ValueError("No cell was detected by watershed! Try to reduce the min_size.")
+            raise ValueError(
+                "No cell was detected by watershed! Try to reduce the min_size."
+            )
 
         # calculate coordinates of the centers of each segmented cell
-        l_center_coordinates = snm.center_of_mass(segmentation_auto > 0, segmentation_auto,
-                                                  range(1, segmentation_auto.max() + 1))
+        l_center_coordinates = snm.center_of_mass(
+            segmentation_auto > 0,
+            segmentation_auto,
+            range(1, segmentation_auto.max() + 1),
+        )
         r_coordinates_segment = self._transform_layer_to_real(l_center_coordinates)
 
-        return image_cell_bg, l_center_coordinates, segmentation_auto, image_gcn, r_coordinates_segment
+        return (
+            image_cell_bg,
+            l_center_coordinates,
+            segmentation_auto,
+            image_gcn,
+            r_coordinates_segment,
+        )
 
     def _predict_cellregions(self, image_raw, vol):
         """
@@ -637,21 +780,34 @@ class Segmentation:
     def _save_unet_regions(self, image_raw, vol):
         """Predict the cell regions by 3D U-Net and cache the prediction"""
         # pre-processing: local contrast normalization
-        image_norm = np.expand_dims(_normalize_image(image_raw, self.noise_level), axis=(0, 4))
+        image_norm = np.expand_dims(
+            _normalize_image(image_raw, self.noise_level), axis=(0, 4)
+        )
         # predict cell-like regions using 3D U-net
-        image_cell_bg = unet3_prediction(image_norm, self.unet_model, shrink=self.shrink)
-        np.save(self.paths.unet_cache + "t%04i.npy" % vol, np.array(image_cell_bg, dtype="float16"))
+        image_cell_bg = unet3_prediction(
+            image_norm, self.unet_model, shrink=self.shrink
+        )
+        np.save(
+            self.paths.unet_cache + "t%04i.npy" % vol,
+            np.array(image_cell_bg, dtype="float16"),
+        )
         return image_cell_bg
 
     def _watershed(self, image_cell_bg, method):
         """
         Segment the cell regions by watershed method
         """
-        image_watershed2d_wo_border, _ = watershed_2d(image_cell_bg[0, :, :, :, 0], z_range=self.z_siz,
-                                                      min_distance=7)
+        image_watershed2d_wo_border, _ = watershed_2d(
+            image_cell_bg[0, :, :, :, 0], z_range=self.z_siz, min_distance=7
+        )
         _, image_watershed3d_wi_border, min_size, cell_num = watershed_3d(
-            image_watershed2d_wo_border, samplingrate=[1, 1, self.z_xy_ratio], method=method,
-            min_size=self.min_size, cell_num=self.cell_num, min_distance=3)
+            image_watershed2d_wo_border,
+            samplingrate=[1, 1, self.z_xy_ratio],
+            method=method,
+            min_size=self.min_size,
+            cell_num=self.cell_num,
+            min_distance=3,
+        )
         segmentation_auto, fw, inv = relabel_sequential(image_watershed3d_wi_border)
         self.min_size = min_size
         if method == "min_size":
@@ -717,38 +873,45 @@ class Paths:
         print("Following folders were made under:", os.getcwd())
         folder_path = self.folder
         self.raw_image = _make_folder(os.path.join(folder_path, "data/"))
-        self.raw_image = self.raw_image.replace('\\','/')
-        self.auto_segmentation_vol1 = _make_folder(os.path.join(folder_path, "auto_vol1/"))
-        self.auto_segmentation_vol1 = self.auto_segmentation_vol1.replace('\\','/')
-        self.manual_segmentation_vol1 = _make_folder(os.path.join(folder_path, "manual_vol1/"))
-        self.manual_segmentation_vol1 = self.manual_segmentation_vol1.replace('\\','/')
-        self.track_information = _make_folder(os.path.join(folder_path, "track_information/"))
-        self.track_information = self.track_information.replace('\\','/')
+        self.raw_image = self.raw_image.replace("\\", "/")
+        self.auto_segmentation_vol1 = _make_folder(
+            os.path.join(folder_path, "auto_vol1/")
+        )
+        self.auto_segmentation_vol1 = self.auto_segmentation_vol1.replace("\\", "/")
+        self.manual_segmentation_vol1 = _make_folder(
+            os.path.join(folder_path, "manual_vol1/")
+        )
+        self.manual_segmentation_vol1 = self.manual_segmentation_vol1.replace("\\", "/")
+        self.track_information = _make_folder(
+            os.path.join(folder_path, "track_information/")
+        )
+        self.track_information = self.track_information.replace("\\", "/")
         self.models = _make_folder(os.path.join(folder_path, "models/"))
-        self.models = self.models.replace('\\','/')
+        self.models = self.models.replace("\\", "/")
         self.unet_cache = _make_folder(os.path.join(folder_path, "unet_cache/"))
-        self.unet_cache = self.unet_cache.replace('\\','/')
+        self.unet_cache = self.unet_cache.replace("\\", "/")
         track_results_path = get_tracking_path(adjacent, ensemble, folder_path)
-        track_results_path = track_results_path.replace('\\','/')
+        track_results_path = track_results_path.replace("\\", "/")
         self.track_results = _make_folder(track_results_path)
-        self.track_results = self.track_results.replace('\\','/')
+        self.track_results = self.track_results.replace("\\", "/")
         self.anim = _make_folder(os.path.join(folder_path, "anim/"))
-        self.anim = self.anim.replace('\\','/')
+        self.anim = self.anim.replace("\\", "/")
         self.unet_weights = _make_folder(os.path.join(self.models, "unet_weights/"))
-        self.unet_weights = self.unet_weights.replace('\\','/')
+        self.unet_weights = self.unet_weights.replace("\\", "/")
 
-        files = ['unet3_pretrained.h5', 'ffn_pretrained.h5']
+        files = ["unet3_pretrained.h5", "ffn_pretrained.h5"]
         weights = []
 
         for file in os.listdir("unet_weights/"):
             if file.endswith(".h5"):
-                weights += [f'unet_weights/{file}']
+                weights += [f"unet_weights/{file}"]
 
         for f in files:
             shutil.copy(f, self.models)
 
         for f in weights:
             shutil.copy(f, self.unet_weights)
+
 
 class History:
     """
@@ -848,12 +1011,27 @@ class Tracker(Segmentation, Draw):
         The pretrained/retrained 3D U-Net model
     """
 
-    def __init__(self,
-                 volume_num, siz_xyz: tuple, z_xy_ratio, z_scaling, noise_level, min_size, beta_tk,
-                 lambda_tk, maxiter_tk, folder_path, image_name, unet_model_file,
-                 ffn_model_file, cell_num=0, ensemble=False, adjacent=False,
-                 shrink=(24, 24, 2), miss_frame=None
-                 ):
+    def __init__(
+        self,
+        volume_num,
+        siz_xyz: tuple,
+        z_xy_ratio,
+        z_scaling,
+        noise_level,
+        min_size,
+        beta_tk,
+        lambda_tk,
+        maxiter_tk,
+        folder_path,
+        image_name,
+        unet_model_file,
+        ffn_model_file,
+        cell_num=0,
+        ensemble=False,
+        adjacent=False,
+        shrink=(24, 24, 2),
+        miss_frame=None,
+    ):
         Segmentation.__init__(self, volume_num, siz_xyz, z_xy_ratio, z_scaling, shrink)
 
         self.miss_frame = [] if not miss_frame else miss_frame
@@ -893,14 +1071,20 @@ class Tracker(Segmentation, Draw):
         lambda_tk : float
         maxiter_tk : int
         """
-        if self.beta_tk == beta_tk and self.lambda_tk == lambda_tk and self.max_iteration == maxiter_tk:
+        if (
+            self.beta_tk == beta_tk
+            and self.lambda_tk == lambda_tk
+            and self.max_iteration == maxiter_tk
+        ):
             print("Tracking parameters were not modified")
         else:
             self.beta_tk = beta_tk
             self.lambda_tk = lambda_tk
             self.max_iteration = maxiter_tk
-            print(f"Parameters were modified: beta_tk={self.beta_tk}, "
-                  f"lambda_tk={self.lambda_tk}, maxiter_tk={self.max_iteration}")
+            print(
+                f"Parameters were modified: beta_tk={self.beta_tk}, "
+                f"lambda_tk={self.lambda_tk}, maxiter_tk={self.max_iteration}"
+            )
 
     def load_manual_seg(self):
         """
@@ -912,27 +1096,47 @@ class Tracker(Segmentation, Draw):
         each layer of the 3D image in volume 1
         """
         print(self.paths.manual_segmentation_vol1)
-        segmentation_manual = load_image(self.paths.manual_segmentation_vol1, print_=False)
+        segmentation_manual = load_image(
+            self.paths.manual_segmentation_vol1, print_=False
+        )
         print("Loaded manual _segment at vol 1")
-        self.segmentation_manual_relabels, _, _ = relabel_sequential(segmentation_manual)
+        self.segmentation_manual_relabels, _, _ = relabel_sequential(
+            segmentation_manual
+        )
         if self.segmentation_manual_relabels.max() > 255:
             self.use_8_bit = False
 
     def _retrain_preprocess(self):
-        self.image_raw_vol1 = read_image_ts(1, self.paths.raw_image, self.paths.image_name, (0, self.z_siz))
+        self.image_raw_vol1 = read_image_ts(
+            1, self.paths.raw_image, self.paths.image_name, (0, self.z_siz)
+        )
         self.train_image_norm = _normalize_image(self.image_raw_vol1, self.noise_level)
-        self.label_vol1 = self._remove_2d_boundary(self.segmentation_manual_relabels) > 0
+        self.label_vol1 = (
+            self._remove_2d_boundary(self.segmentation_manual_relabels) > 0
+        )
         self.train_label_norm = _normalize_label(self.label_vol1)
         print("Images were normalized")
 
-        self.train_subimage = _divide_img(self.train_image_norm, self.unet_model.input_shape[1:4])
-        self.train_subcells = _divide_img(self.train_label_norm, self.unet_model.input_shape[1:4])
+        self.train_subimage = _divide_img(
+            self.train_image_norm, self.unet_model.input_shape[1:4]
+        )
+        self.train_subcells = _divide_img(
+            self.train_label_norm, self.unet_model.input_shape[1:4]
+        )
         print("Images were divided")
 
-        image_gen = ImageDataGenerator(rotation_range=90, width_shift_range=0.2, height_shift_range=0.2,
-                                       shear_range=0.2, horizontal_flip=True, fill_mode='reflect')
+        image_gen = ImageDataGenerator(
+            rotation_range=90,
+            width_shift_range=0.2,
+            height_shift_range=0.2,
+            shear_range=0.2,
+            horizontal_flip=True,
+            fill_mode="reflect",
+        )
 
-        self.train_generator = _augmentation_generator(self.train_subimage, self.train_subcells, image_gen, batch_siz=8)
+        self.train_generator = _augmentation_generator(
+            self.train_subimage, self.train_subcells, image_gen, batch_siz=8
+        )
         self.valid_data = (self.train_subimage, self.train_subcells)
         print("Data for training 3D U-Net were prepared")
 
@@ -940,36 +1144,56 @@ class Tracker(Segmentation, Draw):
         labels_new = labels3d.copy()
         for z in range(self.z_siz):
             labels = labels_new[:, :, z]
-            labels[find_boundaries(labels, mode='outer') == 1] = 0
+            labels[find_boundaries(labels, mode="outer") == 1] = 0
         return labels_new
 
     def select_unet_weights(self, step, weights_name="unet_weights_retrain_"):
         if step == 0:
-            self.unet_model.load_weights(os.path.join(self.paths.unet_weights, 'weights_initial.h5'))
+            self.unet_model.load_weights(
+                os.path.join(self.paths.unet_weights, "weights_initial.h5")
+            )
         elif step > 0:
-            self.unet_model.load_weights((os.path.join(self.paths.unet_weights, weights_name + f"step{step}.h5")))
-            self.unet_model.save(os.path.join(self.paths.unet_weights, "unet3_retrained.h5"))
+            self.unet_model.load_weights(
+                (os.path.join(self.paths.unet_weights, weights_name + f"step{step}.h5"))
+            )
+            self.unet_model.save(
+                os.path.join(self.paths.unet_weights, "unet3_retrained.h5")
+            )
         else:
             raise ValueError("step should be an interger >= 0")
 
     def interpolate_seg(self):
         # _interpolate layers in z axis
         self.seg_cells_interpolated_corrected = self._interpolate()
-        self.Z_RANGE_INTERP = range(self.z_scaling // 2, self.seg_cells_interpolated_corrected.shape[2],
-                                    self.z_scaling)
+        self.Z_RANGE_INTERP = range(
+            self.z_scaling // 2,
+            self.seg_cells_interpolated_corrected.shape[2],
+            self.z_scaling,
+        )
 
         # re-segmentation
-        self.seg_cells_interpolated_corrected = self._relabel_separated_cells(self.seg_cells_interpolated_corrected)
-        self.segmentation_manual_relabels = self.seg_cells_interpolated_corrected[:, :, self.Z_RANGE_INTERP]
+        self.seg_cells_interpolated_corrected = self._relabel_separated_cells(
+            self.seg_cells_interpolated_corrected
+        )
+        self.segmentation_manual_relabels = self.seg_cells_interpolated_corrected[
+            :, :, self.Z_RANGE_INTERP
+        ]
 
         # save labels in the first volume (interpolated)
-        save_img3ts(range(0, self.z_siz), self.segmentation_manual_relabels,
-                    self.paths.track_results + "track_results_t%04i_z%04i.tif", t=1, use_8_bit=self.use_8_bit)
+        save_img3ts(
+            range(0, self.z_siz),
+            self.segmentation_manual_relabels,
+            self.paths.track_results + "track_results_t%04i_z%04i.tif",
+            t=1,
+            use_8_bit=self.use_8_bit,
+        )
 
         # calculate coordinates of cell centers at t=1
-        center_points_t0 = snm.center_of_mass(self.segmentation_manual_relabels > 0,
-                                              self.segmentation_manual_relabels,
-                                              range(1, self.segmentation_manual_relabels.max() + 1))
+        center_points_t0 = snm.center_of_mass(
+            self.segmentation_manual_relabels > 0,
+            self.segmentation_manual_relabels,
+            range(1, self.segmentation_manual_relabels.max() + 1),
+        )
         r_coordinates_manual_vol1 = self._transform_layer_to_real(center_points_t0)
         self.r_coordinates_tracked_t0 = r_coordinates_manual_vol1.copy()
         self.cell_num_t0 = r_coordinates_manual_vol1.shape[0]
@@ -979,36 +1203,58 @@ class Tracker(Segmentation, Draw):
         num_cells = np.size(np.unique(seg_cells_interpolated)) - 1
         seg_cells_interpolated_corrected = label(seg_cells_interpolated, connectivity=3)
         if num_cells != np.max(seg_cells_interpolated_corrected):
-            print(f"WARNING: {num_cells} cells were manually labeled while the program found " 
-                  f"{np.max(seg_cells_interpolated_corrected)} separated cells and corrected it")
+            print(
+                f"WARNING: {num_cells} cells were manually labeled while the program found "
+                f"{np.max(seg_cells_interpolated_corrected)} separated cells and corrected it"
+            )
         return seg_cells_interpolated_corrected
 
     def _interpolate(self):
         seg_cells_interpolated, seg_cell_or_bg = gaussian_filter(
-            self.segmentation_manual_relabels, z_scaling=self.z_scaling, smooth_sigma=2.5)
+            self.segmentation_manual_relabels,
+            z_scaling=self.z_scaling,
+            smooth_sigma=2.5,
+        )
         seg_cells_interpolated_corrected = watershed_2d_markers(
-            seg_cells_interpolated, seg_cell_or_bg, z_range=self.z_siz * self.z_scaling + 10)
-        return seg_cells_interpolated_corrected[5:self.x_siz + 5,
-               5:self.y_siz + 5, 5:self.z_siz * self.z_scaling + 5]
+            seg_cells_interpolated,
+            seg_cell_or_bg,
+            z_range=self.z_siz * self.z_scaling + 10,
+        )
+        return seg_cells_interpolated_corrected[
+            5 : self.x_siz + 5, 5 : self.y_siz + 5, 5 : self.z_siz * self.z_scaling + 5
+        ]
 
     def cal_subregions(self):
         # Compute subregions of each cells for quick "accurate correction"
         seg_16 = self.seg_cells_interpolated_corrected.astype("int16")
 
-        self.region_list, self.region_width, self.region_xyz_min = get_subregions(seg_16, seg_16.max())
+        self.region_list, self.region_width, self.region_xyz_min = get_subregions(
+            seg_16, seg_16.max()
+        )
         self.pad_x, self.pad_y, self.pad_z = np.max(self.region_width, axis=0)
-        self.label_padding = np.pad(seg_16,
-                                    pad_width=((self.pad_x, self.pad_x),
-                                               (self.pad_y, self.pad_y),
-                                               (self.pad_z, self.pad_z)),
-                                    mode='constant') * 0
+        self.label_padding = (
+            np.pad(
+                seg_16,
+                pad_width=(
+                    (self.pad_x, self.pad_x),
+                    (self.pad_y, self.pad_y),
+                    (self.pad_z, self.pad_z),
+                ),
+                mode="constant",
+            )
+            * 0
+        )
 
     def _check_multicells(self):
         for i, region in enumerate(self.region_list):
-            assert np.sum(np.unique(label(region))) == 1, f"more than one cell in region {i + 1}"
+            assert (
+                np.sum(np.unique(label(region))) == 1
+            ), f"more than one cell in region {i + 1}"
 
     def load_ffn(self):
-        self.ffn_model = load_model(os.path.join(self.paths.models, self.paths.ffn_model_file))
+        self.ffn_model = load_model(
+            os.path.join(self.paths.models, self.paths.ffn_model_file)
+        )
         print("Loaded the FFN model")
 
     def initiate_tracking(self):
@@ -1039,19 +1285,33 @@ class Tracker(Segmentation, Draw):
         cells_on_boundary_local[cells_bd] = 1
 
         # accurate correction
-        _, i_disp_from_vol1_updated = \
-            self._accurate_correction(cells_on_boundary_local, r_coor_predicted)
+        _, i_disp_from_vol1_updated = self._accurate_correction(
+            cells_on_boundary_local, r_coor_predicted
+        )
         print(f"Matching between vol 1 and vol {target_volume} was computed")
-        return anim, [cells_on_boundary_local, target_volume, i_disp_from_vol1_updated, r_coor_predicted]
+        return anim, [
+            cells_on_boundary_local,
+            target_volume,
+            i_disp_from_vol1_updated,
+            r_coor_predicted,
+        ]
 
     def _accurate_correction(self, cells_on_boundary_local, r_coor_predicted):
-        r_disp_from_vol1_updated = self.history.r_displacements[-1] + \
-                                   (r_coor_predicted - self.history.r_tracked_coordinates[-1])
-        i_disp_from_vol1_updated = self._transform_real_to_interpolated(r_disp_from_vol1_updated)
+        r_disp_from_vol1_updated = self.history.r_displacements[-1] + (
+            r_coor_predicted - self.history.r_tracked_coordinates[-1]
+        )
+        i_disp_from_vol1_updated = self._transform_real_to_interpolated(
+            r_disp_from_vol1_updated
+        )
         for i in range(REP_NUM_CORRECTION):
             # update positions (from vol1) by correction
-            r_disp_from_vol1_updated, i_disp_from_vol1_updated, r_disp_correction = \
-                self._correction_once_interp(i_disp_from_vol1_updated, cells_on_boundary_local)
+            (
+                r_disp_from_vol1_updated,
+                i_disp_from_vol1_updated,
+                r_disp_correction,
+            ) = self._correction_once_interp(
+                i_disp_from_vol1_updated, cells_on_boundary_local
+            )
 
             # stop the repetition if correction converged
             stop_flag = self._evaluate_correction(r_disp_correction)
@@ -1062,26 +1322,47 @@ class Tracker(Segmentation, Draw):
     def _predict_pos_once(self, source_volume, draw=False):
         # fitting the parameters for transformation
         C_t, BETA_t, coor_intermediate_list = self._fit_ffn_prgls(
-            REP_NUM_PRGLS, self.history.r_segmented_coordinates[source_volume - 1])
+            REP_NUM_PRGLS, self.history.r_segmented_coordinates[source_volume - 1]
+        )
 
         # Transform the coordinates
-        r_coordinates_predicted = self.history.r_tracked_coordinates[source_volume - 1].copy()
+        r_coordinates_predicted = self.history.r_tracked_coordinates[
+            source_volume - 1
+        ].copy()
 
         if draw:
             ax, fig = self._subplots_ffnprgls_animation()
             plt_objs = []
             for i in range(len(C_t)):
-                r_coordinates_predicted, r_coordinates_predicted_pre = self._predict_one_rep(
-                    r_coordinates_predicted, coor_intermediate_list[i], BETA_t[i], C_t[i])
+                (
+                    r_coordinates_predicted,
+                    r_coordinates_predicted_pre,
+                ) = self._predict_one_rep(
+                    r_coordinates_predicted,
+                    coor_intermediate_list[i],
+                    BETA_t[i],
+                    C_t[i],
+                )
                 plt_obj = self._draw_transformation(
-                    ax, r_coordinates_predicted_pre, self.segresult.r_coordinates_segment,
-                    r_coordinates_predicted, layercoord=False)
+                    ax,
+                    r_coordinates_predicted_pre,
+                    self.segresult.r_coordinates_segment,
+                    r_coordinates_predicted,
+                    layercoord=False,
+                )
                 plt_objs.append(plt_obj)
             anim = animation.ArtistAnimation(fig, plt_objs, interval=200).to_jshtml()
         else:
             for i in range(len(C_t)):
-                r_coordinates_predicted, r_coordinates_predicted_pre = self._predict_one_rep(
-                    r_coordinates_predicted, coor_intermediate_list[i], BETA_t[i], C_t[i])
+                (
+                    r_coordinates_predicted,
+                    r_coordinates_predicted_pre,
+                ) = self._predict_one_rep(
+                    r_coordinates_predicted,
+                    coor_intermediate_list[i],
+                    BETA_t[i],
+                    C_t[i],
+                )
             anim = None
 
         return r_coordinates_predicted, anim
@@ -1095,31 +1376,48 @@ class Tracker(Segmentation, Draw):
             coor_intermediate_list.append(corr_intermediate)
             C, corr_intermediate = self._ffn_prgls_once(i, corr_intermediate)
             C_t.append(C)
-            BETA_t.append(self.beta_tk * (0.8 ** i))
+            BETA_t.append(self.beta_tk * (0.8**i))
         return C_t, BETA_t, coor_intermediate_list
 
     def _ffn_prgls_once(self, i, r_coordinates_segment_pre):
-        init_match = initial_matching_quick(self.ffn_model, r_coordinates_segment_pre,
-                                            self.segresult.r_coordinates_segment, 20)
+        init_match = initial_matching_quick(
+            self.ffn_model,
+            r_coordinates_segment_pre,
+            self.segresult.r_coordinates_segment,
+            20,
+        )
         pre_transformation_pre = r_coordinates_segment_pre.copy()
-        P, r_coordinates_segment_post, C = pr_gls_quick(pre_transformation_pre,
-                                                        self.segresult.r_coordinates_segment,
-                                                        init_match,
-                                                        BETA=self.beta_tk * (0.8 ** i),
-                                                        max_iteration=self.max_iteration,
-                                                        LAMBDA=self.lambda_tk)
+        P, r_coordinates_segment_post, C = pr_gls_quick(
+            pre_transformation_pre,
+            self.segresult.r_coordinates_segment,
+            init_match,
+            BETA=self.beta_tk * (0.8**i),
+            max_iteration=self.max_iteration,
+            LAMBDA=self.lambda_tk,
+        )
         return C, r_coordinates_segment_post
 
-    def _predict_one_rep(self, r_coordinates_predicted_pre, coor_intermediate_list, BETA_t, C_t):
-
+    def _predict_one_rep(
+        self, r_coordinates_predicted_pre, coor_intermediate_list, BETA_t, C_t
+    ):
         length_auto_segmentation = np.size(coor_intermediate_list, axis=0)
 
-        r_coordinates_predicted_tile = np.tile(r_coordinates_predicted_pre, (length_auto_segmentation, 1, 1))
-        coor_intermediate_tile = np.tile(coor_intermediate_list, (self.cell_num_t0, 1, 1)).transpose((1, 0, 2))
-        Gram_matrix = np.exp(-np.sum(np.square(r_coordinates_predicted_tile - coor_intermediate_tile),
-                                     axis=2) / (2 * BETA_t * BETA_t))
+        r_coordinates_predicted_tile = np.tile(
+            r_coordinates_predicted_pre, (length_auto_segmentation, 1, 1)
+        )
+        coor_intermediate_tile = np.tile(
+            coor_intermediate_list, (self.cell_num_t0, 1, 1)
+        ).transpose((1, 0, 2))
+        Gram_matrix = np.exp(
+            -np.sum(
+                np.square(r_coordinates_predicted_tile - coor_intermediate_tile), axis=2
+            )
+            / (2 * BETA_t * BETA_t)
+        )
 
-        r_coordinates_predicted_post = r_coordinates_predicted_pre + np.dot(C_t, Gram_matrix).T
+        r_coordinates_predicted_post = (
+            r_coordinates_predicted_pre + np.dot(C_t, Gram_matrix).T
+        )
 
         return r_coordinates_predicted_post, r_coordinates_predicted_pre
 
@@ -1128,24 +1426,32 @@ class Tracker(Segmentation, Draw):
             boundary_xy = 0
         else:
             boundary_xy = BOUNDARY_XY
-        cells_bd = np.where(reduce(
-            np.logical_or,
-            [r_coordinates_prgls[:, 0] < boundary_xy,
-             r_coordinates_prgls[:, 1] < boundary_xy,
-             r_coordinates_prgls[:, 0] > self.x_siz - boundary_xy,
-             r_coordinates_prgls[:, 1] > self.y_siz - boundary_xy,
-             r_coordinates_prgls[:, 2] / self.z_xy_ratio < 0,
-             r_coordinates_prgls[:, 2] / self.z_xy_ratio > self.z_siz])
+        cells_bd = np.where(
+            reduce(
+                np.logical_or,
+                [
+                    r_coordinates_prgls[:, 0] < boundary_xy,
+                    r_coordinates_prgls[:, 1] < boundary_xy,
+                    r_coordinates_prgls[:, 0] > self.x_siz - boundary_xy,
+                    r_coordinates_prgls[:, 1] > self.y_siz - boundary_xy,
+                    r_coordinates_prgls[:, 2] / self.z_xy_ratio < 0,
+                    r_coordinates_prgls[:, 2] / self.z_xy_ratio > self.z_siz,
+                ],
+            )
         )
         return cells_bd
 
     def _correction_once_interp(self, i_displacement_from_vol1, cell_on_bound):
         # generate current image of labels from the manually corrected _segment in volume 1
-        i_l_tracked_cells_prgls_0, i_l_overlap_prgls_0 = self._transform_cells_quick(i_displacement_from_vol1)
-        l_tracked_cells_prgls = i_l_tracked_cells_prgls_0[:, :,
-                                self.z_scaling // 2:self.z_siz * self.z_scaling:self.z_scaling]
-        l_overlap_prgls = i_l_overlap_prgls_0[:, :,
-                          self.z_scaling // 2:self.z_siz * self.z_scaling:self.z_scaling]
+        i_l_tracked_cells_prgls_0, i_l_overlap_prgls_0 = self._transform_cells_quick(
+            i_displacement_from_vol1
+        )
+        l_tracked_cells_prgls = i_l_tracked_cells_prgls_0[
+            :, :, self.z_scaling // 2 : self.z_siz * self.z_scaling : self.z_scaling
+        ]
+        l_overlap_prgls = i_l_overlap_prgls_0[
+            :, :, self.z_scaling // 2 : self.z_siz * self.z_scaling : self.z_scaling
+        ]
 
         # overlapping regions of multiple cells are discarded before correction to avoid cells merging
         l_tracked_cells_prgls[np.where(l_overlap_prgls > 1)] = 0
@@ -1154,12 +1460,14 @@ class Tracker(Segmentation, Draw):
             l_tracked_cells_prgls[l_tracked_cells_prgls == (i + 1)] = 0
 
         # accurate correction of displacement
-        l_coordinates_prgls_int_move = \
-            self.r_coordinates_tracked_t0 * np.array([1, 1, 1 / self.z_xy_ratio]) + \
-            i_displacement_from_vol1 * np.array([1, 1, 1 / self.z_scaling])
+        l_coordinates_prgls_int_move = self.r_coordinates_tracked_t0 * np.array(
+            [1, 1, 1 / self.z_xy_ratio]
+        ) + i_displacement_from_vol1 * np.array([1, 1, 1 / self.z_scaling])
         l_centers_unet_x_prgls = snm.center_of_mass(
-            self.segresult.image_cell_bg[0, :, :, :, 0] + self.segresult.image_gcn, l_tracked_cells_prgls,
-            range(1, self.seg_cells_interpolated_corrected.max() + 1))
+            self.segresult.image_cell_bg[0, :, :, :, 0] + self.segresult.image_gcn,
+            l_tracked_cells_prgls,
+            range(1, self.seg_cells_interpolated_corrected.max() + 1),
+        )
         l_centers_unet_x_prgls = np.asarray(l_centers_unet_x_prgls)
         l_centers_prgls = np.asarray(l_coordinates_prgls_int_move)
 
@@ -1167,14 +1475,25 @@ class Tracker(Segmentation, Draw):
 
         r_displacement_correction = l_centers_unet_x_prgls - l_centers_prgls
         r_displacement_correction[lost_cells, :] = 0
-        r_displacement_correction[:, 2] = r_displacement_correction[:, 2] * self.z_xy_ratio
+        r_displacement_correction[:, 2] = (
+            r_displacement_correction[:, 2] * self.z_xy_ratio
+        )
 
         # calculate the corrected displacement from vol #1
-        r_displacement_from_vol1 = i_displacement_from_vol1 * np.array(
-            [1, 1, self.z_xy_ratio / self.z_scaling]) + r_displacement_correction
-        i_displacement_from_vol1_new = self._transform_real_to_interpolated(r_displacement_from_vol1)
+        r_displacement_from_vol1 = (
+            i_displacement_from_vol1
+            * np.array([1, 1, self.z_xy_ratio / self.z_scaling])
+            + r_displacement_correction
+        )
+        i_displacement_from_vol1_new = self._transform_real_to_interpolated(
+            r_displacement_from_vol1
+        )
 
-        return r_displacement_from_vol1, i_displacement_from_vol1_new, r_displacement_correction
+        return (
+            r_displacement_from_vol1,
+            i_displacement_from_vol1_new,
+            r_displacement_correction,
+        )
 
     def _transform_cells_quick(self, vectors3d):
         label_moved = self.label_padding.copy()
@@ -1183,35 +1502,51 @@ class Tracker(Segmentation, Draw):
             new_x_min = self.region_xyz_min[label][0] + vectors3d[label, 0] + self.pad_x
             new_y_min = self.region_xyz_min[label][1] + vectors3d[label, 1] + self.pad_y
             new_z_min = self.region_xyz_min[label][2] + vectors3d[label, 2] + self.pad_z
-            subregion_previous = label_moved[new_x_min:new_x_min + self.region_width[label][0],
-                                 new_y_min:new_y_min + self.region_width[label][1],
-                                 new_z_min:new_z_min + self.region_width[label][2]]
+            subregion_previous = label_moved[
+                new_x_min : new_x_min + self.region_width[label][0],
+                new_y_min : new_y_min + self.region_width[label][1],
+                new_z_min : new_z_min + self.region_width[label][2],
+            ]
             if subregion_previous.shape != self.region_list[label].shape:
                 continue
-            subregion_new = subregion_previous * (1 - self.region_list[label]) + \
-                            self.region_list[label] * (label + 1)
-            label_moved[new_x_min:new_x_min + self.region_width[label][0],
-            new_y_min:new_y_min + self.region_width[label][1],
-            new_z_min:new_z_min + self.region_width[label][2]] = subregion_new
-            mask[new_x_min:new_x_min + self.region_width[label][0],
-            new_y_min:new_y_min + self.region_width[label][1],
-            new_z_min:new_z_min + self.region_width[label][2]] += \
-                (self.region_list[label] > 0).astype("int8")
-        output = label_moved[self.pad_x:-self.pad_x, self.pad_y:-self.pad_y, self.pad_z:-self.pad_z]
-        mask = mask[self.pad_x:-self.pad_x, self.pad_y:-self.pad_y, self.pad_z:-self.pad_z]
+            subregion_new = subregion_previous * (
+                1 - self.region_list[label]
+            ) + self.region_list[label] * (label + 1)
+            label_moved[
+                new_x_min : new_x_min + self.region_width[label][0],
+                new_y_min : new_y_min + self.region_width[label][1],
+                new_z_min : new_z_min + self.region_width[label][2],
+            ] = subregion_new
+            mask[
+                new_x_min : new_x_min + self.region_width[label][0],
+                new_y_min : new_y_min + self.region_width[label][1],
+                new_z_min : new_z_min + self.region_width[label][2],
+            ] += (self.region_list[label] > 0).astype("int8")
+        output = label_moved[
+            self.pad_x : -self.pad_x, self.pad_y : -self.pad_y, self.pad_z : -self.pad_z
+        ]
+        mask = mask[
+            self.pad_x : -self.pad_x, self.pad_y : -self.pad_y, self.pad_z : -self.pad_z
+        ]
 
         return output, mask
 
-    def _transform_motion_to_image(self, cells_on_boundary_local, i_disp_from_vol1_updated):
+    def _transform_motion_to_image(
+        self, cells_on_boundary_local, i_disp_from_vol1_updated
+    ):
         """Transform the predicted movements to the moved labels in 3D image"""
-        i_tracked_cells_corrected, i_overlap_corrected = self._transform_cells_quick(i_disp_from_vol1_updated)
+        i_tracked_cells_corrected, i_overlap_corrected = self._transform_cells_quick(
+            i_disp_from_vol1_updated
+        )
         # re-calculate boundaries by _watershed
         i_tracked_cells_corrected[i_overlap_corrected > 1] = 0
         for i in np.where(cells_on_boundary_local == 1)[0]:
             i_tracked_cells_corrected[i_tracked_cells_corrected == (i + 1)] = 0
         tracked_labels = watershed_2d_markers(
-            i_tracked_cells_corrected[:, :, self.Z_RANGE_INTERP], i_overlap_corrected[:, :, self.Z_RANGE_INTERP],
-            z_range=self.z_siz)
+            i_tracked_cells_corrected[:, :, self.Z_RANGE_INTERP],
+            i_overlap_corrected[:, :, self.Z_RANGE_INTERP],
+            z_range=self.z_siz,
+        )
         return tracked_labels
 
     def _evaluate_correction(self, r_displacement_correction):
@@ -1231,7 +1566,19 @@ class Tracker(Segmentation, Draw):
         coord = np.asarray(self.history.r_tracked_coordinates)
         t, cell, pos = coord.shape
         coord_table = np.column_stack(
-            (np.repeat(np.arange(1, t + 1), cell), np.tile(np.arange(1, cell + 1), t), coord.reshape(t * cell, pos)))
-        np.savetxt(os.path.join(self.paths.track_information, "tracked_coordinates.csv"), coord_table, delimiter=',',
-                   header="cell,t,x(row),y(column),z(interpolated)", comments="")
-        print("Cell coordinates were stored in ./track_information/tracked_coordinates.csv")
+            (
+                np.repeat(np.arange(1, t + 1), cell),
+                np.tile(np.arange(1, cell + 1), t),
+                coord.reshape(t * cell, pos),
+            )
+        )
+        np.savetxt(
+            os.path.join(self.paths.track_information, "tracked_coordinates.csv"),
+            coord_table,
+            delimiter=",",
+            header="cell,t,x(row),y(column),z(interpolated)",
+            comments="",
+        )
+        print(
+            "Cell coordinates were stored in ./track_information/tracked_coordinates.csv"
+        )
