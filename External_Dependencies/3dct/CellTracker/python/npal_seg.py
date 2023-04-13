@@ -8,6 +8,7 @@ import numpy as np
 from PIL import Image
 from pathlib import Path
 import tensorflow.keras as keras
+from scipy import ndimage as ndi
 import skimage.morphology as morphology
 import scipy.ndimage.measurements as snm
 from tensorflow.keras.models import Model
@@ -31,6 +32,7 @@ cell_num = 0
 min_size = float(sys.argv[2])
 z_xy_ratio = float(sys.argv[3])
 noise_level = float(sys.argv[4])
+max_size = float(sys.argv[5])
 shrink = (24, 24, 2)
 
 unet_model = load_model(model_path)
@@ -113,8 +115,80 @@ def read_image_ts(vol, path, name, z_range, print_=False):
         print("Load images with shape:", img_array.shape)
     return img_array
 
+def remove_large_objects(ar, max_size=64, connectivity=1, *, out=None):
+    """Remove objects smaller than the specified size.
 
-def _watershed(image_cell_bg, method, min_size, cell_num):
+    Expects ar to be an array with labeled objects, and removes objects
+    smaller than min_size. If `ar` is bool, the image is first labeled.
+    This leads to potentially different behavior for bool and 0-and-1
+    arrays.
+
+    Parameters
+    ----------
+    ar : ndarray (arbitrary shape, int or bool type)
+        The array containing the objects of interest. If the array type is
+        int, the ints must be non-negative.
+    min_size : int, optional (default: 64)
+        The smallest allowable object size.
+    connectivity : int, {1, 2, ..., ar.ndim}, optional (default: 1)
+        The connectivity defining the neighborhood of a pixel. Used during
+        labelling if `ar` is bool.
+    out : ndarray
+        Array of the same shape as `ar`, into which the output is
+        placed. By default, a new array is created.
+
+    Raises
+    ------
+    TypeError
+        If the input array is of an invalid type, such as float or string.
+    ValueError
+        If the input array contains negative values.
+
+    Returns
+    -------
+    out : ndarray, same shape and type as input `ar`
+        The input array with small connected components removed.
+
+    Examples
+    --------
+
+    """
+    # Raising type error if not int or bool
+    _check_dtype_supported(ar)
+
+    if out is None:
+        out = ar.copy()
+    else:
+        out[:] = ar
+
+    if min_size == 0:  # shortcut for efficiency
+        return out
+
+    if out.dtype == bool:
+        footprint = ndi.generate_binary_structure(ar.ndim, connectivity)
+        ccs = np.zeros_like(ar, dtype=np.int32)
+        ndi.label(ar, footprint, output=ccs)
+    else:
+        ccs = out
+
+    try:
+        component_sizes = np.bincount(ccs.ravel())
+    except ValueError:
+        raise ValueError("Negative value labels are not supported. Try "
+                         "relabeling the input with `scipy.ndimage.label` or "
+                         "`skimage.morphology.label`.")
+
+    if len(component_sizes) == 2 and out.dtype != bool:
+        warn("Only one label was provided to `remove_small_objects`. "
+             "Did you mean to use a boolean array?")
+
+    too_small = component_sizes > max_size
+    too_small_mask = too_small[ccs]
+    out[too_small_mask] = 0
+
+    return out
+
+def _watershed(image_cell_bg, method, min_size, max_size, cell_num):
     """
     Segment the cell regions by watershed method
     """
@@ -126,6 +200,7 @@ def _watershed(image_cell_bg, method, min_size, cell_num):
         samplingrate=[1, 1, z_xy_ratio],
         method=method,
         min_size=min_size,
+        max_size=max_size,
         cell_num=cell_num,
         min_distance=3,
     )
@@ -256,7 +331,7 @@ def watershed_2d(image_pred, z_range=21, min_distance=7):
 
 
 def watershed_3d(
-    image_watershed2d, samplingrate, method, min_size, cell_num, min_distance
+    image_watershed2d, samplingrate, method, min_size, max_size, cell_num, min_distance
 ):
     dist = distance_transform_edt(image_watershed2d, sampling=samplingrate)
     dist_smooth = filters.gaussian_filter(dist, (2, 2, 0.3), mode="constant")
@@ -272,6 +347,7 @@ def watershed_3d(
     else:
         raise ("The method parameter should be either min_size or cell_num")
     labels_clear = remove_small_objects(labels_ws, min_size=min_size, connectivity=3)
+    labels_clear = remove_large_objects(labels_clear, max_size=max_size, connectivity=3)
 
     labels_bd = find_boundaries(
         labels_clear, connectivity=3, mode="outer", background=0
@@ -279,9 +355,15 @@ def watershed_3d(
     labels_wo_bd = labels_clear.copy()
     labels_wo_bd[labels_bd == 1] = 0
     labels_wo_bd = remove_small_objects(labels_wo_bd, min_size=min_size, connectivity=3)
+    labels_wo_bd = remove_large_objects(labels_wo_bd, max_size=max_size, connectivity=3)
 
     return labels_wo_bd, labels_clear, min_size, cell_num
 
+def _check_dtype_supported(ar):
+    # Should use `issubdtype` for bool below, but there's a bug in numpy 1.7
+    if not (ar.dtype == bool or np.issubdtype(ar.dtype, np.integer)):
+        raise TypeError("Only bool or integer image types are supported. "
+                        f"Got {ar.dtype}.")
 
 def _get_sizes_padded_im(img_siz_i, out_centr_siz_i):
     """
@@ -430,7 +512,7 @@ if np.max(image_cell_bg) <= 0.5:
     raise ValueError("No cell was detected by 3D U-Net! Try to reduce the noise_level.")
 
 # segment connected cell-like regions using _watershed
-segmentation_auto = _watershed(image_cell_bg, "min_size", min_size, cell_num)
+segmentation_auto = _watershed(image_cell_bg, "min_size", min_size, max_size, cell_num)
 if np.max(segmentation_auto) == 0:
     raise ValueError("No cell was detected by watershed! Try to reduce the min_size.")
 
