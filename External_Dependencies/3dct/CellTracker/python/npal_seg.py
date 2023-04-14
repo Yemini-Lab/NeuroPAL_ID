@@ -193,7 +193,7 @@ def _watershed(image_cell_bg, method, min_size, max_size, cell_num):
     Segment the cell regions by watershed method
     """
     image_watershed2d_wo_border, _ = watershed_2d(
-        image_cell_bg[0, :, :, :, 0], z_range=z_siz, min_distance=7
+        image_cell_bg[0, :, :, :, 0], z_range=z_siz, min_distance=  7
     )
     _, image_watershed3d_wi_border, min_size, cell_num = watershed_3d(
         image_watershed2d_wo_border,
