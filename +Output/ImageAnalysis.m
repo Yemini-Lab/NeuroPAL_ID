@@ -211,8 +211,13 @@ classdef ImageAnalysis
             fprintf(fileID, out_str);
             for i = 1:length(ns)
                 n = ns(i);
-                pos = n.position .* um_scale;
-                
+
+                if size(um_scale,1) > size(um_scale,2)
+                    pos = n.position .* um_scale';
+                else
+                    pos = n.position .* um_scale;
+                end
+
                 % Determine the auto IDs.
                 probabilistic_id = [];
                 probabilistic_prob = [];
@@ -221,6 +226,10 @@ classdef ImageAnalysis
                     probabilistic_prob = n.probabilistic_probs(1);
                 end
                 
+                [n.position(1),pos(1)]
+                [n.position(2),pos(2)]
+                [n.position(3),pos(3)]
+
                 % Write the real data only.
                 if isempty(aligned_xyzRGBs)
                     fprintf(fileID, out_fmt, ...
