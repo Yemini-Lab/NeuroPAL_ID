@@ -225,10 +225,6 @@ classdef ImageAnalysis
                     probabilistic_id = n.probabilistic_ids{1};
                     probabilistic_prob = n.probabilistic_probs(1);
                 end
-                
-                [n.position(1),pos(1)]
-                [n.position(2),pos(2)]
-                [n.position(3),pos(3)]
 
                 % Write the real data only.
                 if isempty(aligned_xyzRGBs)
