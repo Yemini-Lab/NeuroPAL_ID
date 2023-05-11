@@ -111,8 +111,15 @@ classdef ImageAnalysis
             change_residual = nan;
             if ~is_GFP_nan
                 GFP_sorted = sort(GFP_intensity);
-                [change_point, change_residual] = findchangepts(GFP_sorted, ...
-                    'MaxNumChanges', 1, 'Statistic', 'linear');
+                
+                if ~anynan(GFP_sorted)
+                    [change_point, change_residual] = findchangepts(GFP_sorted, ...
+                        'MaxNumChanges', 1, 'Statistic', 'linear');
+                else
+                    change_point = nan;
+                    change_residual = nan;
+                end
+
                 change_thresh = nan;
                 change_i = round(change_point);
                 if ~isempty(change_i) && ...
