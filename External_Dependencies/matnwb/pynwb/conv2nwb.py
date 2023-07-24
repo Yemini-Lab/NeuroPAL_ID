@@ -1,5 +1,6 @@
 import os
 import sys
+import h5py
 from pynwb import load_namespaces, get_class
 from pynwb.file import MultiContainerInterface, NWBContainer
 import skimage.io as skio
@@ -245,41 +246,64 @@ def create_file_yemini(folder, reference_frame):
     csvfile = None
     gcampfile = None
 
-    print('seeking...')
+    print(f'seeking in {path}...')
     for file in os.listdir(path):
-        if file == 'head.mat' or file == 'tail.mat':
+        if file == 'head.mat' or file == 'tail.mat' or file == 'data.mat':
             print('found mat')
             matfile = path + '/' + file
 
-        elif file == 'head.csv' or file == 'tail.csv':
+        elif file == 'head.csv' or file == 'tail.csv' or file == 'data.csv':
             print('found csv')
             csvfile = path + '/' + file
 
-        elif file == 'gcamp.mat':
+        elif file == 'gcamp.mat' or file == 'data.h5':
             print('found gcamp')
             gcampfile = path + '/' + file
+
+        elif file == 'annotations.h5':
+            print('found annotations')
+            zephirfile = path + '/' + file
+
+        else:
+            print(f"skipped {file}")
 
     if not csvfile:
         return
 
-        # data = np.transpose(skio.imread(imfile), (1,0,2,3)) #data should be XYZC
+    # data = np.transpose(skio.imread(imfile), (1,0,2,3)) #data should be XYZC
     # data = data.astype('uint16')
+
+    print('1')
     mat = sio.loadmat(matfile)
+    print('2')
     gcamp = sio.loadmat(gcampfile)
+    print('3')
 
     data = np.transpose(mat['data'] * 4095, (1, 0, 2, 3))
 
-    gcdata = gcamp['data']
+    try:
+        gcdata = gcamp['data']
+    except:
+        gcdata = gcamp['gcamp']
+
+    print('3.5')
 
     gcdata = np.transpose(gcdata, (3, 1, 0, 2))  # convert data to TXYZ
 
+    print('4')
     scale = np.asarray(mat['info']['scale'][0][0]).flatten()
     prefs = np.asarray(mat['prefs']['RGBW'][0][0]).flatten() - 1  # subtract 1 to adjust for matlab indexing from 1
 
-    gcscale = np.asarray(gcamp['worm_data']['info'][0][0][0][0][1]).flatten()
+    print('5')
+    try:
+        gcscale = np.asarray(gcamp['worm_data']['info'][0][0][0][0][1]).flatten()
+    except:
+        gcscale = []
 
+    print('6')
     session_start = datetime(int('1990'), int('01'), int('02'), tzinfo=tz.gettz("US/Pacific"))
 
+    print('genning file')
     nwbfile = gen_file('Worm head', worm, session_start, 'Hobert lab', 'Columbia University',
                        ["NeuroPAL: A Multicolor Atlas for Whole-Brain Neuronal Identification in C. elegans",
                         "Extracting neural signals from semi-immobilized animals with deformable non-negative matrix factorization"])
@@ -371,7 +395,51 @@ def create_file_yemini(folder, reference_frame):
         imaging_plane=gcplane,
     )
 
+    print('starting zephirfile')
+    if zephirfile is not None:
+        print('started')
+        # Open the h5 file
+        file = h5py.File(zephirfile, 'r')
+
+        # Convert to pandas DataFrame
+        data = {}
+        for key in file.keys():
+            data[key] = file[key][...]
+
+        zeph5 = pd.DataFrame(data)
+        print(zeph5.head())
+        activity_frame = pd.DataFrame(columns=['worldline_id','activity'])
+
+        for index, row in zeph5.iterrows():
+            eachNeuron = row['worldline_id']
+            neuron_activity = []
+
+            for eachTimestamp in zeph5['t_idx']:
+                pos_x = row['x']
+                pos_y = row['y']
+                pos_z = row['z']
+                neuron_activity.append(gcdata[eachTimestamp, pos_x, pos_y, pos_z])
+
+            activity_frame.loc[eachNeuron] = [eachNeuron, neuron_activity]
+        print(zeph5.head())
+        print(activity_frame.head())
+
+        # Don't forget to close the file
+        file.close()
+
+        zephir = RoiResponseSeries(
+            name='ZephIR_tracing',
+            description='Positional ROIs for traced neurons.',
+            unit='pixels',
+            rois=zeph5['x','y','z'],
+            control=zeph5['worldline_id'],
+            timestamps=zeph5['t_idx'],
+            data=activity_frame
+        )
+    print('ended zephirfile')
+
     nwbfile.add_acquisition(gcamp)
+    nwbfile.add_intracellular_recording(zephir)
 
     neuroPAL_module = nwbfile.create_processing_module(
         name='NeuroPAL',
