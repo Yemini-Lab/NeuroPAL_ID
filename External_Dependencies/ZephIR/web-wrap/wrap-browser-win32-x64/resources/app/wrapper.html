@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+    }
+    #toolbar {
+      position: fixed;
+      right: 0;
+      top: 0;
+      width: 50px;
+      height: 20px;
+      background-color: #f0f0f0;
+    }
+    #exit-button {
+      width: 100%;
+      height: 100%;
+      border: none;
+      background-color: #f0f0f0;
+      cursor: pointer;
+    }
+    #content {
+      position: absolute;
+      top: 20px;
+      left: 0;
+      right: 0;
+      bottom: 0;
+    }
+    iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="toolbar">
+    <button id="exit-button" onclick="window.closeApp()">Exit</button>
+  </div>
+  <div id="content">
+    <iframe src="http://localhost:5001/"></iframe>
+  </div>
+  <script>
+    window.closeApp = function() {
+      require('electron').remote.app.quit();
+    };
+  </script>
+</body>
+</html>
