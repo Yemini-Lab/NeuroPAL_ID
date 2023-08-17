@@ -30,24 +30,37 @@ import pandas as pd
 import scipy.io as sio
 from datetime import date, timedelta
 import tifffile
+import argparse
 from ndx_multichannel_volume import CElegansSubject, OpticalChannelReferences, OpticalChannelPlus, ImagingVolume, \
     VolumeSegmentation, MultiChannelVolume
 
-full_path = sys.argv[1]
-mat_file = sys.argv[2]
-id_bool = sys.argv[3]
-csv_bool = sys.argv[4]
-gcamp_bool = sys.argv[5]
-activity_bool = sys.argv[6]
-annotation_bool = sys.argv[7]
-segmentation_bool = sys.argv[8]
-laboratory = sys.argv[9]
-affiliation = sys.argv[10]
-description = sys.argv[11]
-related_pubs = sys.argv[12]
 
-print(sys.argv)
+parser = argparse.ArgumentParser(description='NeuroPAL_ID\'s built-in NWB converter.')
+parser.add_argument('--OpenDandi', type=str, default='null', help='Open Dandi page after converting?')
+parser.add_argument('--author', type=str, default='null', help='Author name')
+parser.add_argument('--institution', type=str, default='null', help='Institutional affiliation')
+parser.add_argument('--description', type=str, default='null', help='Description')
+parser.add_argument('--related_pubs', type=str, default='null', help='Related Publications')
+parser.add_argument('--image_path', type=str, required=True, help='Image path')
+parser.add_argument('--mat_file', type=str, required=True, help='MAT file path')
+parser.add_argument('--id_bool', type=str, default='null', help='ID Boolean')
+parser.add_argument('--csv_bool', type=str, default='null', help='CSV Boolean')
+parser.add_argument('--gcamp_bool', type=str, default='null', help='GCAMP Boolean')
+parser.add_argument('--annotation_bool', type=str, default='null', help='Annotation Boolean')
+parser.add_argument('--segmentation_bool', type=str, default='null', help='Segmentation Boolean')
+parser.add_argument('--proceed', type=int, default=0, help='Proceed')
+parser.add_argument('--activity_bool', type=str, default='null', help='Activity Boolean')
+parser.add_argument('--device_name', type=str, default='null', help='Device Name')
+parser.add_argument('--manufacturer', type=str, default='null', help='Manufacturer')
+parser.add_argument('--device_channels', type=str, default='null', help='Device Channels')
+parser.add_argument('--device_description', type=str, default='null', help='Device Description')
+parser.add_argument('--filename', type=str, default='null', help='Custom filename')
 
+args = parser.parse_args()
+
+for key, value in vars(args).items():
+    if isinstance(value, str) and key not in ["mat_file","image_path"]:
+        setattr(args, key, value.replace('_', ' '))
 
 def gen_file(description, identifier, start_date_time, lab, institution, pubs):
     nwbfile = NWBFile(
@@ -258,33 +271,33 @@ def extract_data(mat, index):
         return 'N/A'
 
 
-def create_file_yemini(folder, mat_file, id_bool, csv_bool, gcamp_bool, activity_bool, annotation_bool,
-                       segmentation_bool, laboratory, affiliation, description, related_pubs):
+def create_file_yemini():
     # Leverage arguments to extract data.
-    worm = folder.split('/')[-1]
-    path = folder
+    worm = args.image_path.split('/')[-1]
+    path = args.image_path
 
-    if csv_bool != 'False':
-        csvfile = csv_bool
-    if gcamp_bool != 'False':
-        gcampfile = gcamp_bool
-    if activity_bool != 'False':
-        zephirfile = activity_bool
-    if segmentation_bool != 'False':
-        segmentationpath = segmentation_bool
+    if args.csv_bool != 'False':
+        csvfile = args.csv_bool
+    if args.gcamp_bool != 'False':
+        gcampfile = args.gcamp_bool
+    if args.activity_bool != 'False':
+        zephirfile = args.activity_bool
+    if args.segmentation_bool != 'False':
+        segmentationpath = args.segmentation_bool
+
 
 
     # Populate master dictionary with metadata pulled from .mat
-    mat = sio.loadmat(mat_file)
+    mat = sio.loadmat(args.mat_file)
     master_dict = {
-        'name': re.search(r'\b\d{8}\b', mat_file).group(),
-        'path': mat_file,
+        'name': re.search(r'\b\d{8}\b', args.mat_file).group(),
+        'path': args.mat_file,
         'info': {
             'author': {
-                'lab': laboratory.replace('_', ' '),
-                'affiliation': affiliation.replace('_', ' '),
-                'description': description.replace('_', ' '),
-                'related_pubs': related_pubs.replace('_', ' '),
+                'lab': args.author.replace('_', ' '),
+                'institution': args.institution.replace('_', ' '),
+                'description': args.description.replace('_', ' '),
+                'related_pubs': args.related_pubs.replace('_', ' '),
             },
             'region': extract_data(mat, 0),
             'age': extract_data(mat, 1),
@@ -316,7 +329,7 @@ def create_file_yemini(folder, mat_file, id_bool, csv_bool, gcamp_bool, activity
     # Generate file.
     nwbfile = gen_file(f'{master_dict["info"]["author"]["description"]}', master_dict["name"],
                        master_dict["info"]["session_start_datetime"], master_dict['info']['author']['lab'],
-                       master_dict['info']['author']['affiliation'], master_dict['info']['author']['related_pubs'])
+                       master_dict['info']['author']['institution'], master_dict['info']['author']['related_pubs'])
 
     # Populate subject data.
     nwbfile.subject = CElegansSubject(
@@ -337,9 +350,9 @@ def create_file_yemini(folder, mat_file, id_bool, csv_bool, gcamp_bool, activity
 
     # Populate device data.
     device = nwbfile.create_device(
-        name="Spinning disk confocal",
-        description="Spinning Disk Confocal Nikon	Ti-e 60x Objective, 1.2 NA	Nikon CFI Plan Apochromat VC 60XC WI",
-        manufacturer="Nikon"
+        name=args.device_name,
+        description=args.device_description,
+        manufacturer=args.manufacturer
     )
 
     # Populate imaging data.
@@ -375,8 +388,8 @@ def create_file_yemini(folder, mat_file, id_bool, csv_bool, gcamp_bool, activity
     neuroPAL_module.add(OptChannels)
 
     # Check for CSV file, populate if detected.
-    if csv_bool != 'False':
-        csvfile = csv_bool
+    if args.csv_bool != 'False':
+        csvfile = args.csv_bool
         csv = pd.read_csv(csvfile, skiprows=6)
 
         blobs = csv[['Real X (um)', 'Real Y (um)', 'Real Z (um)', 'User ID']]
@@ -390,8 +403,8 @@ def create_file_yemini(folder, mat_file, id_bool, csv_bool, gcamp_bool, activity
         neuroPAL_module.add(vs)
 
     # Check for GCaMP video, populate if detected.
-    if gcamp_bool != 'False':
-        gcampfile = gcamp_bool
+    if args.gcamp_bool != 'False':
+        gcampfile = args.gcamp_bool
         gcamp = sio.loadmat(gcampfile)
 
         try:
@@ -450,12 +463,12 @@ def create_file_yemini(folder, mat_file, id_bool, csv_bool, gcamp_bool, activity
         gcamp_module.add(gcchan)
 
     # Check for activity data, populate if detected.
-    if activity_bool != 'False':
-        activitydict = activity_bool
+    if args.activity_bool != 'False':
+        activitydict = args.activity_bool
 
     # Check for annotation file, populate if detected.
-    if annotation_bool != 'False':
-        zephirfile = annotation_bool
+    if args.annotation_bool != 'False':
+        zephirfile = args.annotation_bool
 
         # Open the h5 file
         file = h5py.File(zephirfile, 'r')
@@ -506,5 +519,4 @@ def create_file_yemini(folder, mat_file, id_bool, csv_bool, gcamp_bool, activity
     io.close()
 
 
-create_file_yemini(full_path, mat_file, id_bool, csv_bool, gcamp_bool, activity_bool, annotation_bool,
-                   segmentation_bool, laboratory, affiliation, description, related_pubs)
+create_file_yemini()
