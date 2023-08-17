@@ -1,6 +1,7 @@
 import os
 import sys
 import h5py
+import re
 from pynwb import load_namespaces, get_class
 from pynwb.file import MultiContainerInterface, NWBContainer
 import skimage.io as skio
@@ -27,12 +28,25 @@ from datetime import timedelta
 from dateutil import tz
 import pandas as pd
 import scipy.io as sio
-from datetime import datetime, timedelta
+from datetime import date, timedelta
 import tifffile
 from ndx_multichannel_volume import CElegansSubject, OpticalChannelReferences, OpticalChannelPlus, ImagingVolume, \
     VolumeSegmentation, MultiChannelVolume
 
 full_path = sys.argv[1]
+mat_file = sys.argv[2]
+id_bool = sys.argv[3]
+csv_bool = sys.argv[4]
+gcamp_bool = sys.argv[5]
+activity_bool = sys.argv[6]
+annotation_bool = sys.argv[7]
+segmentation_bool = sys.argv[8]
+laboratory = sys.argv[9]
+affiliation = sys.argv[10]
+description = sys.argv[11]
+related_pubs = sys.argv[12]
+
+print(sys.argv)
 
 
 def gen_file(description, identifier, start_date_time, lab, institution, pubs):
@@ -237,167 +251,212 @@ def create_file_FOCO(folder, reference_frame):
     io.close()
 
 
-def create_file_yemini(folder, reference_frame):
-    worm = folder.split('/')[-1]
+def extract_data(mat, index):
+    try:
+        return mat['worm'][0][0][index][0]
+    except:
+        return 'N/A'
 
+
+def create_file_yemini(folder, mat_file, id_bool, csv_bool, gcamp_bool, activity_bool, annotation_bool,
+                       segmentation_bool, laboratory, affiliation, description, related_pubs):
+    # Leverage arguments to extract data.
+    worm = folder.split('/')[-1]
     path = folder
 
-    matfile = None
-    csvfile = None
-    gcampfile = None
+    if csv_bool != 'False':
+        csvfile = csv_bool
+    if gcamp_bool != 'False':
+        gcampfile = gcamp_bool
+    if activity_bool != 'False':
+        zephirfile = activity_bool
+    if segmentation_bool != 'False':
+        segmentationpath = segmentation_bool
 
-    print(f'seeking in {path}...')
-    for file in os.listdir(path):
-        if file == 'head.mat' or file == 'tail.mat' or file == 'data.mat':
-            print('found mat')
-            matfile = path + '/' + file
 
-        elif file == 'head.csv' or file == 'tail.csv' or file == 'data.csv':
-            print('found csv')
-            csvfile = path + '/' + file
+    # Populate master dictionary with metadata pulled from .mat
+    mat = sio.loadmat(mat_file)
+    master_dict = {
+        'name': re.search(r'\b\d{8}\b', mat_file).group(),
+        'path': mat_file,
+        'info': {
+            'author': {
+                'lab': laboratory.replace('_', ' '),
+                'affiliation': affiliation.replace('_', ' '),
+                'description': description.replace('_', ' '),
+                'related_pubs': related_pubs.replace('_', ' '),
+            },
+            'region': extract_data(mat, 0),
+            'age': extract_data(mat, 1),
+            'sex': extract_data(mat, 2),
+            'strain': extract_data(mat, 3),
+            'notes': extract_data(mat, 4),
+            'scale': np.asarray(mat['info']['scale'][0][0]).flatten(),
+            'prefs': np.asarray(mat['prefs']['RGBW'][0][0]).flatten() - 1,
+            # subtract 1 to adjust for matlab indexing from 1
+        },
+        'data': np.transpose(mat['data'] * 4095, (1, 0, 2, 3)),
+    }
 
-        elif file == 'gcamp.mat' or file == 'data.h5':
-            print('found gcamp')
-            gcampfile = path + '/' + file
+    # Try to extract session date.
+    match = re.search(r'\b(\d{4})(\d{2})(\d{2})\b', master_dict['path'])
+    if match:
+        year, month, day = map(int, match.groups())
+        date_time_obj = datetime(year, month, day, tzinfo=tz.gettz("US/Pacific"))
+        master_dict['info']['session_start_datetime'] = date_time_obj
+        date_obj = date(year, month, day)
+        master_dict['info']['session_start'] = date_obj
+    else:
+        master_dict['info']['session_start_datetime'] = 'N/A'
+        master_dict['info']['session_start'] = 'N/A'
 
-        elif file == 'annotations.h5':
-            print('found annotations')
-            zephirfile = path + '/' + file
+    reference_frame = f"worm {master_dict['info']['region']}"
 
-        else:
-            print(f"skipped {file}")
 
-    if not csvfile:
-        return
+    # Generate file.
+    nwbfile = gen_file(f'{master_dict["info"]["author"]["description"]}', master_dict["name"],
+                       master_dict["info"]["session_start_datetime"], master_dict['info']['author']['lab'],
+                       master_dict['info']['author']['affiliation'], master_dict['info']['author']['related_pubs'])
 
-    # data = np.transpose(skio.imread(imfile), (1,0,2,3)) #data should be XYZC
-    # data = data.astype('uint16')
-
-    print('1')
-    mat = sio.loadmat(matfile)
-    print('2')
-    gcamp = sio.loadmat(gcampfile)
-    print('3')
-
-    data = np.transpose(mat['data'] * 4095, (1, 0, 2, 3))
-
-    try:
-        gcdata = gcamp['data']
-    except:
-        gcdata = gcamp['gcamp']
-
-    print('3.5')
-
-    gcdata = np.transpose(gcdata, (3, 1, 0, 2))  # convert data to TXYZ
-
-    print('4')
-    scale = np.asarray(mat['info']['scale'][0][0]).flatten()
-    prefs = np.asarray(mat['prefs']['RGBW'][0][0]).flatten() - 1  # subtract 1 to adjust for matlab indexing from 1
-
-    print('5')
-    try:
-        gcscale = np.asarray(gcamp['worm_data']['info'][0][0][0][0][1]).flatten()
-    except:
-        gcscale = []
-
-    print('6')
-    session_start = datetime(int('1990'), int('01'), int('02'), tzinfo=tz.gettz("US/Pacific"))
-
-    print('genning file')
-    nwbfile = gen_file('Worm head', worm, session_start, 'Hobert lab', 'Columbia University',
-                       ["NeuroPAL: A Multicolor Atlas for Whole-Brain Neuronal Identification in C. elegans",
-                        "Extracting neural signals from semi-immobilized animals with deformable non-negative matrix factorization"])
-
+    # Populate subject data.
     nwbfile.subject = CElegansSubject(
-        subject_id=worm,
+        subject_id=master_dict["name"],
         # age = "T2H30M",
         # growth_stage_time = pd.Timedelta(hours=2, minutes=30).isoformat(),
-        date_of_birth=session_start - timedelta(days=2),
+        # date_of_birth=session_start - timedelta(days=2),
         # currently just using the session start time to bypass the requirement for date of birth
-        growth_stage='YA',
+        growth_stage=master_dict["info"]["age"],
         # growth_stage_time=pd.Timedelta(hours=2, minutes=30).isoformat(),
-        cultivation_temp=20.,
-        description=worm,
+        # cultivation_temp=20.,
+        description=master_dict['info']['author']['description'],
         species="http://purl.obolibrary.org/obo/NCBITaxon_6239",
-        sex="O",  # currently just using O for other until support added for other gender specifications
-        strain="OH16230"
+        sex=master_dict["info"]["sex"],
+        # currently just using O for other until support added for other gender specifications
+        strain=master_dict["info"]["strain"]
     )
 
+    # Populate device data.
     device = nwbfile.create_device(
         name="Spinning disk confocal",
         description="Spinning Disk Confocal Nikon	Ti-e 60x Objective, 1.2 NA	Nikon CFI Plan Apochromat VC 60XC WI",
         manufacturer="Nikon"
     )
 
-    if prefs[3] == 4:
+    # Populate imaging data.
+    if master_dict["info"]["prefs"][3] == 4:
         channels = [("mTagBFP2", "Semrock FF01-445/45-25 Brightline", "405-445-45m"),
                     ("CyOFP1", "Semrock FF02-617/73-25 Brightline", "488-610-40m"),
                     ("mNeptune 2.5", "Semrock FF01-731/137-25 Brightline", "561-731-70m"),
                     ("GFP-GCaMP", "Semrock FF02-525/40-25 Brightline", "488-525-25m"),
                     ("Tag RFP-T", "Semrock FF02-617/73-25 Brightline", "561-610-40m")]
-    elif prefs[3] == 3:
+    elif master_dict["info"]["prefs"][3] == 3:
         channels = [("mTagBFP2", "Semrock FF01-445/45-25 Brightline", "405-445-25m"),
                     ("CyOFP1", "Semrock FF02-617/73-25 Brightline", "488-610-40m"),
                     ("mNeptune 2.5", "Semrock FF01-731/137-25 Brightline", "561-731-70m"),
                     ("Tag RFP-T", "Semrock FF02-617/73-25 Brightline", "561-610-40m"),
                     ("GFP-GCaMP", "Semrock FF02-525/40-25 Brightline", "488-525-25m")]
 
-    ImagingVol, OptChannelRefs, OptChannels = create_im_vol(device, channels, location="head", grid_spacing=scale,
+    ImagingVol, OptChannelRefs, OptChannels = create_im_vol(device, channels, location=master_dict["info"]["region"],
+                                                            grid_spacing=master_dict["info"]["scale"],
                                                             reference_frame=reference_frame)
 
-    csv = pd.read_csv(csvfile, skiprows=6)
-
-    blobs = csv[['Real X (um)', 'Real Y (um)', 'Real Z (um)', 'User ID']]
-    blobs = blobs.rename(columns={'Real X (um)': 'X', 'Real Y (um)': 'Y', 'Real Z (um)': 'Z', 'User ID': 'ID'})
-    blobs['X'] = round(blobs['X'].div(scale[0]))
-    blobs['Y'] = round(blobs['Y'].div(scale[1]))
-    blobs['Z'] = round(blobs['Z'].div(scale[2]))
-    blobs = blobs.astype({'X': 'int16', 'Y': 'int16', 'Z': 'int16'})
-
-    vs = create_vol_seg(ImagingVol, blobs)
-
-    image = create_image(data, 'NeuroPALImageRaw', worm, ImagingVol, OptChannelRefs, resolution=scale,
-                         RGBW_channels=prefs)
+    image = create_image(master_dict["data"], 'NeuroPALImageRaw', master_dict["name"], ImagingVol, OptChannelRefs,
+                         resolution=master_dict["info"]["scale"],
+                         RGBW_channels=master_dict["info"]["prefs"])
 
     nwbfile.add_acquisition(image)
 
-    gc_optchan = ("GFP-GCaMP", "Semrock FF02-525/40-25 Brightline", "488-525-25m")
-
-    excite = float(gc_optchan[2].split('-')[0])
-    emiss_mid = float(gc_optchan[2].split('-')[1])
-    emiss_range = float(gc_optchan[2].split('-')[2][:-1])
-
-    gcchan = OpticalChannel(
-        name=gc_optchan[0],
-        description="Semrock FF02-525/40-25 Brightline",
-        emission_lambda=emiss_mid
+    neuroPAL_module = nwbfile.create_processing_module(
+        name='NeuroPAL',
+        description='neuroPAL image data and metadata',
     )
+    neuroPAL_module.add(ImagingVol)
+    neuroPAL_module.add(OptChannelRefs)
+    neuroPAL_module.add(OptChannels)
 
-    gcplane = nwbfile.create_imaging_plane(
-        name='GCamp_implane',
-        description='Imaging plane for GCamp data acquisition',
-        excitation_lambda=float(gc_optchan[2].split('-')[0]),
-        optical_channel=gcchan,
-        location='head',
-        indicator='GFP',
-        device=device,
-        grid_spacing=gcscale,
-        grid_spacing_unit='um'
-    )
+    # Check for CSV file, populate if detected.
+    if csv_bool != 'False':
+        csvfile = csv_bool
+        csv = pd.read_csv(csvfile, skiprows=6)
 
-    gcamp = OnePhotonSeries(
-        name='GCaMP_series',
-        description='Time Series GCaMP activity data',
-        data=gcdata,
-        unit='grey count values from 0-255',
-        resolution=1.0,
-        rate=4.0,
-        imaging_plane=gcplane,
-    )
+        blobs = csv[['Real X (um)', 'Real Y (um)', 'Real Z (um)', 'User ID']]
+        blobs = blobs.rename(columns={'Real X (um)': 'X', 'Real Y (um)': 'Y', 'Real Z (um)': 'Z', 'User ID': 'ID'})
+        blobs['X'] = round(blobs['X'].div(master_dict["info"]["scale"][0]))
+        blobs['Y'] = round(blobs['Y'].div(master_dict["info"]["scale"][1]))
+        blobs['Z'] = round(blobs['Z'].div(master_dict["info"]["scale"][2]))
+        blobs = blobs.astype({'X': 'int16', 'Y': 'int16', 'Z': 'int16'})
 
-    print('starting zephirfile')
-    if zephirfile is not None:
-        print('started')
+        vs = create_vol_seg(ImagingVol, blobs)
+        neuroPAL_module.add(vs)
+
+    # Check for GCaMP video, populate if detected.
+    if gcamp_bool != 'False':
+        gcampfile = gcamp_bool
+        gcamp = sio.loadmat(gcampfile)
+
+        try:
+            gcdata = gcamp['data']
+        except:
+            gcdata = gcamp['gcamp']
+
+        gcdata = np.transpose(gcdata, (3, 1, 0, 2))  # convert data to TXYZ
+
+        try:
+            gcscale = np.asarray(gcamp['worm_data']['info'][0][0][0][0][1]).flatten()
+        except:
+            gcscale = []
+
+        gc_optchan = ("GFP-GCaMP", "Semrock FF02-525/40-25 Brightline", "488-525-25m")
+
+        excite = float(gc_optchan[2].split('-')[0])
+        emiss_mid = float(gc_optchan[2].split('-')[1])
+        emiss_range = float(gc_optchan[2].split('-')[2][:-1])
+
+        gcchan = OpticalChannel(
+            name=gc_optchan[0],
+            description="Semrock FF02-525/40-25 Brightline",
+            emission_lambda=emiss_mid
+        )
+
+        gcplane = nwbfile.create_imaging_plane(
+            name='GCamp_implane',
+            description='Imaging plane for GCamp data acquisition',
+            excitation_lambda=float(gc_optchan[2].split('-')[0]),
+            optical_channel=gcchan,
+            location=master_dict["info"]["region"],
+            indicator='GFP',
+            device=device,
+            grid_spacing=gcscale,
+            grid_spacing_unit='um'
+        )
+
+        gcamp = OnePhotonSeries(
+            name='GCaMP_series',
+            description='Time Series GCaMP activity data',
+            data=gcdata,
+            unit='grey count values from 0-255',
+            resolution=1.0,
+            rate=4.0,
+            imaging_plane=gcplane,
+        )
+
+        nwbfile.add_acquisition(gcamp)
+
+        gcamp_module = nwbfile.create_processing_module(
+            name='GCaMP',
+            description='GCaMP time series data and metadata'
+        )
+        gcamp_module.add(gcplane)
+        gcamp_module.add(gcchan)
+
+    # Check for activity data, populate if detected.
+    if activity_bool != 'False':
+        activitydict = activity_bool
+
+    # Check for annotation file, populate if detected.
+    if annotation_bool != 'False':
+        zephirfile = annotation_bool
+
         # Open the h5 file
         file = h5py.File(zephirfile, 'r')
 
@@ -408,7 +467,7 @@ def create_file_yemini(folder, reference_frame):
 
         zeph5 = pd.DataFrame(data)
         print(zeph5.head())
-        activity_frame = pd.DataFrame(columns=['worldline_id','activity'])
+        activity_frame = pd.DataFrame(columns=['worldline_id', 'activity'])
 
         for index, row in zeph5.iterrows():
             eachNeuron = row['worldline_id']
@@ -431,39 +490,21 @@ def create_file_yemini(folder, reference_frame):
             name='ZephIR_tracing',
             description='Positional ROIs for traced neurons.',
             unit='pixels',
-            rois=zeph5['x','y','z'],
+            rois=zeph5['x', 'y', 'z'],
             control=zeph5['worldline_id'],
             timestamps=zeph5['t_idx'],
             data=activity_frame
         )
-    print('ended zephirfile')
 
-    nwbfile.add_acquisition(gcamp)
-    nwbfile.add_intracellular_recording(zephir)
+        nwbfile.add_intracellular_recording(zephir)
 
-    neuroPAL_module = nwbfile.create_processing_module(
-        name='NeuroPAL',
-        description='neuroPAL image data and metadata',
-    )
+    text = f"{master_dict['name'].replace(' ', '-')}-{master_dict['info']['session_start']}.nwb"
 
-    neuroPAL_module.add(vs)
-    neuroPAL_module.add(ImagingVol)
-    neuroPAL_module.add(OptChannelRefs)
-    neuroPAL_module.add(OptChannels)
-
-    # gcamp_module = nwbfile.create_processing_module(
-    #    name = 'GCaMP',
-    #    description = 'GCaMP time series data and metadata'
-    # )
-    # gcamp_module.add(gcplane)
-    # gcamp_module.add(gcchan)
-
-    text = worm + f"\{reference_frame.replace(' ', '-')}.nwb"
-    print(f"saving to {text}")
-    io = NWBHDF5IO(worm + f"\{reference_frame.replace(' ', '-')}.nwb", mode='w')
+    io = NWBHDF5IO(worm + f"{master_dict['name'].replace(' ', '-')}-{master_dict['info']['session_start']}.nwb",
+                   mode='w')
     io.write(nwbfile)
     io.close()
-    print('saved')
 
 
-create_file_yemini(full_path, reference_frame='worm head')
+create_file_yemini(full_path, mat_file, id_bool, csv_bool, gcamp_bool, activity_bool, annotation_bool,
+                   segmentation_bool, laboratory, affiliation, description, related_pubs)
