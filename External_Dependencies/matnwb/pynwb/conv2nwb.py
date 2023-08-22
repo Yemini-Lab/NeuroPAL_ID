@@ -285,8 +285,6 @@ def create_file_yemini():
     if args.segmentation_bool != 'False':
         segmentationpath = args.segmentation_bool
 
-
-
     # Populate master dictionary with metadata pulled from .mat
     mat = sio.loadmat(args.mat_file)
     master_dict = {
