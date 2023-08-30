@@ -463,6 +463,15 @@ def create_file_yemini():
     # Check for activity data, populate if detected.
     if args.activity_bool != 'False':
         activitydict = args.activity_bool
+        zephir = RoiResponseSeries(
+            name='ZephIR_tracing',
+            description='Positional ROIs for traced neurons.',
+            unit='pixels',
+            rois=zeph5['x', 'y', 'z'],
+            control=zeph5['worldline_id'],
+            timestamps=zeph5['t_idx'],
+            data=activity_frame
+        )
 
     # Check for annotation file, populate if detected.
     if args.annotation_bool != 'False':
@@ -496,6 +505,13 @@ def create_file_yemini():
 
         # Don't forget to close the file
         file.close()
+
+        zephir = Position(
+            description='Positional ROIs for traced neurons.',
+            data=activity_frame,
+            unit='pixels',
+
+        )
 
         zephir = RoiResponseSeries(
             name='ZephIR_tracing',
