@@ -462,7 +462,13 @@ def create_file_yemini():
 
     # Check for activity data, populate if detected.
     if args.activity_bool != 'False':
-        activitydict = args.activity_bool
+        activityfile = args.activity_bool
+
+        df = pd.read_csv(activityfile)
+        df = df.T
+
+        print(df)
+
         zephir = RoiResponseSeries(
             name='ZephIR_tracing',
             description='Positional ROIs for traced neurons.',
@@ -486,7 +492,6 @@ def create_file_yemini():
             data[key] = file[key][...]
 
         zeph5 = pd.DataFrame(data)
-        print(zeph5.head())
         activity_frame = pd.DataFrame(columns=['worldline_id', 'activity'])
 
         for index, row in zeph5.iterrows():
@@ -500,30 +505,32 @@ def create_file_yemini():
                 neuron_activity.append(gcdata[eachTimestamp, pos_x, pos_y, pos_z])
 
             activity_frame.loc[eachNeuron] = [eachNeuron, neuron_activity]
-        print(zeph5.head())
-        print(activity_frame.head())
 
         # Don't forget to close the file
         file.close()
 
-        zephir = Position(
-            description='Positional ROIs for traced neurons.',
-            data=activity_frame,
-            unit='pixels',
-
-        )
-
-        zephir = RoiResponseSeries(
-            name='ZephIR_tracing',
+        keypoints = SpatialSeries(
+            name='zephir-keypoints',
             description='Positional ROIs for traced neurons.',
             unit='pixels',
-            rois=zeph5['x', 'y', 'z'],
-            control=zeph5['worldline_id'],
+            reference_frame='t=0',
             timestamps=zeph5['t_idx'],
-            data=activity_frame
+            data=activity_frame,
+            control=zeph5['worldline_id'],
+            control_description='Neuron names'
         )
 
-        nwbfile.add_intracellular_recording(zephir)
+        zephir = Position(
+            spatial_series=keypoints,
+            name='ZephIR positioning'
+        )
+
+        zephir_module = nwbfile.create_processing_module(
+            name='ZephIR output',
+            description='neuroPAL image data and metadata',
+        )
+
+        zephir_module.add(zephir)
 
     text = f"{master_dict['name'].replace(' ', '-')}-{master_dict['info']['session_start']}.nwb"
 
