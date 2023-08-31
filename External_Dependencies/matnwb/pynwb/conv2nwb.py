@@ -470,7 +470,7 @@ def create_file_yemini():
         print(df)
 
         zephir = RoiResponseSeries(
-            name='ZephIR_tracing',
+            name='Neuronal_activity_data',
             description='Positional ROIs for traced neurons.',
             unit='pixels',
             rois=zeph5['x', 'y', 'z'],
@@ -478,6 +478,8 @@ def create_file_yemini():
             timestamps=zeph5['t_idx'],
             data=activity_frame
         )
+
+        neuroPAL_module.add(zephir)
 
     # Check for annotation file, populate if detected.
     if args.annotation_bool != 'False':
