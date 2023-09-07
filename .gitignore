@@ -103,6 +103,7 @@ win_visualize/for_redistribution_files_only/NeuroPAL_ID.exe
 win_visualize/for_testing/NeuroPAL_ID.exe
 win_visualize/PackagingLog.html
 *.tif
+venv/
 External_Dependencies/3dct/CellTracker/windows/wrapt/_wrappers.cp310-win_amd64.pyd
 External_Dependencies/3dct/CellTracker/windows/wheel-0.40.0.dist-info/WHEEL
 External_Dependencies/3dct/CellTracker/windows/wheel-0.40.0.dist-info/RECORD
