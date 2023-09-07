@@ -1,0 +1,141 @@
+<deployment-project plugin="plugin.apptool" plugin-version="1.0">
+  <configuration build-checksum="3022029705" file="C:\Users\biagi\Documents\MATLAB\MIRO-master\App\MIRO_app.prj" location="C:\Users\biagi\Documents\MATLAB\MIRO-master\App" name="MIRO_app" target="target.mlapps" target-name="Package App">
+    <param.appname>MIRO_app</param.appname>
+    <param.authnamewatermark>B. Mandracchia</param.authnamewatermark>
+    <param.email />
+    <param.company />
+    <param.icon>${PROJECT_ROOT}\MIRO_app_resources\icon_24.png</param.icon>
+    <param.icons>
+      <file>${PROJECT_ROOT}\MIRO_app_resources\icon_48.png</file>
+      <file>${PROJECT_ROOT}\MIRO_app_resources\icon_24.png</file>
+      <file>${PROJECT_ROOT}\MIRO_app_resources\icon_16.png</file>
+    </param.icons>
+    <param.summary>MATLAB Graphical User Interface for MIRO noise correction</param.summary>
+    <param.description />
+    <param.screenshot>C:\Users\biagi\AppData\Local\Temp\tp6677b93d_7e8b_4eca_83c9_d5ecd91e1423.png</param.screenshot>
+    <param.version>1.0</param.version>
+    <param.products.name />
+    <param.products.id />
+    <param.products.version />
+    <param.platforms>
+      <item>win64</item>
+    </param.platforms>
+    <param.output>${PROJECT_ROOT}</param.output>
+    <param.guid>fd3d6f83-e7c4-44f7-b209-b7753781f6e8</param.guid>
+    <unset>
+      <param.email />
+      <param.company />
+      <param.description />
+      <param.version />
+      <param.products.name />
+      <param.products.id />
+      <param.products.version />
+      <param.output />
+    </unset>
+    <fileset.main>
+      <file>${PROJECT_ROOT}\MIRO_app.mlapp</file>
+    </fileset.main>
+    <fileset.depfun>
+      <file>C:\Users\biagi\Documents\MATLAB\MIRO-master\Imdecorr\apodImRect.m</file>
+      <file>C:\Users\biagi\Documents\MATLAB\MIRO-master\Imdecorr\getCorrcoef.m</file>
+      <file>C:\Users\biagi\Documents\MATLAB\MIRO-master\Imdecorr\getDcorr.m</file>
+      <file>C:\Users\biagi\Documents\MATLAB\MIRO-master\Imdecorr\getDcorrMax.m</file>
+      <file>C:\Users\biagi\Documents\MATLAB\MIRO-master\Imdecorr\getRadAvg.m</file>
+      <file>C:\Users\biagi\Documents\MATLAB\MIRO-master\Imdecorr\im2pol.m</file>
+      <file>C:\Users\biagi\Documents\MATLAB\MIRO-master\Imdecorr\linmap.m</file>
+      <file>C:\Users\biagi\Documents\MATLAB\MIRO-master\Imdecorr\ResolutionFinder.m</file>
+      <file>C:\Users\biagi\Documents\MATLAB\MIRO-master\MIRO.m</file>
+      <file>C:\Users\biagi\Documents\MATLAB\MIRO-master\MIRO_functions\Fast Wiener\fast_wiener.mexw64</file>
+      <file>C:\Users\biagi\Documents\MATLAB\MIRO-master\MIRO_functions\Fast Wiener\fast_wiener_video.mexw64</file>
+      <file>C:\Users\biagi\Documents\MATLAB\MIRO-master\MIRO_functions\Fast Wiener\MIRO_Fast_Wiener.m</file>
+      <file>C:\Users\biagi\Documents\MATLAB\MIRO-master\MIRO_functions\Fast Wiener\MIRO_Fast_Wiener_Video.m</file>
+      <file>C:\Users\biagi\Documents\MATLAB\MIRO-master\MIRO_functions\FPN Correction\MIRO_FPN_correction.m</file>
+      <file>C:\Users\biagi\Documents\MATLAB\MIRO-master\MIRO_functions\FPN Correction\MIRO_Hotspot.m</file>
+      <file>C:\Users\biagi\Documents\MATLAB\MIRO-master\MIRO_functions\MIRO_Default_Parameters.m</file>
+      <file>C:\Users\biagi\Documents\MATLAB\MIRO-master\MIRO_functions\MIRO_main.m</file>
+      <file>C:\Users\biagi\Documents\MATLAB\MIRO-master\MIRO_functions\MIRO_parse_inputs.m</file>
+      <file>C:\Users\biagi\Documents\MATLAB\MIRO-master\MIRO_functions\Multiscale Wiener\MIRO_Aggregation.m</file>
+      <file>C:\Users\biagi\Documents\MATLAB\MIRO-master\MIRO_functions\Multiscale Wiener\MIRO_Collaborative_Wiener_dct.m</file>
+      <file>C:\Users\biagi\Documents\MATLAB\MIRO-master\MIRO_functions\Multiscale Wiener\MIRO_Collaborative_Wiener_Initialization.m</file>
+      <file>C:\Users\biagi\Documents\MATLAB\MIRO-master\MIRO_functions\Multiscale Wiener\MIRO_Needle_match.m</file>
+      <file>C:\Users\biagi\Documents\MATLAB\MIRO-master\MIRO_functions\Multiscale Wiener\MIRO_patch_3DFiltering.m</file>
+      <file>C:\Users\biagi\Documents\MATLAB\MIRO-master\MIRO_functions\Multiscale Wiener\MIRO_patch_matching_and_processing.m</file>
+      <file>C:\Users\biagi\Documents\MATLAB\MIRO-master\MIRO_functions\NLM\MIRO_image2vectors_double.mexw64</file>
+      <file>C:\Users\biagi\Documents\MATLAB\MIRO-master\MIRO_functions\NLM\MIRO_nlm.m</file>
+      <file>C:\Users\biagi\Documents\MATLAB\MIRO-master\MIRO_functions\NLM\MIRO_vectors_nlmeans_double.mexw64</file>
+      <file>C:\Users\biagi\Documents\MATLAB\MIRO-master\MIRO_functions\Shearlet Shrinkage\MIRO_Hotspot2.m</file>
+      <file>C:\Users\biagi\Documents\MATLAB\MIRO-master\MIRO_functions\Shearlet Shrinkage\MIRO_Shearlet_thresholding.m</file>
+      <file>C:\Users\biagi\Documents\MATLAB\MIRO-master\MIRO_functions\Shearlet Shrinkage\MIRO_SLcheckFilterSizes.m</file>
+      <file>C:\Users\biagi\Documents\MATLAB\MIRO-master\MIRO_functions\Shearlet Shrinkage\MIRO_SLgetShearletSystem2D.m</file>
+      <file>C:\Users\biagi\Documents\MATLAB\MIRO-master\MIRO_functions\Shearlet Shrinkage\MIRO_SLprepareFilters2D.m</file>
+      <file>C:\Users\biagi\Documents\MATLAB\MIRO-master\MIRO_functions\Shearlet Shrinkage\MIRO_Spectral_weighting.m</file>
+      <file>C:\Users\biagi\Documents\MATLAB\MIRO-master\MIRO_functions\Shearlet Shrinkage\MIRO_tophat.m</file>
+      <file>C:\Users\biagi\Documents\MATLAB\MIRO-master\MIRO_utils\animated_comparison.m</file>
+      <file>C:\Users\biagi\Documents\MATLAB\MIRO-master\MIRO_utils\Block_distance.m</file>
+      <file>C:\Users\biagi\Documents\MATLAB\MIRO-master\MIRO_utils\cprintf.m</file>
+      <file>C:\Users\biagi\Documents\MATLAB\MIRO-master\MIRO_utils\Define_SearchWindow.m</file>
+      <file>C:\Users\biagi\Documents\MATLAB\MIRO-master\MIRO_utils\Display_results_percentage.m</file>
+      <file>C:\Users\biagi\Documents\MATLAB\MIRO-master\MIRO_utils\Locate_blk.m</file>
+      <file>C:\Users\biagi\Documents\MATLAB\MIRO-master\MIRO_utils\nrm.m</file>
+      <file>C:\Users\biagi\Documents\MATLAB\MIRO-master\MIRO_utils\Pyramid.m</file>
+      <file>C:\Users\biagi\Documents\MATLAB\MIRO-master\MIRO_utils\ReadTiff.m</file>
+      <file>C:\Users\biagi\Documents\MATLAB\MIRO-master\MIRO_utils\removePad.m</file>
+      <file>C:\Users\biagi\Documents\MATLAB\MIRO-master\MIRO_utils\Sigma_estimation.m</file>
+      <file>C:\Users\biagi\Documents\MATLAB\MIRO-master\MIRO_utils\Spectral_filter.m</file>
+      <file>C:\Users\biagi\Documents\MATLAB\MIRO-master\MIRO_utils\textprogressbar.m</file>
+      <file>C:\Users\biagi\Documents\MATLAB\MIRO-master\ShearLab\dfilters.m</file>
+      <file>C:\Users\biagi\Documents\MATLAB\MIRO-master\ShearLab\dmaxflat.m</file>
+      <file>C:\Users\biagi\Documents\MATLAB\MIRO-master\ShearLab\MakeONFilter.m</file>
+      <file>C:\Users\biagi\Documents\MATLAB\MIRO-master\ShearLab\mctrans.m</file>
+      <file>C:\Users\biagi\Documents\MATLAB\MIRO-master\ShearLab\MirrorFilt.m</file>
+      <file>C:\Users\biagi\Documents\MATLAB\MIRO-master\ShearLab\modulate2.m</file>
+      <file>C:\Users\biagi\Documents\MATLAB\MIRO-master\ShearLab\SLdshear.m</file>
+      <file>C:\Users\biagi\Documents\MATLAB\MIRO-master\ShearLab\SLfiltersToGPU2D.m</file>
+      <file>C:\Users\biagi\Documents\MATLAB\MIRO-master\ShearLab\SLgetShearletIdxs2D.m</file>
+      <file>C:\Users\biagi\Documents\MATLAB\MIRO-master\ShearLab\SLgetShearlets2D.m</file>
+      <file>C:\Users\biagi\Documents\MATLAB\MIRO-master\ShearLab\SLgetWedgeBandpassAndLowpassFilters2D.m</file>
+      <file>C:\Users\biagi\Documents\MATLAB\MIRO-master\ShearLab\SLpadArray.m</file>
+      <file>C:\Users\biagi\Documents\MATLAB\MIRO-master\ShearLab\SLsheardec2D.m</file>
+      <file>C:\Users\biagi\Documents\MATLAB\MIRO-master\ShearLab\SLshearrec2D.m</file>
+      <file>C:\Users\biagi\Documents\MATLAB\MIRO-master\ShearLab\SLupsample.m</file>
+    </fileset.depfun>
+    <fileset.resources />
+    <fileset.package />
+    <build-deliverables>
+      <file location="C:\Users\biagi\Documents\MATLAB\MIRO-master" name="App" optional="false">C:\Users\biagi\Documents\MATLAB\MIRO-master\App</file>
+    </build-deliverables>
+    <workflow />
+    <matlab>
+      <root>C:\Program Files\MATLAB\R2021b</root>
+      <toolboxes>
+        <toolbox name="matlabcoder" />
+        <toolbox name="neuralnetwork" />
+      </toolboxes>
+      <toolbox>
+        <matlabcoder>
+          <enabled>true</enabled>
+        </matlabcoder>
+      </toolbox>
+      <toolbox>
+        <neuralnetwork>
+          <enabled>true</enabled>
+        </neuralnetwork>
+      </toolbox>
+    </matlab>
+    <platform>
+      <unix>false</unix>
+      <mac>false</mac>
+      <windows>true</windows>
+      <win2k>false</win2k>
+      <winxp>false</winxp>
+      <vista>false</vista>
+      <linux>false</linux>
+      <solaris>false</solaris>
+      <osver>10.0</osver>
+      <os32>false</os32>
+      <os64>true</os64>
+      <arch>win64</arch>
+      <matlab>true</matlab>
+    </platform>
+  </configuration>
+</deployment-project>
