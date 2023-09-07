@@ -460,27 +460,6 @@ def create_file_yemini():
         gcamp_module.add(gcplane)
         gcamp_module.add(gcchan)
 
-    # Check for activity data, populate if detected.
-    if args.activity_bool != 'False':
-        activityfile = args.activity_bool
-
-        df = pd.read_csv(activityfile)
-        df = df.T
-
-        print(df)
-
-        zephir = RoiResponseSeries(
-            name='Neuronal_activity_data',
-            description='Positional ROIs for traced neurons.',
-            unit='pixels',
-            rois=zeph5['x', 'y', 'z'],
-            control=zeph5['worldline_id'],
-            timestamps=zeph5['t_idx'],
-            data=activity_frame
-        )
-
-        neuroPAL_module.add(zephir)
-
     # Check for annotation file, populate if detected.
     if args.annotation_bool != 'False':
         zephirfile = args.annotation_bool
@@ -533,6 +512,30 @@ def create_file_yemini():
         )
 
         zephir_module.add(zephir)
+
+    # Check for activity data, populate if detected.
+    if args.activity_bool != 'False':
+        activityfile = args.activity_bool
+
+        df = pd.read_csv(activityfile)
+        df[df.columns[0]] = []
+        df['neuron'] = []
+        df['last updated'] = []
+        df['function'] = []
+        df['kwargs'] = []
+
+        print(df)
+
+        activity_traces = RoiResponseSeries(
+            name='Neuronal_activity_data',
+            description='Positional ROIs for traced neurons.',
+            unit='pixels',
+            rois=zeph5['x', 'y', 'z'],
+            timestamps=zeph5['t_idx'],
+            data=df.T
+        )
+
+        neuroPAL_module.add(activity_traces)
 
     text = f"{master_dict['name'].replace(' ', '-')}-{master_dict['info']['session_start']}.nwb"
 
