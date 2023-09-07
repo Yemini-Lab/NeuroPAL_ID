@@ -65,16 +65,7 @@ Once NeuroPAL_ID is on your machine, you can run the program by opening `visuali
 
 #### Segmentation Dependencies
 
-If you're using an uncompiled version of NeuroPAL_ID, [Python 3.9+](https://www.python.org/downloads/)\* must be installed for segmentation to work. You will also need to either run `pip install -r requirements.txt` (`requirements-macos.txt` if you have a mac) in the `NeuroPAL_ID` directory or install the following dependencies yourself\*\*:
-
-- matplotlib==3.5.0
-- numpy==1.23.4
-- opencv_python==4.5.5.64
-- Pillow==9.4.0
-- scikit_learn==1.2.1
-- scipy==1.10.0
-- scikit-image==0.19.3
-- tensorflow==2.10.0 (tensorflow-macos & tensorflow-metal if on mac)
+If you're using an uncompiled version of NeuroPAL_ID, [Python 3.9+](https://www.python.org/downloads/)\* must be installed for segmentation to work. On opening the app, you may be prompted to create a virtual environment featuring appropriate dependencies. Alternatively, you can run `pip install -r requirements.txt` (`requirements-macos.txt` if you have a mac) in the `NeuroPAL_ID` directory.
 
 \* Please note that newer versions of python may not be compatible with your particular version of Matlab. Review [this chart](https://www.mathworks.com/support/requirements/python-compatibility.html) to ensure CPython compatibility.   
 
