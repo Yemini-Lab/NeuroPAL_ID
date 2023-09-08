@@ -13,3 +13,4 @@ hdmf
 tifffile
 ndx-multichannel-volume
 h5py
+docopt
