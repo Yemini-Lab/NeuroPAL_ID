@@ -1,4 +1,5 @@
 const yargs = require('yargs/yargs');
+const fs = require('fs');
 const { hideBin } = require('yargs/helpers');
 const { app, BrowserWindow } = require('electron');
 const http = require('http');
@@ -95,6 +96,100 @@ http.createServer((req, res) => {
     res.end('Unknown command');
   }
 }).listen(5002);
+
+function writeLog(message) {
+  fs.appendFile('log.txt', `${new Date().toISOString()} - ${message}\n`, (err) => {
+    if (err) {
+      console.error(`Failed to write to log.txt: ${err}`);
+    }
+  });
+}
+
+function sendKeystrokes(text) {
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+    win.webContents.sendInputEvent({ type: 'char', keyCode: char });
+  }
+}
+
+expressApp.get('/textInput', (req, res) => {
+  const inputText = req.query.input || ''; // Get the input text from the query parameter
+  sendKeystrokes(inputText);
+  res.send('Keystrokes emulated');
+});
+
+expressApp.get('/selectElement', (req, res) => {
+  const className = req.query.class || ''; // Get the class name from the query parameter
+  const sanitizedClassName = className.replace(/"/g, '\\"'); // Sanitize the class name to escape quotes
+  
+  // Execute JavaScript to find the element by class and click it
+  win.webContents.executeJavaScript(`
+    try {
+      const element = document.querySelector('.${sanitizedClassName.split(' ').join('.')}');
+      let result = 'Element not found';
+      if (element) {
+        element.click();
+        result = 'Element clicked';
+      }
+      result;
+    } catch (error) {
+      'JavaScript error: ' + error.toString();
+    }
+  `).then(result => {
+    writeLog(result);
+    res.send(result);
+  }).catch(err => {
+    const errorMessage = `Failed to select and click element: ${err}`;
+    writeLog(errorMessage);
+    res.send(errorMessage);
+  });
+});
+
+expressApp.get('/executeJS', (req, res) => {
+  const jsCode = req.query.code || ''; // Get the JavaScript code from the query parameter
+  
+  // Execute the provided JavaScript code
+  win.webContents.executeJavaScript(jsCode)
+    .then(result => {
+      res.send(`JavaScript executed. Result: ${result}`);
+    })
+    .catch(err => {
+      res.send(`Failed to execute JavaScript: ${err}`);
+    });
+});
+
+expressApp.get('/rpc', (req, res) => {
+  const params = new URLSearchParams(req.query);
+  const method = params.get('method') || '';
+  const arg = params.get('arg') || '';
+  const state = params.get('state') || '';
+
+  // Execute JavaScript to make the RPC call
+  win.webContents.executeJavaScript(`
+    (async () => {
+      try {
+        const response = await fetch("/rpc", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ method: "${method}", arg: "${arg}", state: "${state}" }),
+        });
+        const data = await response.json();
+        return 'RPC call successful: ' + JSON.stringify(data);
+      } catch (error) {
+        return 'RPC call failed: ' + error.toString();
+      }
+    })()
+  `).then(result => {
+    writeLog(result);
+    res.send(result);
+  }).catch(err => {
+    const errorMessage = `Failed to make RPC call: ${err}`;
+    writeLog(errorMessage);
+    res.send(errorMessage);
+  });
+});
 
 expressApp.get('/updatePosition', (req, res) => {
   const x = parseInt(req.query.x);
