@@ -472,100 +472,91 @@ classdef NeuroPALImage
             
             % Open the file.
             np_file = [];
-            nwbRead(nwb_file)
-            image_data = nwbRead(nwb_file);
-            data = image_data.acquisition.get('NeuroPALImageRaw').data.load();
+            nwb = nwbRead(nwb_file)
+
+            acq_keySet = keys(nwb.acquisition.map);
+            proc_keySet = keys(nwb.processing.map);
+
+            % Filter keys based on substrings "gcamp" and "video"
+            filtered_acq_keys = acq_keySet(~contains(lower(acq_keySet), {'gcamp', 'video'}));
+            filtered_proc_keys = proc_keySet(~contains(lower(proc_keySet), {'gcamp', 'video'}));
             
-            % Fix the image orientation and scale.
-            % Note: image dimensions are different than matrix dimensions
-            % images = (height, width, depth) and matrices = (x,y,z). To
-            % convert between the two, we need to switch dimensions 1 and 2.
-            
-            data_order = 1:ndims(data);
-            data_order(1) = 3;
-            data_order(2) = 4;
-            data_order(3) = 2;
-            data_order(4) = 1;
-            %data_order(1) = 2;
-            %data_order(2) = 1;
-            data = permute(data, data_order);
-            
-            %image_data.scale(1) = image_data.scale(2);
-            %image_data.scale(2) = image_data.scale(2);
-            
-            % Setup the NP file data.
-            info.file = nwb_file;
-            neuroPAL_module = image_data.processing.get('NeuroPAL');
-            imagingVolume = image_data.general_optophysiology.get('NeuroPALImVol');
-            grid_spacing_data = imagingVolume.grid_spacing.load();
-            info.scale = grid_spacing_data;
-            info.DIC = nan;
-            
-            % Determine the color channels.
-            %colors = image_data.colors;
-            %colors = round(colors/max(colors(:)));
-            npalraw = image_data.acquisition.get('NeuroPALImageRaw');
-            rgbw = npalraw.RGBW_channels.load();
-            info.RGBW = rgbw+1;
-            info.GFP = nan;
-            %{
-            for i = flip(1:size(colors,1))
-                switch char(colors(i,:))
-                    case [1,0,0] % red
-                        info.RGBW(1) = i;
-                    case [0,1,0] % green
-                        info.RGBW(2) = i;
-                    case [0,0,1] % blue
-                        info.RGBW(3) = i;
-                    case [1,1,1] % white
-                        if i ~= info.DIC
-                            info.RGBW(4) = i;
-                        end
-                    otherwise % GFP
-                        info.GFP = i;
-                end
+            % Combine the filtered keys
+            all_filtered_keys = [filtered_acq_keys; filtered_proc_keys];
+
+            % Display uiconfirm dialog
+            chosenKey = uiconfirm(gcbf, sprintf('Non-video multi-channel volumes found in %s:', nwb_file), 'Multi-Channel Volume Selection', 'Options', all_filtered_keys, 'DefaultOption', 1, 'CancelOption', 1);
+
+            if isKey(nwb.acquisition,chosenKey)
+                target_module = nwb.acquisition.get(chosenKey).nwbdatainterface;
+                target_path = ['nwb.acquisition.get(',chosenKey,').nwbdatainterface'];
+            elseif isKey(nwb.processing,chosenKey)
+                target_module = nwb.processing.get(chosenKey).nwbdatainterface;
+                target_path = ['nwb.processing.get(',chosenKey,').nwbdatainterface'];
+            else
+                'Something went very, very, very wrong.' % It really did.
             end
 
-            % Did we find the GFP channel?
-            if isnan(info.GFP) && size(colors,1) > 4
-                
-                % Assume the first unused channel is GFP.
-                unused = setdiff(1:size(colors,1), info.RGBW);
-                info.GFP = unused(1);
+            if isKey(target_module,'NeuroPALImageRaw')
+                target_module.get('NeuroPALImageRaw')
+                data = target_module.get('NeuroPALImageRaw').data;
+
+                data_order = 1:ndims(data);
+                data_order(1) = 3;
+                data_order(2) = 4;
+                data_order(3) = 2;
+                data_order(4) = 1;
+                %data_order(1) = 2;
+                %data_order(2) = 1;
+                data = permute(data, data_order);
+
+                info.file = nwb_file;
+                info.RGBW = target_module.get('NeuroPALImageRaw').RGBW_channels;
+                info.gamma = NeuroPALImage.gamma_default;
+
+
+                soft_link = target_module.get('NeuroPALImageRaw').imaging_volume
+                soft_link(1)
+
+
+                info.scale = target_module.get('NeuroPALImageRaw').imaging_volume.grid_spacing;
+                info.DIC = nan;
+                info.GFP = nan;
+
+                % Did we find the GFP channel?
+                if isnan(info.GFP) && size(colors,1) > 4
+                    
+                    % Assume the first unused channel is GFP.
+                    unused = setdiff(1:size(colors,1), info.RGBW);
+                    info.GFP = unused(1);
+                end
+
+                % Initialize the worm info.
+                worm.body = 'Head';
+                worm.age = nwb.general_subject.get('growth_stage');
+                worm.sex = nwb.general_subject.get('sex');
+                worm.strain = nwb.general_subject.get('strain');
+                worm.notes = nwb.general_subject.get('description');
+
+                % Initialize the user preferences.
+                prefs.RGBW = info.RGBW;
+                prefs.DIC = info.DIC;
+                prefs.GFP = info.GFP;
+                prefs.gamma = info.gamma;
+                prefs.rotate.horizontal = false;
+                prefs.rotate.vertical = false;
+                prefs.z_center = ceil(size(data,3) / 2);
+                prefs.is_Z_LR = true;
+                prefs.is_Z_flip = true;
+
+                % Save the ND2 file to our MAT file format.
+                np_file = strrep(nwb_file, 'nwb', 'mat');
+                version = ProgramInfo.version;
+                save(np_file, 'version', 'data', 'info', 'prefs', 'worm');
+
+            else
+                error('No NeuroPAL image found in %s.',target_path)
             end
-            %}
-            
-            % Determine the gamma.
-            %info.gamma = 1;
-            %keys = lower(meta_data.keys);
-            %gamma_i = find(contains(keys, 'gamma'),1);
-            %if ~isempty(gamma_i)
-            %    info.gamma = str2double(meta_data.values(gamma_i));
-            %end
-            info.gamma = NeuroPALImage.gamma_default;
-            
-            % Initialize the user preferences.
-            prefs.RGBW = info.RGBW;
-            prefs.DIC = info.DIC;
-            prefs.GFP = info.GFP;
-            prefs.gamma = info.gamma;
-            prefs.rotate.horizontal = false;
-            prefs.rotate.vertical = false;
-            prefs.z_center = ceil(size(data,3) / 2);
-            prefs.is_Z_LR = true;
-            prefs.is_Z_flip = true;
-            
-            % Initialize the worm info.
-            worm.body = 'Head';
-            worm.age = 'Adult';
-            worm.sex = 'XX';
-            worm.strain = '';
-            worm.notes = '';
-            
-            % Save the ND2 file to our MAT file format.
-            np_file = strrep(nwb_file, 'nwb', 'mat');
-            version = ProgramInfo.version;
-            save(np_file, 'version', 'data', 'info', 'prefs', 'worm');
         end
         
         function np_file = convertAny(any_file)
