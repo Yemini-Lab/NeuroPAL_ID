@@ -97,6 +97,7 @@ classdef NeuroPALImage
             [data, info, prefs, worm, mp, neurons, id_file] = ...
                 NeuroPALImage.loadNP(np_file);
         end
+
     end
     
     
@@ -271,7 +272,7 @@ classdef NeuroPALImage
                 end
             end
         end
-        
+
         function np_file = convertCZI(czi_file)
             %CONVERTCZI Convert a CZI file to NeuroPAL format.
             %
@@ -472,7 +473,7 @@ classdef NeuroPALImage
             
             % Open the file.
             np_file = [];
-            nwb = nwbRead(nwb_file)
+            nwb = nwbRead(nwb_file);
 
             acq_keySet = keys(nwb.acquisition.map);
             proc_keySet = keys(nwb.processing.map);
@@ -498,45 +499,65 @@ classdef NeuroPALImage
             end
 
             if isKey(target_module,'NeuroPALImageRaw')
-                target_module.get('NeuroPALImageRaw')
-                data = target_module.get('NeuroPALImageRaw').data;
+                data = target_module.get('NeuroPALImageRaw').data.load;
 
-                data_order = 1:ndims(data);
-                data_order(1) = 3;
-                data_order(2) = 4;
-                data_order(3) = 2;
-                data_order(4) = 1;
-                %data_order(1) = 2;
-                %data_order(2) = 1;
-                data = permute(data, data_order);
+                xyzc_order = [3 4 1 2];
+                data = permute(data,xyzc_order);
 
                 info.file = nwb_file;
-                info.RGBW = target_module.get('NeuroPALImageRaw').RGBW_channels;
+                info.RGBW = target_module.get('NeuroPALImageRaw').RGBW_channels.load;
+                if info.RGBW(1) < 1
+                    info.RGBW = info.RGBW + 1;
+                end
                 info.gamma = NeuroPALImage.gamma_default;
 
+                soft_link = target_module.get('NeuroPALImageRaw').imaging_volume;
+                npal_volume = soft_link.deref(nwb);
 
-                soft_link = target_module.get('NeuroPALImageRaw').imaging_volume
-                soft_link(1)
-
-
-                info.scale = target_module.get('NeuroPALImageRaw').imaging_volume.grid_spacing;
+                info.scale = npal_volume.grid_spacing.load;
                 info.DIC = nan;
                 info.GFP = nan;
 
                 % Did we find the GFP channel?
-                if isnan(info.GFP) && size(colors,1) > 4
+                if isnan(info.GFP) && size(data,4) > 4
                     
                     % Assume the first unused channel is GFP.
-                    unused = setdiff(1:size(colors,1), info.RGBW);
+                    unused = setdiff(1:size(data,4), info.RGBW);
                     info.GFP = unused(1);
                 end
 
                 % Initialize the worm info.
-                worm.body = 'Head';
-                worm.age = nwb.general_subject.get('growth_stage');
-                worm.sex = nwb.general_subject.get('sex');
-                worm.strain = nwb.general_subject.get('strain');
-                worm.notes = nwb.general_subject.get('description');
+                valid_locations = {'Whole Worm', 'Head', 'Midbody', 'Anterior Midbody', 'Central Midbody', 'Posterior Midbody', 'Tail'};
+                nwb_loc = lower(npal_volume.location);
+                for j = 1:length(valid_locations)
+                    list_str = lower(valid_locations{j});
+                    if contains(list_str, nwb_loc)
+                        worm.body = valid_locations{j};
+                        break;
+                    end
+                end
+
+                valid_ages = {'Adult', 'L4', 'L3', 'L2', 'L1'};
+                if ~any(strcmp(valid_ages, nwb.general_subject.growth_stage))
+                    worm.age = 'Adult';
+                else
+                    worm.age = nwb.general_subject.growth_stage;
+                end
+
+                valid_sexes = {'XX', 'XO'}; % Isn't Massachusetts supposed to be deep blue?
+                if ~any(strcmp(valid_sexes, nwb.general_subject.sex))
+                    male_syns = {'M','Male', 'm', 'male'};
+                    if ~any(strcmp(male_syns, nwb.general_subject.sex))
+                        worm.sex = 'XX';
+                    else
+                        worm.sex = 'XO';
+                    end
+                else
+                    worm.sex = nwb.general_subject.sex;
+                end
+
+                worm.strain = nwb.general_subject.strain;
+                worm.notes = nwb.general_subject.description;
 
                 % Initialize the user preferences.
                 prefs.RGBW = info.RGBW;
@@ -550,7 +571,7 @@ classdef NeuroPALImage
                 prefs.is_Z_flip = true;
 
                 % Save the ND2 file to our MAT file format.
-                np_file = strrep(nwb_file, 'nwb', 'mat');
+                np_file = strrep(nwb_file, '.nwb', '.mat');
                 version = ProgramInfo.version;
                 save(np_file, 'version', 'data', 'info', 'prefs', 'worm');
 
