@@ -501,14 +501,19 @@ classdef NeuroPALImage
             if isKey(target_module,'NeuroPALImageRaw')
                 data = target_module.get('NeuroPALImageRaw').data.load;
 
-                xyzc_order = [3 4 1 2];
+                [sorted_dims, xyzc_order] = sort(size(data));
+                xyzc_order = flip(xyzc_order);
+                xyzc_order([1, 2]) = xyzc_order([2, 1]);
                 data = permute(data,xyzc_order);
 
                 info.file = nwb_file;
-                info.RGBW = target_module.get('NeuroPALImageRaw').RGBW_channels.load;
-                if info.RGBW(1) < 1
-                    info.RGBW = info.RGBW + 1;
-                end
+                
+                %info.RGBW = target_module.get('NeuroPALImageRaw').RGBW_channels.load;
+                %if info.RGBW(1) < 1
+                %    info.RGBW = info.RGBW + 1;
+                %end
+                default_RGBW = [1;2;3;4];
+                info.RGBW = default_RGBW(1:size(data,4));
                 info.gamma = NeuroPALImage.gamma_default;
 
                 soft_link = target_module.get('NeuroPALImageRaw').imaging_volume;
@@ -520,7 +525,6 @@ classdef NeuroPALImage
 
                 % Did we find the GFP channel?
                 if isnan(info.GFP) && size(data,4) > 4
-                    
                     % Assume the first unused channel is GFP.
                     unused = setdiff(1:size(data,4), info.RGBW);
                     info.GFP = unused(1);

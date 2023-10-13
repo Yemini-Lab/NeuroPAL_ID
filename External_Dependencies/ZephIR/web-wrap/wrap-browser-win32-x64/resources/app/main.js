@@ -173,7 +173,7 @@ expressApp.get('/rpc', (req, res) => {
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ method: "${method}", arg: "${arg}", state: "${state}" }),
+          body: JSON.stringify({ method: "${method}", arg: "${arg}", state: "${state}"}),
         });
         const data = await response.json();
         return 'RPC call successful: ' + JSON.stringify(data);
@@ -186,6 +186,52 @@ expressApp.get('/rpc', (req, res) => {
     res.send(result);
   }).catch(err => {
     const errorMessage = `Failed to make RPC call: ${err}`;
+    writeLog(errorMessage);
+    res.send(errorMessage);
+  });
+});
+
+expressApp.get('/frame_rpc', (req, res) => {
+  const params = new URLSearchParams(req.query);
+  const method = params.get('method') || '';
+  const arg = params.get('arg') || '';
+  const state = params.get('state') || '';
+
+  // Execute JavaScript to emulate the frame jumping saga behavior
+  win.webContents.executeJavaScript(`
+    (async () => {
+      try {
+        const response = await fetch("/rpc", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ method: "${method}", arg: "${arg}", state: "${state}" }),
+        });
+        const result = await response.json();
+
+        if (result.status === "ok") {
+          for (let action of result.callbacks) {
+            // Emulate dispatching the action and add a delay
+            // (Replace this comment with actual code to dispatch the action if possible)
+            await new Promise(resolve => setTimeout(resolve, 100));
+          }
+          return 'RPC call and callbacks successful';
+        } else {
+          // Emulate showing an alert and logging an error
+          // window.alert(result.exception);
+          // console.error(result.traceback);
+          return 'RPC call failed: ' + result.exception;
+        }
+      } catch (error) {
+        return 'Failed to make RPC call: ' + error.toString();
+      }
+    })()
+  `).then(result => {
+    writeLog(result);
+    res.send(result);
+  }).catch(err => {
+    const errorMessage = `Failed to emulate RPC call: ${err}`;
     writeLog(errorMessage);
     res.send(errorMessage);
   });
