@@ -513,7 +513,7 @@ classdef NeuroPALImage
                 %    info.RGBW = info.RGBW + 1;
                 %end
                 default_RGBW = [1;2;3;4];
-                info.RGBW = default_RGBW(1:size(data,4));
+                info.RGBW = default_RGBW(1:min(size(data,4),4));
                 info.gamma = NeuroPALImage.gamma_default;
 
                 soft_link = target_module.get('NeuroPALImageRaw').imaging_volume;
