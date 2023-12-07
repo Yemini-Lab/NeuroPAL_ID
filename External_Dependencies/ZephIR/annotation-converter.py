@@ -22,6 +22,7 @@ video_path = Path(sys.argv[2])
 metadata_path = Path(sys.argv[3])
 color_stack = Path(sys.argv[4])
 csv_path = Path(sys.argv[5])
+current_frame = int(sys.argv[6])
 
 def load_annotations(dataset: Optional[Path] = None
                      ) -> Tuple[AnnotationTable, WorldlineTable]:
@@ -56,7 +57,7 @@ def save_annotations(annotations: AnnotationTable,
     worldlines.to_hdf(dataset / "worldlines.h5")
     print(f"Saved worldlines to {dataset / 'worldlines.h5'}.", flush=True)
 
-def cellid_to_annotator(dataset, video_path, metadata_path, color_stack, csv_path):
+def cellid_to_annotator(dataset, video_path, metadata_path, color_stack, csv_path, current_frame):
     gcamp = video_path
     metadata = io.get_metadata(metadata_path)
     shape = (metadata["shape_y"], metadata["shape_x"], metadata["shape_z"])
@@ -98,8 +99,8 @@ def cellid_to_annotator(dataset, video_path, metadata_path, color_stack, csv_pat
                 a.provenance = b"NPAL"
                 A.insert(a)
 
-            save_annotations(A, W, color_stack)
-            save_annotations(A, W, gcamp)
+            save_annotations(A, W, color_stack, current_frame)
+            save_annotations(A, W, gcamp, current_frame)
     else:
         frames = [0, 1]  # Default frames if 'Frame' column is not present
 
@@ -109,14 +110,13 @@ def cellid_to_annotator(dataset, video_path, metadata_path, color_stack, csv_pat
                 a.id = i + 1
                 a.t_idx = t
                 position = (row['Y'], row['X'], row['Z'])
-                #print(position)
                 (a.y, a.x, a.z) = coords_from_idx(position,shape)
                 a.worldline_id = row['TrackID']
                 a.provenance = b"NPAL"
                 A.insert(a)
 
-            save_annotations(A, W, color_stack)
-            save_annotations(A, W, gcamp)
+            save_annotations(A, W, color_stack, current_frame)
+            save_annotations(A, W, gcamp, current_frame)
 
 
-cellid_to_annotator(dataset, video_path, metadata_path, color_stack, csv_path)
+cellid_to_annotator(dataset, video_path, metadata_path, color_stack, csv_path, current_frame)
