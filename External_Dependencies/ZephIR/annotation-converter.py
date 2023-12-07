@@ -38,6 +38,7 @@ def load_annotations(dataset: Optional[Path] = None
     else:
         worldlines = WorldlineTable.from_annotations(annotations)
     return (annotations, worldlines)
+
 def save_annotations(annotations: AnnotationTable,
                      worldlines: WorldlineTable,
                      dataset: Path = None,
@@ -47,11 +48,13 @@ def save_annotations(annotations: AnnotationTable,
     if ".nwb" in str(dataset):
         dataset = Path(str(dataset).replace('.nwb',''))
     annotation_file_path = dataset / "annotations.h5"
+    print(f"Saved annotations to {annotation_file_path}.", flush=True)
 
     # File doesn't exist, just save
     annotations.to_hdf(annotation_file_path)
     # Save worldlines
     worldlines.to_hdf(dataset / "worldlines.h5")
+    print(f"Saved worldlines to {dataset / 'worldlines.h5'}.", flush=True)
 
 def cellid_to_annotator(dataset, video_path, metadata_path, color_stack, csv_path):
     gcamp = video_path
@@ -62,13 +65,6 @@ def cellid_to_annotator(dataset, video_path, metadata_path, color_stack, csv_pat
     csv_data = pd.read_csv(csv_path)
     names = csv_data['Name'].values
     ids = csv_data['TrackID'].values
-
-    # Check if 'Frame' column exists, case-insensitive
-    frame_col = next((col for col in csv_data.columns if col.lower() == 'frame'), None)
-    if frame_col:
-        frames = np.unique(csv_data[frame_col].values)
-    else:
-        frames = [0, 1]  # Default frames if 'Frame' column is not present
 
     A = AnnotationTable()
     W = WorldlineTable()
@@ -84,21 +80,43 @@ def cellid_to_annotator(dataset, video_path, metadata_path, color_stack, csv_pat
             w.name = names[eachNeuron]
             W._insert_and_preserve_id(w)
 
-    #for t in frames:
-    for t in tqdm(frames, desc="Processing annotations...", leave=False):
-        frame_data = csv_data[csv_data[frame_col] == t]
-        #print(frame_data)
-        for i, (index, row) in enumerate(frame_data.iterrows()):
-            a = Annotation()
-            a.id = i + 1
-            a.t_idx = t
-            position = (row['Y'], row['X'], row['Z'])
-            (a.y, a.x, a.z) = coords_from_idx(position,shape)
-            a.worldline_id = row['TrackID']
-            a.provenance = b"NPAL"
-            A.insert(a)
+    # Check if 'Frame' column exists, case-insensitive
+    frame_col = next((col for col in csv_data.columns if col.lower() == 'frame'), None)
+    if frame_col:
+        frames = np.unique(csv_data[frame_col].values)
 
-        save_annotations(A, W, color_stack)
-        save_annotations(A, W, gcamp)
+        for t in tqdm(frames, desc="Processing annotations...", leave=False):
+            frame_data = csv_data[csv_data[frame_col] == t]
+
+            for i, (index, row) in enumerate(frame_data.iterrows()):
+                a = Annotation()
+                a.id = i + 1
+                a.t_idx = t
+                position = (row['Y'], row['X'], row['Z'])
+                (a.y, a.x, a.z) = coords_from_idx(position,shape)
+                a.worldline_id = row['TrackID']
+                a.provenance = b"NPAL"
+                A.insert(a)
+
+            save_annotations(A, W, color_stack)
+            save_annotations(A, W, gcamp)
+    else:
+        frames = [0, 1]  # Default frames if 'Frame' column is not present
+
+        for t in tqdm(frames, desc="Processing annotations...", leave=False):
+            for i, (index, row) in enumerate(csv_data.iterrows()):
+                a = Annotation()
+                a.id = i + 1
+                a.t_idx = t
+                position = (row['Y'], row['X'], row['Z'])
+                #print(position)
+                (a.y, a.x, a.z) = coords_from_idx(position,shape)
+                a.worldline_id = row['TrackID']
+                a.provenance = b"NPAL"
+                A.insert(a)
+
+            save_annotations(A, W, color_stack)
+            save_annotations(A, W, gcamp)
+
 
 cellid_to_annotator(dataset, video_path, metadata_path, color_stack, csv_path)
