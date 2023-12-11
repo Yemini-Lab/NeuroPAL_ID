@@ -513,7 +513,7 @@ classdef AutoId < handle
             neurons =  obj.atlas.(lower(worm.sex)).(lower(worm.body)).N;
             aligned = im.get_aligned_xyzRGBs();
             
-            % Are the neurons alignes?
+            % Are the neurons aligned?
             if isempty(aligned)
                 return;
             end
