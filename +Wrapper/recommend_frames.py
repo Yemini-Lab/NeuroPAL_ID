@@ -27,8 +27,115 @@ from collections import OrderedDict
 from docopt import docopt
 
 from zephir.__version__ import __version__
-from zephir.methods.build_pdists import get_all_pdists
+#from zephir.methods.build_pdists import get_all_pdists
+from skimage.transform import resize
 from zephir.utils.utils import *
+from zephir.utils.io import *
+import numpy as np
+import sys
+
+
+def dist_corrcoef(image_1, image_2):
+    """Return a distance between two images corresponding to 1 minus the
+    correlation coefficient between them. This can go from 0 to 2."""
+
+    dist = 0
+    for x1, x2 in zip(image_1, image_2):
+        dist += (1 - np.corrcoef(x1.ravel(), x2.ravel())[0, 1])/len(image_1)
+    return dist
+
+
+def get_thumbnail(dataset, channel, t, scale):
+    """Return low-resolution thumbnail of data volume."""
+
+    v = get_slice(dataset, t)
+    if channel is not None:
+        v = v[channel]
+    elif len(v.shape) == 4:
+        v = np.max(v, axis=0)
+    tmg = []
+    new_shape = np.array([max(1, l//s) for l, s in zip(v.shape, scale)])
+    for d in range(len(v.shape)):
+        mip = np.max(v, axis=d)
+        tmg.append(resize(mip, np.delete(new_shape, d)))
+    return tmg
+
+
+def get_all_pdists(dataset, shape_t, channel,
+                   dist_fn=dist_corrcoef,
+                   load=True, save=True,
+                   scale=(4, 16, 16),
+                   pbar=False
+                   ) -> np.ndarray:
+    """Return all pairwise distances between the first shape_t frames in a dataset."""
+
+    f = dataset / 'null.npy'
+    if load or save:
+        if channel is not None:
+            f = dataset / f'pdcc_c{channel}.npy'
+        else:
+            f = dataset / f'pdcc.npy'
+    if f.is_file() and load:
+        pdcc = np.load(str(f), allow_pickle=True)
+        if pdcc.shape == (shape_t, shape_t):
+            return pdcc
+
+    print('Compiling thumbnails...')
+    thumbnails = [get_thumbnail(dataset, channel, t, scale) for t in range(shape_t)]
+
+    d = np.zeros((shape_t, shape_t))
+    for i in (tqdm(range(shape_t), desc='Calculating distances', unit='frames', file=sys.stdout) if pbar else range(shape_t)):
+        for j in range(i+1, shape_t):
+            dist = dist_fn(thumbnails[i], thumbnails[j])
+            if np.isnan(dist):
+                d[i, j] = 2.0
+            else:
+                d[i, j] = dist
+
+    d_full = d + np.transpose(d)
+    if save:
+        np.save(str(f), d_full, allow_pickle=True)
+
+    return d_full
+
+
+def get_partial_pdists(dataset, shape_t, p_list, channel,
+                       dist_fn=dist_corrcoef,
+                       load=True,
+                       scale=(4, 16, 16),
+                       pbar=False
+                       ) -> np.ndarray:
+    """Return pairwise distances between shape_t frames and their parents in a dataset."""
+
+    f = dataset / 'null.npy'
+    if load:
+        if channel is not None:
+            f = dataset / f'pdcc_c{channel}.npy'
+        else:
+            f = dataset / f'pdcc.npy'
+    d_full = None
+    if f.is_file() and load:
+        d_full = np.load(str(f), allow_pickle=True)
+
+    print('Compiling thumbnails...')
+    thumbnails = [get_thumbnail(dataset, channel, t, scale) for t in range(shape_t)]
+
+    d_partial = np.zeros(shape_t)
+    for i in (tqdm(range(shape_t), desc='Calculating distances', unit='frames') if pbar else range(shape_t)):
+
+        if p_list[i] < 0:
+            continue
+
+        if d_full is not None and d_full.shape[1] > int(p_list[i]):
+            d_partial[i] = d_full[i, int(p_list[i])]
+        else:
+            dist = dist_fn(thumbnails[i], thumbnails[int(p_list[i])])
+            if np.isnan(dist):
+                d_partial[i] = 2.0
+            else:
+                d_partial[i] = dist
+
+    return d_partial
 
 
 def recommend_frames(
@@ -36,12 +143,10 @@ def recommend_frames(
     save_to_metadata, verbose
 ):
 
-    print(f"First: {dataset}", flush=True)
     if str(dataset)[-1] == '"':
         dataset = Path(str(dataset)[:-1])
     if str(dataset)[0] == '"':
         dataset = Path(str(dataset)[1:])
-    print(f"Then: {dataset}", flush=True)
 
     metadata = get_metadata(dataset)
     shape_t = metadata['shape_t']
@@ -59,7 +164,7 @@ def recommend_frames(
     t_ref = [t_list[med_idx]]
     s_ref = [opt_score]
     scores = d_slice[med_idx, :]
-    pbar = tqdm(range(n_frames - 1), desc='Optimizing reference frames', unit='n_frames', leave=False)
+    pbar = tqdm(range(n_frames - 1), desc='Optimizing reference frames', unit='n_frames', leave=False, file=sys.stdout)
     for i in pbar:
         d_adj = np.append(
             d_slice.copy()[:, :, None],
@@ -74,16 +179,6 @@ def recommend_frames(
         t_ref.append(t_list[new_midx])
         s_ref.append(opt_score)
         scores = d_opt[new_midx, :]
-    print(f'\nFirst pass reference frames: {t_ref}'
-          f'\nCurrent optimized score: {opt_score:.4f}')
-
-    if verbose:
-        plot_with_indicator_v(
-            [scores],
-            [[t, np.min(scores), 0.5] for t in t_ref],
-            x_list=[t_list],
-            title=f'First pass mean score: {opt_score:.4f}'
-        )
 
     print(f'\nIterating over found reference frames...')
     n_i = 0
@@ -114,29 +209,8 @@ def recommend_frames(
         if kscore < opt_score:
             opt_score = kscore
             n_i += 1
-            if verbose:
-                print(f'\nIter#{n_i}\tCurrent reference frames: {t_ref}'
-                      f'\t\tCurrent optimal score: {opt_score:.4f}')
         else:
             break
-    print(f'\nFinal reference frames: {t_ref}\n'
-          f'Final optimized score: {opt_score:.4f}')
-
-    if verbose:
-        plot_with_indicator_v(
-            [scores],
-            [[t, np.min(scores), 0.5] for t in t_ref],
-            x_list=[t_list],
-            title=f'Final mean score: {opt_score:.4f}'
-        )
-
-        plt.figure()
-        # plt.title('opt_score vs N_ref')
-        plt.xlabel('Number of reference frames')
-        plt.ylabel('Mean distance to reference')
-        plt.ylim(0, np.max(s_ref)+0.05)
-        plt.plot(np.arange(1, len(s_ref) + 1), s_ref)
-        plt.show()
 
     if save_to_metadata:
         update_metadata(dataset, {f't_ref_fn{len(t_list)}': [int(i) for i in t_ref]})
@@ -163,6 +237,4 @@ def main():
 
 if __name__ == '__main__':
     t_ref = main()
-    print(t_ref)
     t_ref.sort()
-    print(t_ref)
