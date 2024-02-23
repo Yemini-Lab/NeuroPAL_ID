@@ -149,7 +149,7 @@ def main():
     #print(args, '\n')
 
     t_ref = recommend_frames(
-        dataset=Path(args['--dataset']),
+        dataset=Path(args['--dataset']).parent,
         n_frames=int(args['--n_frames']),
         n_iter=int(args['--n_iter']),
         t_list=eval(args['--t_list']) if args['--t_list'] else None,
