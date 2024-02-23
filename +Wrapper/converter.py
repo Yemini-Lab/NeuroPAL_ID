@@ -1,7 +1,17 @@
 import sys
-import scipy
+
 import numpy as np
+import pandas as pd
+import scipy
+from scipy.io import loadmat
 from tqdm import tqdm
+from zephir.annotator.data.annotations_io import Annotation, AnnotationTable, Worldline, WorldlineTable
+from zephir.annotator.data.transform import coords_from_idx
+from zephir.methods import *
+from zephir.methods import *
+from zephir.utils import io
+
+from pathlib import Path
 
 
 def convert_array_to_list(array):
@@ -45,28 +55,83 @@ def load_annotations(file_path):
     return convert_struct_to_dict(annotations)
 
 
+def cellid_to_annotator(video_path, metadata, data):
+    shape = (metadata["ny"], metadata["nx"], metadata["nz"])
+    names = list(data.keys())
+
+    A = AnnotationTable()
+    W = WorldlineTable()
+    processed = []
+
+    # Generate worldline.h5
+    for eachIdx in tqdm(range(len(names)), desc="Processing wordlines...", leave=True):
+        if eachIdx in processed:
+            pass
+        else:
+            w = Worldline()
+            w.id = eachIdx
+            w.name = names[eachIdx]
+            W._insert_and_preserve_id(w)
+
+    # Generate annotations.h5
+    frames = range(metadata["nt"])
+
+    annotation_idx = 0
+    for eachWL in tqdm(range(len(names)), desc='Processing annotations...', leave=True):
+        for t in tqdm(range(len(frames)), desc='Processing frames...', leave=False):
+            a = Annotation()
+            a.id = annotation_idx + 1
+            a.t_idx = t
+            position = (valid_worldlines[names[eachWL]]['t'][t]['y'], valid_worldlines[names[eachWL]]['t'][t]['x'], valid_worldlines[names[eachWL]]['t'][t]['z'])
+            (a.y, a.x, a.z) = coords_from_idx(position, shape)
+            a.worldline_id = eachWL
+            a.provenance = valid_worldlines[names[eachWL]]['provenance']
+            A.insert(a)
+            annotation_idx += 1
+
+    A.to_hdf(video_path / "annotations.h5")
+    print(f"Saved annotations to {video_path / 'annotations.h5'}.", flush=True)
+
+    W.to_hdf(video_path / "worldlines.h5")
+    print(f"Saved worldlines to {video_path / 'worldlines.h5'}.", flush=True)
+
+
 cache_path = sys.argv[1]
-video_neurons_validation = scipy.io.loadmat(cache_path)
+meta_path = sys.argv[2]
+video_path = Path(sys.argv[3]).parent
 video_neurons = load_annotations(cache_path)
+video_info = scipy.io.loadmat(meta_path)
 
 valid_worldlines = {}
 invalid_worldlines = []
+
+print(video_info['info'][0][0])
+
+for i in tqdm(range(4), desc="Extracting video metadata...", leave=True):
+    metadata = {
+        'path': video_info['info'][0][0][0][0],
+        'nx': video_info['info'][0][0][1][0][0],
+        'ny': video_info['info'][0][0][2][0][0],
+        'nz': video_info['info'][0][0][3][0][0],
+        'nc': video_info['info'][0][0][4][0][0],
+        'nt': video_info['info'][0][0][5][0][0]
+    }
 
 for i in tqdm(range(len(video_neurons['worldline'])), desc="Validating neuron structure...", leave=True):
     if isinstance(video_neurons['worldline'][i][0][0][0][0], str) and isinstance(video_neurons['worldline'][i][0][0][2],
                                                                                  np.ndarray):
         # print(f"Validated {video_neurons['worldline'][i][0][0][0][0]} wordline integrity.")
         valid_worldlines[video_neurons['worldline'][i][0][0][0][0]] = {
-            'provenance': video_neurons['provenance'][i],
-            'color': video_neurons['worldline'][i][0][0][2],
+            'provenance': video_neurons['provenance'][i][0],
+            'color': video_neurons['worldline'][i][0][0][2][0],
             't': {}
         }
 
         for eachFrame in range(len(video_neurons['rois'][i][0])):
             valid_worldlines[video_neurons['worldline'][i][0][0][0][0]]['t'][eachFrame] = {
-                'x': video_neurons['rois'][i][0][eachFrame][0],
-                'y': video_neurons['rois'][i][0][eachFrame][1],
-                'z': video_neurons['rois'][i][0][eachFrame][2]
+                'x': video_neurons['rois'][i][0][eachFrame][0][0][0],
+                'y': video_neurons['rois'][i][0][eachFrame][1][0][0],
+                'z': video_neurons['rois'][i][0][eachFrame][2][0][0]
             }
     else:
         invalid_worldlines += [i]
@@ -74,4 +139,4 @@ for i in tqdm(range(len(video_neurons['worldline'])), desc="Validating neuron st
 
 print(f"Ignoring worldlines {invalid_worldlines} due to lack of IDs.", flush=True)
 print(f"Validated {len(valid_worldlines.keys())}/{len(video_neurons['worldline'])} ({round((len(valid_worldlines.keys()) / len(video_neurons['worldline'])) * 100)}%) worldlines across {len(video_neurons['rois'][i][0])} frames.", flush=True)
-
+cellid_to_annotator(video_path, metadata, valid_worldlines)
