@@ -19,6 +19,11 @@ Options:
     --n_iter=<n_iter>  						number of iterations for optimizing results; -1 to uncap. [default: 0]
     --t_list=<t_list>  						frames to analyze.
     --channel=<channel>  					data channel to use for calculating correlation coefficients.
+    --nx=<nx>  	                            size of x-axis.
+    --ny=<ny>  	                            size of y-axis.
+    --nz=<nz>  	                            number of slices.
+    --nc=<nc>  	                            number of channels.
+    --nt=<nt>  	                            number of frames.
     --save_to_metadata=<save_to_metadata>  	save t_ref to metadata.json. [default: True]
     --verbose=<verbose>  					return score plots during search. [default: False]
 """
@@ -138,17 +143,13 @@ def get_partial_pdists(dataset, shape_t, p_list, channel,
     return d_partial
 
 
-def recommend_frames(
-    dataset, n_frames, n_iter, t_list, channel,
-    save_to_metadata, verbose
-):
+def recommend_frames(dataset, n_frames, n_iter, t_list, channel, metadata, save_to_metadata, verbose):
 
     if str(dataset)[-1] == '"':
         dataset = Path(str(dataset)[:-1])
     if str(dataset)[0] == '"':
         dataset = Path(str(dataset)[1:])
 
-    metadata = get_metadata(dataset)
     shape_t = metadata['shape_t']
     if t_list is None:
         t_list = list(range(shape_t))
@@ -220,7 +221,14 @@ def recommend_frames(
 
 def main():
     args = docopt(__doc__, version=f'ZephIR recommend_frames {__version__}')
-    #print(args, '\n')
+
+    metadata_dict = {
+        'shape_x': int(args['--nx']),
+        'shape_y': int(args['--ny']),
+        'shape_z': int(args['--nz']),
+        'shape_c': int(args['--nc']),
+        'shape_t': int(args['--nt'])
+    }
 
     t_ref = recommend_frames(
         dataset=Path(args['--dataset']).parent,
@@ -228,6 +236,7 @@ def main():
         n_iter=int(args['--n_iter']),
         t_list=eval(args['--t_list']) if args['--t_list'] else None,
         channel=int(args['--channel']) if args['--channel'] else None,
+        metadata=metadata_dict,
         save_to_metadata=args['--save_to_metadata'] in ['True', 'Y', 'y'],
         verbose=args['--verbose'] in ['True', 'Y', 'y'],
     )
