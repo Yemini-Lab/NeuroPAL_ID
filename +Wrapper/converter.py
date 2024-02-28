@@ -77,20 +77,44 @@ def cellid_to_annotator(video_path, metadata, data):
     frames = range(metadata["nt"])
 
     annotation_idx = 0
-    for eachWL in tqdm(range(len(names)), desc='Processing annotations...', leave=True):
-        for t in tqdm(range(len(frames)), desc='Processing frames...', leave=False):
+    no_annotations = 0
+
+    for t in tqdm(frames, desc='Processing frames...', leave=True):
+        for eachWL in tqdm(range(len(names)), desc='Processing annotations...', leave=False):
             a = Annotation()
             a.id = annotation_idx + 1
             a.t_idx = t
-            position = (valid_worldlines[names[eachWL]]['t'][t]['y'], valid_worldlines[names[eachWL]]['t'][t]['x'], valid_worldlines[names[eachWL]]['t'][t]['z'])
+            try:
+                position = (valid_worldlines[names[eachWL]]['t'][t]['y'], valid_worldlines[names[eachWL]]['t'][t]['x'], valid_worldlines[names[eachWL]]['t'][t]['z'])
+            except:
+                no_annotations += 1
             (a.y, a.x, a.z) = coords_from_idx(position, shape)
             a.worldline_id = eachWL
             a.provenance = valid_worldlines[names[eachWL]]['provenance']
-            A.insert(a)
-            annotation_idx += 1
+            if a.x.size > 0 and a.y.size > 0 and a.z.size > 0:
+                A.insert(a)
+                annotation_idx += 1
+
+    '''
+    for eachWL in tqdm(range(len(names)), desc='Processing annotations...', leave=True):
+        for t in tqdm(frames, desc='Processing frames...', leave=False):
+            a = Annotation()
+            a.id = annotation_idx + 1
+            a.t_idx = t
+            try:
+                position = (valid_worldlines[names[eachWL]]['t'][t]['y'], valid_worldlines[names[eachWL]]['t'][t]['x'], valid_worldlines[names[eachWL]]['t'][t]['z'])
+            except:
+                no_annotations += 1
+            (a.y, a.x, a.z) = coords_from_idx(position, shape)
+            a.worldline_id = eachWL
+            a.provenance = valid_worldlines[names[eachWL]]['provenance']
+            if a.x.size > 0 and a.y.size > 0 and a.z.size > 0:
+                A.insert(a)
+                annotation_idx += 1
+    '''
 
     A.to_hdf(video_path / "annotations.h5")
-    print(f"Saved annotations to {video_path / 'annotations.h5'}.", flush=True)
+    print(f"Saved annotations for {len(frames)-no_annotations}/{len(frames)} frames to {video_path / 'annotations.h5'}.", flush=True)
 
     W.to_hdf(video_path / "worldlines.h5")
     print(f"Saved worldlines to {video_path / 'worldlines.h5'}.", flush=True)
@@ -128,11 +152,15 @@ for i in tqdm(range(len(video_neurons['worldline'])), desc="Validating neuron st
         }
 
         for eachFrame in range(len(video_neurons['rois'][i][0])):
-            valid_worldlines[video_neurons['worldline'][i][0][0][0][0]]['t'][eachFrame] = {
-                'x': video_neurons['rois'][i][0][eachFrame][0][0][0],
-                'y': video_neurons['rois'][i][0][eachFrame][1][0][0],
-                'z': video_neurons['rois'][i][0][eachFrame][2][0][0]
-            }
+            try:
+                valid_worldlines[video_neurons['worldline'][i][0][0][0][0]]['t'][eachFrame] = {
+                    'x': video_neurons['rois'][i][0][eachFrame][0][0],
+                    'y': video_neurons['rois'][i][0][eachFrame][1][0],
+                    'z': video_neurons['rois'][i][0][eachFrame][2][0]
+                }
+            except:
+                print(f"Failed on frame {eachFrame}.", flush=True)
+                quit()
     else:
         invalid_worldlines += [i]
         # print(f"{video_neurons['worldline'][i][0][0][0][0]} wordline integrity compromised: Name -> {isinstance(video_neurons['worldline'][i][0][0][0][0], str)} ({type(video_neurons['worldline'][i][0][0][0])}); Color -> {isinstance(video_neurons['worldline'][i][0][0][2], np.ndarray)} ({type(video_neurons['worldline'][i][0][0][2])}).")
