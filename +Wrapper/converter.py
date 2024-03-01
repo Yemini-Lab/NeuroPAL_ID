@@ -71,6 +71,7 @@ def cellid_to_annotator(video_path, metadata, data):
             w = Worldline()
             w.id = eachIdx
             w.name = names[eachIdx]
+            w.color = data[names[eachIdx]]['color']
             W._insert_and_preserve_id(w)
 
     # Generate annotations.h5
