@@ -43,6 +43,9 @@ from zephir.methods import *
 from zephir.models.zephir import ZephIR
 from zephir.utils.utils import *
 
+import pandas as pd
+import h5py
+
 
 def double_exp(t, a1, b1, a2, b2):
     return a1 * np.exp(-b1 * t) + a2 * np.exp(-b2 * t)
@@ -199,15 +202,19 @@ def extract_traces(
     if cutoff > 0:
         for n in tqdm(range(n_neuron), desc='Applying lowpass filter', unit='items'):
             params = butter(N=2, Wn=cutoff, output='ba', btype='lowpass', fs=4.0, analog=False)
-            for c in range(traces.shape[0]):
-                traces[c, n, t_list] = filtfilt(
-                    params[0], params[1], traces[c, n, t_list]
-                )
-                traces[c, n, t_list] = fill_nans(traces[c, n, t_list])
+            if len(t_list) <= 3 * max(len(params[0]), len(params[1])):
+                print(f"Video with {len(t_list)} frames is too short to apply lowpass filter, skipping lowpass & figure saving.", flush=True)
+                save_as_fig = False
+            else:
+                for c in range(traces.shape[0]):
+                    traces[c, n, t_list] = filtfilt(
+                        params[0], params[1], traces[c, n, t_list]
+                    )
+                    traces[c, n, t_list] = fill_nans(traces[c, n, t_list])
 
-            if verbose:
-                plt.plot(t_list, traces[1, n, t_list], 'g-')
-                plt.show()
+                if verbose:
+                    plt.plot(t_list, traces[1, n, t_list], 'g-')
+                    plt.show()
 
     # debleaching
     if debleach:
@@ -234,7 +241,21 @@ def extract_traces(
         traces[0, n, :] = fill_nans(traces[0, n, :])
 
     if save_as_npy:
-        np.save(str(dataset / f'traces.npy'), traces)
+        df_trace = pd.DataFrame(np.squeeze(traces))
+        df_trace['worldline_id'] = worldline_id
+        path = container.get('dataset')
+
+        with h5py.File(str(path / 'worldlines.h5'), "r") as f:
+            names = f['name'][()]
+            ids = f['id'][()]
+
+        id_to_name = dict(zip(df_trace['worldline_id'], [name.decode() for name in names]))
+        df_trace['worldline'] = df_trace['worldline_id'].map(id_to_name)
+        new_order = ['worldline_id', 'worldline'] + [col for col in df_trace.columns if col not in ['worldline_id', 'worldline']]
+        df_trace_reordered = df_trace[new_order]
+        df_trace_reordered.to_csv(str(dataset / 'results.csv'))
+
+        #np.save(str(dataset / f'traces.npy'), traces)
 
     if save_as_fig:
         # plt.rcParams.update({'font.size': 14})
