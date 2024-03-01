@@ -51,7 +51,7 @@ def load_annotations(file_path):
     Load MATLAB .mat file and convert its 'annotations' contents into a Python dictionary.
     """
     data = scipy.io.loadmat(file_path)
-    annotations = data['annotations']
+    annotations = data['annos']
     return convert_struct_to_dict(annotations)
 
 
