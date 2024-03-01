@@ -169,6 +169,13 @@ if length(lasersI) < numChannels - is_DIC
         'AdditionalDyeInformation|DyeMaxExcitation'));
 end
 
+% Did we find enough excitation lasers? If not, try legacy format.
+is_DIC = ~isempty(image.dicChannel);
+if length(lasersI) < numChannels - is_DIC
+    lasersI = find(contains(keys, ...
+        'Global Information|Image|Channel|Wavelength'));
+end
+
 % Extract the image excitation/emission information.
 laserKeys = keys(lasersI);
 laserValues = values(lasersI);
