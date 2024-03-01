@@ -71,7 +71,7 @@ def cellid_to_annotator(video_path, metadata, data):
             w = Worldline()
             w.id = eachIdx
             w.name = names[eachIdx]
-            w.color = data[names[eachIdx]]['color']
+            # w.color = data[names[eachIdx]]['color']
             W._insert_and_preserve_id(w)
 
     # Generate annotations.h5
@@ -96,24 +96,6 @@ def cellid_to_annotator(video_path, metadata, data):
                 A.insert(a)
                 annotation_idx += 1
 
-    '''
-    for eachWL in tqdm(range(len(names)), desc='Processing annotations...', leave=True):
-        for t in tqdm(frames, desc='Processing frames...', leave=False):
-            a = Annotation()
-            a.id = annotation_idx + 1
-            a.t_idx = t
-            try:
-                position = (valid_worldlines[names[eachWL]]['t'][t]['y'], valid_worldlines[names[eachWL]]['t'][t]['x'], valid_worldlines[names[eachWL]]['t'][t]['z'])
-            except:
-                no_annotations += 1
-            (a.y, a.x, a.z) = coords_from_idx(position, shape)
-            a.worldline_id = eachWL
-            a.provenance = valid_worldlines[names[eachWL]]['provenance']
-            if a.x.size > 0 and a.y.size > 0 and a.z.size > 0:
-                A.insert(a)
-                annotation_idx += 1
-    '''
-
     A.to_hdf(video_path / "annotations.h5")
     print(f"Saved annotations for {len(frames)-no_annotations}/{len(frames)} frames to {video_path / 'annotations.h5'}.", flush=True)
 
@@ -129,8 +111,6 @@ video_info = scipy.io.loadmat(meta_path)
 
 valid_worldlines = {}
 invalid_worldlines = []
-
-print(video_info['info'][0][0])
 
 for i in tqdm(range(4), desc="Extracting video metadata...", leave=True):
     metadata = {
