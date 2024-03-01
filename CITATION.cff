@@ -13,6 +13,10 @@ authors:
     email: eviatar.yemini@umassmed.edu
     affiliation: University of Massachusetts Chan Medical School
     orcid: 'https://orcid.org/0000-0003-1977-0761'
+  - given-names: Kevin
+    family-names: Rusch
+    email: kwrusch@seas.upenn.edu
+    affiliation: University of Massachusetts Chan Medical School
 identifiers:
   - type: url
     value: 'https://github.com/Yemini-Lab/NeuroPAL_ID'

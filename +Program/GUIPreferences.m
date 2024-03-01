@@ -18,8 +18,10 @@ classdef GUIPreferences < handle
         % Preferences file.
         prefs_file = [];
         
-        % Image directory.
+        % Data directories.
         image_dir = [];
+        trace_path = [];
+        seg_path = [];
         
         % Display info.
         GFP_color = [1,1,0]; % GFP reporter color for GUI
