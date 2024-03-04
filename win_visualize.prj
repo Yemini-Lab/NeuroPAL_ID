@@ -8,7 +8,7 @@
       <file>${PROJECT_ROOT}\win_visualize_resources\icon_24.png</file>
       <file>${PROJECT_ROOT}\win_visualize_resources\icon_16.png</file>
     </param.icons>
-    <param.version>1.9</param.version>
+    <param.version>2.0</param.version>
     <param.authnamewatermark>K. Rusch, E. Yemini, A. Nejatbakhsh, et al</param.authnamewatermark>
     <param.email />
     <param.company>UMass Chan Med School, Columbia University</param.company>
@@ -47,7 +47,7 @@ Please add it to your desktop so you can easily find it.
     <param.package.mcr>true</param.package.mcr>
     <param.no.mcr>false</param.no.mcr>
     <param.web.mcr.name>MyAppInstaller_web</param.web.mcr.name>
-    <param.package.mcr.name>NeuroPAL_Installer_1-9</param.package.mcr.name>
+    <param.package.mcr.name>NeuroPAL_Installer_2-0</param.package.mcr.name>
     <param.no.mcr.name>MyAppInstaller_app</param.no.mcr.name>
     <param.windows.command.prompt>true</param.windows.command.prompt>
     <param.create.log>true</param.create.log>
@@ -158,7 +158,7 @@ Please add it to your desktop so you can easily find it.
     </build-deliverables>
     <workflow />
     <matlab>
-      <root>C:\Program Files\MATLAB\R2022b</root>
+      <root>C:\Program Files\MATLAB\R2023a</root>
       <toolboxes>
         <toolbox name="neuralnetwork" />
       </toolboxes>
