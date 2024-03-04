@@ -1,5 +1,5 @@
 <deployment-project plugin="plugin.ezdeploy" plugin-version="1.0">
-  <configuration build-checksum="3964253330" file="C:\Users\sep27\Documents\GitHub\NeuroPAL_ID\win_visualize.prj" location="C:\Users\sep27\Documents\GitHub\NeuroPAL_ID" name="win_visualize" preferred-package-location="C:\Users\sep27\Documents\GitHub\NeuroPAL_ID\win_visualize\for_redistribution" preferred-package-type="package.type.exe" target="target.ezdeploy.standalone" target-name="Application Compiler">
+  <configuration build-checksum="2169105258" file="C:\Users\sep27\Documents\GitHub\NeuroPAL_ID\win_visualize.prj" location="C:\Users\sep27\Documents\GitHub\NeuroPAL_ID" name="win_visualize" preferred-package-location="C:\Users\sep27\Documents\GitHub\NeuroPAL_ID\win_visualize\for_redistribution" preferred-package-type="package.type.exe" target="target.ezdeploy.standalone" target-name="Application Compiler">
     <param.appname>NeuroPAL_ID</param.appname>
     <param.icon>${PROJECT_ROOT}\win_visualize_resources\icon.ico</param.icon>
     <param.icons>
@@ -244,6 +244,7 @@ Please add it to your desktop so you can easily find it.
       <file>${PROJECT_ROOT}\guide.mat</file>
       <file>${PROJECT_ROOT}\histogram_window.mlapp</file>
       <file>${PROJECT_ROOT}\newtrace.mlapp</file>
+      <file>${PROJECT_ROOT}\nwbsave.mlapp</file>
     </fileset.depfun>
     <build-deliverables>
       <file location="${PROJECT_ROOT}\win_visualize\for_testing" name="NeuroPAL_ID.ctf" optional="false">C:\Users\sep27\Documents\GitHub\NeuroPAL_ID\win_visualize\for_testing\NeuroPAL_ID.ctf</file>
