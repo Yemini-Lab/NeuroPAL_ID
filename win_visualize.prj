@@ -1,5 +1,5 @@
 <deployment-project plugin="plugin.ezdeploy" plugin-version="1.0">
-  <configuration build-checksum="960523990" file="C:\Users\sep27\Documents\GitHub\NeuroPAL_ID\win_visualize.prj" location="C:\Users\sep27\Documents\GitHub\NeuroPAL_ID" name="win_visualize" preferred-package-location="C:\Users\sep27\Documents\GitHub\NeuroPAL_ID\win_visualize\for_redistribution" preferred-package-type="package.type.exe" target="target.ezdeploy.standalone" target-name="Application Compiler">
+  <configuration build-checksum="3964253330" file="C:\Users\sep27\Documents\GitHub\NeuroPAL_ID\win_visualize.prj" location="C:\Users\sep27\Documents\GitHub\NeuroPAL_ID" name="win_visualize" preferred-package-location="C:\Users\sep27\Documents\GitHub\NeuroPAL_ID\win_visualize\for_redistribution" preferred-package-type="package.type.exe" target="target.ezdeploy.standalone" target-name="Application Compiler">
     <param.appname>NeuroPAL_ID</param.appname>
     <param.icon>${PROJECT_ROOT}\win_visualize_resources\icon.ico</param.icon>
     <param.icons>
@@ -12,7 +12,7 @@
     <param.authnamewatermark>K. Rusch, E. Yemini, A. Nejatbakhsh, et al</param.authnamewatermark>
     <param.email />
     <param.company>UMass Chan Med School, Columbia University</param.company>
-    <param.summary>NeuroPAL ID software to perform (semi-) automated identification of neurons in images of NeuroPAL strains.</param.summary>
+    <param.summary>Software for NeuroPAL neuron detection, cell-subtype identification, neural tracking + activity traces, and data uploads.</param.summary>
     <param.description>Please read and cite the following peer-reviewed Cell publication:
 https://www.cell.com/cell/fulltext/S0092-8674(20)31682-2
 
@@ -118,6 +118,99 @@ Please add it to your desktop so you can easily find it.
       <file>${PROJECT_ROOT}\Data\Documents\Instructions.pdf</file>
     </fileset.package>
     <fileset.depfun>
+      <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Collections\NeurodataWithoutBorders_matnwb\+file\+interface\HasProps.m</file>
+      <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Collections\NeurodataWithoutBorders_matnwb\+file\addSpaces.m</file>
+      <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Collections\NeurodataWithoutBorders_matnwb\+file\Attribute.m</file>
+      <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Collections\NeurodataWithoutBorders_matnwb\+file\cloneNwbFileClass.m</file>
+      <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Collections\NeurodataWithoutBorders_matnwb\+file\Dataset.m</file>
+      <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Collections\NeurodataWithoutBorders_matnwb\+file\fillClass.m</file>
+      <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Collections\NeurodataWithoutBorders_matnwb\+file\fillConstructor.m</file>
+      <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Collections\NeurodataWithoutBorders_matnwb\+file\fillDynamicTableMethods.m</file>
+      <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Collections\NeurodataWithoutBorders_matnwb\+file\fillExport.m</file>
+      <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Collections\NeurodataWithoutBorders_matnwb\+file\fillProps.m</file>
+      <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Collections\NeurodataWithoutBorders_matnwb\+file\fillSetters.m</file>
+      <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Collections\NeurodataWithoutBorders_matnwb\+file\fillValidators.m</file>
+      <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Collections\NeurodataWithoutBorders_matnwb\+file\formatShape.m</file>
+      <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Collections\NeurodataWithoutBorders_matnwb\+file\Group.m</file>
+      <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Collections\NeurodataWithoutBorders_matnwb\+file\isShapeScalar.m</file>
+      <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Collections\NeurodataWithoutBorders_matnwb\+file\Link.m</file>
+      <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Collections\NeurodataWithoutBorders_matnwb\+file\mapType.m</file>
+      <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Collections\NeurodataWithoutBorders_matnwb\+file\processClass.m</file>
+      <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Collections\NeurodataWithoutBorders_matnwb\+file\writeNamespace.m</file>
+      <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Collections\NeurodataWithoutBorders_matnwb\+io\+space\+shape\Block.m</file>
+      <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Collections\NeurodataWithoutBorders_matnwb\+io\+space\+shape\Point.m</file>
+      <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Collections\NeurodataWithoutBorders_matnwb\+io\+space\findShapes.m</file>
+      <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Collections\NeurodataWithoutBorders_matnwb\+io\+space\getReadSpace.m</file>
+      <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Collections\NeurodataWithoutBorders_matnwb\+io\+space\segmentSelection.m</file>
+      <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Collections\NeurodataWithoutBorders_matnwb\+io\+space\Shape.m</file>
+      <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Collections\NeurodataWithoutBorders_matnwb\+io\getBaseType.m</file>
+      <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Collections\NeurodataWithoutBorders_matnwb\+io\getMatType.m</file>
+      <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Collections\NeurodataWithoutBorders_matnwb\+io\getMatTypeSize.m</file>
+      <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Collections\NeurodataWithoutBorders_matnwb\+io\getRefData.m</file>
+      <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Collections\NeurodataWithoutBorders_matnwb\+io\isBool.m</file>
+      <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Collections\NeurodataWithoutBorders_matnwb\+io\map2kwargs.m</file>
+      <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Collections\NeurodataWithoutBorders_matnwb\+io\mapData2H5.m</file>
+      <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Collections\NeurodataWithoutBorders_matnwb\+io\parseAttributes.m</file>
+      <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Collections\NeurodataWithoutBorders_matnwb\+io\parseCompound.m</file>
+      <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Collections\NeurodataWithoutBorders_matnwb\+io\parseDataset.m</file>
+      <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Collections\NeurodataWithoutBorders_matnwb\+io\parseGroup.m</file>
+      <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Collections\NeurodataWithoutBorders_matnwb\+io\parseReference.m</file>
+      <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Collections\NeurodataWithoutBorders_matnwb\+io\pathParts.m</file>
+      <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Collections\NeurodataWithoutBorders_matnwb\+io\resolvePath.m</file>
+      <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Collections\NeurodataWithoutBorders_matnwb\+io\writeAttribute.m</file>
+      <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Collections\NeurodataWithoutBorders_matnwb\+io\writeCompound.m</file>
+      <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Collections\NeurodataWithoutBorders_matnwb\+io\writeDataset.m</file>
+      <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Collections\NeurodataWithoutBorders_matnwb\+io\writeGroup.m</file>
+      <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Collections\NeurodataWithoutBorders_matnwb\+misc\cellPrettyPrint.m</file>
+      <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Collections\NeurodataWithoutBorders_matnwb\+misc\getMatnwbDir.m</file>
+      <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Collections\NeurodataWithoutBorders_matnwb\+misc\parseSkipInvalidName.m</file>
+      <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Collections\NeurodataWithoutBorders_matnwb\+misc\str2validName.m</file>
+      <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Collections\NeurodataWithoutBorders_matnwb\+schemes\exportJson.m</file>
+      <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Collections\NeurodataWithoutBorders_matnwb\+schemes\getClasses.m</file>
+      <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Collections\NeurodataWithoutBorders_matnwb\+schemes\loadNamespace.m</file>
+      <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Collections\NeurodataWithoutBorders_matnwb\+schemes\Namespace.m</file>
+      <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Collections\NeurodataWithoutBorders_matnwb\+spec\generate.m</file>
+      <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Collections\NeurodataWithoutBorders_matnwb\+spec\getNamespaceInfo.m</file>
+      <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Collections\NeurodataWithoutBorders_matnwb\+spec\getSourceInfo.m</file>
+      <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Collections\NeurodataWithoutBorders_matnwb\+spec\loadCache.m</file>
+      <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Collections\NeurodataWithoutBorders_matnwb\+spec\loadSchemaObject.m</file>
+      <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Collections\NeurodataWithoutBorders_matnwb\+spec\saveCache.m</file>
+      <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Collections\NeurodataWithoutBorders_matnwb\+spec\schema2matlab.m</file>
+      <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Collections\NeurodataWithoutBorders_matnwb\+types\+core\NWBContainer.m</file>
+      <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Collections\NeurodataWithoutBorders_matnwb\+types\+core\NWBFile.m</file>
+      <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Collections\NeurodataWithoutBorders_matnwb\+types\+hdmf_common\Container.m</file>
+      <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Collections\NeurodataWithoutBorders_matnwb\+types\+untyped\+datapipe\+properties\Chunking.m</file>
+      <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Collections\NeurodataWithoutBorders_matnwb\+types\+untyped\+datapipe\+properties\Compression.m</file>
+      <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Collections\NeurodataWithoutBorders_matnwb\+types\+untyped\+datapipe\+properties\DynamicFilter.m</file>
+      <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Collections\NeurodataWithoutBorders_matnwb\+types\+untyped\+datapipe\+properties\Shuffle.m</file>
+      <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Collections\NeurodataWithoutBorders_matnwb\+types\+untyped\+datapipe\BlueprintPipe.m</file>
+      <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Collections\NeurodataWithoutBorders_matnwb\+types\+untyped\+datapipe\BoundPipe.m</file>
+      <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Collections\NeurodataWithoutBorders_matnwb\+types\+untyped\+datapipe\Configuration.m</file>
+      <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Collections\NeurodataWithoutBorders_matnwb\+types\+untyped\+datapipe\guessChunkSize.m</file>
+      <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Collections\NeurodataWithoutBorders_matnwb\+types\+untyped\+datapipe\Pipe.m</file>
+      <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Collections\NeurodataWithoutBorders_matnwb\+types\+untyped\+datapipe\Property.m</file>
+      <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Collections\NeurodataWithoutBorders_matnwb\+types\+untyped\DataPipe.m</file>
+      <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Collections\NeurodataWithoutBorders_matnwb\+types\+untyped\DataStub.m</file>
+      <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Collections\NeurodataWithoutBorders_matnwb\+types\+untyped\ExternalLink.m</file>
+      <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Collections\NeurodataWithoutBorders_matnwb\+types\+untyped\GroupClass.m</file>
+      <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Collections\NeurodataWithoutBorders_matnwb\+types\+untyped\MetaClass.m</file>
+      <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Collections\NeurodataWithoutBorders_matnwb\+types\+untyped\ObjectView.m</file>
+      <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Collections\NeurodataWithoutBorders_matnwb\+types\+untyped\RegionView.m</file>
+      <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Collections\NeurodataWithoutBorders_matnwb\+types\+untyped\Set.m</file>
+      <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Collections\NeurodataWithoutBorders_matnwb\+types\+untyped\SoftLink.m</file>
+      <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Collections\NeurodataWithoutBorders_matnwb\+types\+util\checkConstraint.m</file>
+      <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Collections\NeurodataWithoutBorders_matnwb\+types\+util\checkDims.m</file>
+      <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Collections\NeurodataWithoutBorders_matnwb\+types\+util\checkDtype.m</file>
+      <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Collections\NeurodataWithoutBorders_matnwb\+types\+util\checkSet.m</file>
+      <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Collections\NeurodataWithoutBorders_matnwb\+types\+util\checkUnset.m</file>
+      <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Collections\NeurodataWithoutBorders_matnwb\+types\+util\correctType.m</file>
+      <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Collections\NeurodataWithoutBorders_matnwb\+util\getSchemaVersion.m</file>
+      <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Collections\NeurodataWithoutBorders_matnwb\external_packages\datenum8601\datenum8601.m</file>
+      <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Collections\NeurodataWithoutBorders_matnwb\generateCore.m</file>
+      <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Collections\NeurodataWithoutBorders_matnwb\generateExtension.m</file>
+      <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Collections\NeurodataWithoutBorders_matnwb\NwbFile.m</file>
+      <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Collections\NeurodataWithoutBorders_matnwb\nwbRead.m</file>
+      <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Toolboxes\Bioformats Image Toolbox\BioformatsImage\BioformatsImage.m</file>
       <file>${PROJECT_ROOT}\+DataHandling\imreadAny.m</file>
       <file>${PROJECT_ROOT}\+DataHandling\imreadCZI.m</file>
       <file>${PROJECT_ROOT}\+DataHandling\imreadLif.m</file>
@@ -144,11 +237,13 @@ Please add it to your desktop so you can easily find it.
       <file>${PROJECT_ROOT}\+Program\ProgramInfo.m</file>
       <file>${PROJECT_ROOT}\autoseg_window.mlapp</file>
       <file>${PROJECT_ROOT}\channel_selector.mlapp</file>
+      <file>${PROJECT_ROOT}\Data\Images\ZephIR_Logo.png</file>
       <file>${PROJECT_ROOT}\Data\NeuroPAL\herm_data.mat</file>
       <file>${PROJECT_ROOT}\Data\NeuroPAL\NeuroPAL_male_data.mat</file>
       <file>${PROJECT_ROOT}\downsample_window.mlapp</file>
       <file>${PROJECT_ROOT}\guide.mat</file>
       <file>${PROJECT_ROOT}\histogram_window.mlapp</file>
+      <file>${PROJECT_ROOT}\newtrace.mlapp</file>
     </fileset.depfun>
     <build-deliverables>
       <file location="${PROJECT_ROOT}\win_visualize\for_testing" name="NeuroPAL_ID.ctf" optional="false">C:\Users\sep27\Documents\GitHub\NeuroPAL_ID\win_visualize\for_testing\NeuroPAL_ID.ctf</file>

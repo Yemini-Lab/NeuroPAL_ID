@@ -247,3 +247,4 @@ def main():
 if __name__ == '__main__':
     t_ref = main()
     t_ref.sort()
+    print(t_ref, flush=True)
