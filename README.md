@@ -55,9 +55,20 @@ This program is the result of the combined efforts of the following people:
 - Amin Nejabakhsh
 - Erdem Varol
 - Kevin Rusch
+- Gonzalo Mena
+- Matt Creamer
+- Albert Lin
+- Ruoxi Sun
+- Aravinthan D. T. Samuel
+- Liam Paninski
+- Oliver Hobert
+
+Venkatachalam Lab:
 - James Yu
 - Vivek Venkatachalam
 - Maedeh Seyedolmohadesin
+
+Kimura Lab:
 - Chentao Wen
 - Koutarou D Kimura
 
