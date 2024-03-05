@@ -15,22 +15,29 @@
 #### Table of Contents
 
 1. **Background**
-2. **Installation**
-3. **Usage Guide**
+    1. Paper
+    2. Authors
+    3. Related Publications
+3. **Installation**
+    1. User Mode
+    2. Developer Mode
+    3. Dependencies
+4. **Usage Guide**
     1. Main GUI
     2. Image Manipulation
     3. Neuron Segmentation
     4. Technical Details
-4. **Further Reading**
+5. **Further Reading**
     1. Manuals
     2. References
     3. Images & Datasets
-5. **Licensing**
+6. **Licensing**
 
 ---
 
 ## Background
 
+### Paper
 
 > Comprehensively resolving neuronal identities in whole-brain images is a major challenge. We achieve this in C. elegans by engineering a multicolor transgene called NeuroPAL (a neuronal polychromatic atlas of landmarks). NeuroPAL worms share a stereotypical multicolor fluorescence map for the entire hermaphrodite nervous system that resolves all neuronal identities. Neurons labeled with NeuroPAL do not exhibit fluorescence in the green, cyan, or yellow emission channels, allowing the transgene to be used with numerous reporters of gene expression or neuronal dynamics. We showcase three applications that leverage NeuroPAL for nervous-system-wide neuronal identification. First, we determine the brainwide expression patterns of all metabotropic receptors for acetylcholine, GABA, and glutamate, completing a map of this communication network. Second, we uncover changes in cell fate caused by transcription factor mutations. Third, we record brainwide activity in response to attractive and repulsive chemosensory cues, characterizing multimodal coding for these stimuli.
 
@@ -40,45 +47,52 @@ For further details regarding the experimental set up and the methodology involv
 @article{PMID:33378642, Title= {NeuroPAL: A Multicolor Atlas for Whole-Brain Neuronal Identification in C.&nbsp;elegans}, Author= {Yemini, Eviatar and Lin, Albert and Nejatbakhsh, Amin and Varol, Erdem and Sun, Ruoxi and Mena, Gonzalo E and Samuel, Aravinthan D T and Paninski, Liam and Venkatachalam, Vivek and Hobert, Oliver}, DOI= {10.1016/j.cell.2020.12.012}, Number= {1}, Volume= {184}, Month= {January}, Year= {2021}, Journal= {Cell}, ISSN= {0092-8674}, Pages= {272—288.e11}, URL= {https://doi.org/10.1016/j.cell.2020.12.012}}
 ```
 
+### Authors
+
+This program is the result of the combined efforts of the following people:
+
+- Eviatar Yemini
+- Amin Nejabakhsh
+- Erdem Varol
+- Kevin Rusch
+- James Yu
+- Vivek Venkatachalam
+- Maedeh Seyedolmohadesin
+- Chentao Wen
+- Koutarou D Kimura
+
+Please review our [contributors page](https://github.com/Yemini-Lab/NeuroPAL_ID/graphs/contributors) for more information.
+
+### Related Publications
+
+- [NeuroPAL: A Multicolor Atlas for Whole-Brain Neuronal Identification in C. elegans](https://www.cell.com/cell/fulltext/S0092-8674(20)31682-2)
+- [3DeeCellTracker, a deep learning-based pipeline for segmenting and tracking cells in 3D time lapse images eLife](https://elifesciences.org/articles/59187)
+- [Versatile Multiple Object Tracking in Sparse 2D/3D Videos Via Diffeomorphic Image Registration](https://www.biorxiv.org/content/10.1101/2022.07.18.500485v1)
+
 --- 
 
 ## Installation
 
 For the latest compiled release that can be run independently of MATLAB, please check [here](https://github.com/Yemini-Lab/NeuroPAL_ID/releases), but please note that these may be outdated. To utilize the latest version live on Github, please follow these instructions:
 
-**Using Git Bash:**
+### User Mode
 
-1. Open Git Bash to your preferred working directory.
-2. Use `git clone https://github.com/Yemini-Lab/NeuroPAL_ID.git`
+1. Download [the latest release](https://github.com/Yemini-Lab/NeuroPAL_ID/releases).
+2. Extract the contents of the downloaded .zip to a location of your choosing.
 
-**Directly from Github:**
+### Developer Mode
 
-1. Click on [the green "Code" button](https://i.imgur.com/Q3XhxSp.png) above and download the repositry as a ZIP file.
-2. Extract it into your folder of choice.
+**(Requires Python 3.9+ and MATLAB 2020b+.)**
 
-Once NeuroPAL_ID is on your machine, you can run the program by opening `visualize_light.mlapp` and running it through the MATLAB App Designer. To do so, you'll need to install the appropriate dependencies first. The program comes pre-packaged with [the Lightspeed toolbox's logsumexp script](https://github.com/tminka/lightspeed/blob/master/logsumexp.m) and [Yi Cao's implementation of the Hungarian algorithm](https://www.mathworks.com/matlabcentral/fileexchange/20328-munkres-assignment-algorithm), but you will need to install the following yourself:
-
-- [Mlapptools](https://github.com/StackOverflowMATLABchat/mlapptools)
-- [Bioformats Toolbox](https://downloads.openmicroscopy.org/bio-formats/5.3.4/)
-- [Image Processing Toolbox](https://www.mathworks.com/products/image.html)
-- [Statistics and Machine Learning Toolbox](https://www.mathworks.com/products/statistics.html)
-
-#### Segmentation Dependencies
-
-If you're using an uncompiled version of NeuroPAL_ID, [Python 3.9+](https://www.python.org/downloads/)\* must be installed for segmentation to work. You will also need to either run `pip install -r requirements.txt` (`requirements-macos.txt` if you have a mac) in the `NeuroPAL_ID` directory or install the following dependencies yourself\*\*:
-
-- matplotlib==3.5.0
-- numpy==1.23.4
-- opencv_python==4.5.5.64
-- Pillow==9.4.0
-- scikit_learn==1.2.1
-- scipy==1.10.0
-- scikit-image==0.19.3
-- tensorflow==2.10.0 (tensorflow-macos & tensorflow-metal if on mac)
-
-\* Please note that newer versions of python may not be compatible with your particular version of Matlab. Review [this chart](https://www.mathworks.com/support/requirements/python-compatibility.html) to ensure CPython compatibility.   
-
-\*\* If you're using a Mac, please note that you will need to use `pip install requirements-macos.txt` instead.
+1. Install the following dependencies:
+   a. [Mlapptools](https://github.com/StackOverflowMATLABchat/mlapptools)
+   b. [Bioformats Toolbox](https://downloads.openmicroscopy.org/bio-formats/5.3.4/)
+   c. [Image Processing Toolbox](https://www.mathworks.com/products/image.html)
+   d. [Statistics and Machine Learning Toolbox](https://www.mathworks.com/products/statistics.html)
+   f. [requirements.txt](https://github.com/Yemini-Lab/NeuroPAL_ID/blob/master/requirements.txt) or [requirements-macos.txt](https://github.com/Yemini-Lab/NeuroPAL_ID/blob/master/requirements-macos.txt)
+3. Open Git Bash to your preferred working directory.
+4. Use `git clone https://github.com/Yemini-Lab/NeuroPAL_ID.git`
+5. Open `visualize_light.mlapp` in MATLAB's AppDesigner.
 
 ---
 
