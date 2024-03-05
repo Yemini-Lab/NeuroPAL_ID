@@ -2,7 +2,7 @@
 
 # NeuroPAL_ID
 
-##### MATLAB application facilitating the labeling of C. elegans neurons using NeuroPAL images.
+##### Research software to perform (semi-) automated detection and identification of neurons in images of NeuroPAL, extract ID’d neural activity traces from NeuroPAL;GCaMP animals, and upload these datasets to public repositories.
 
 ![GenImg](https://i.imgur.com/wpz7LKf.png)
 
