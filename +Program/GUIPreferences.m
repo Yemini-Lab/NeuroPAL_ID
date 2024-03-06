@@ -46,7 +46,7 @@ classdef GUIPreferences < handle
                  if ~isdeployed
                      obj.prefs_file = obj.prefs_name;
                  else
-                     prefs_root = ctfroot;
+                     prefs_root = '~/Library/Application Support';
                      
                      % Determine the file separator.
                      filesep = [];
