@@ -46,7 +46,11 @@ classdef GUIPreferences < handle
                  if ~isdeployed
                      obj.prefs_file = obj.prefs_name;
                  else
-                     prefs_root = ctfroot;
+                     if ismac
+                        prefs_root = '~/Library/Application Support';
+                     else
+                        prefs_root = ctfroot;
+                     end
                      
                      % Determine the file separator.
                      filesep = [];
