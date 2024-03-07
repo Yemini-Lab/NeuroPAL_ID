@@ -21,6 +21,7 @@
 3. **Installation**
     1. User Mode
     2. Developer Mode
+    3. Dependencies
 4. **Usage Guide**
     1. Main GUI
     2. Image Manipulation
