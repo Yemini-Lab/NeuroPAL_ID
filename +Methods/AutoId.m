@@ -38,7 +38,7 @@ classdef AutoId < handle
     
     methods(Static)
         
-        function obj = instance()
+        function obj = instance(atlas)
              persistent instance
              if isempty(instance)
                  
@@ -46,12 +46,12 @@ classdef AutoId < handle
                  instance = Methods.AutoId();
                  
                  % Load the hermaphrodite neuron models.
-                 model = load('atlas_xx_rgb.mat');
+                 model = load(atlas);
                  instance.atlas_version.xx = model.version;
                  instance.atlas.xx = model.atlas;
                  
                  % Load the male neuron models.
-                 model = load('atlas_xo_rgb.mat');
+                 model = load(atlas);
                  instance.atlas_version.xo = model.version;
                  instance.atlas.xo = model.atlas;
              end
@@ -270,14 +270,17 @@ classdef AutoId < handle
             % local alignment between atlas and rotated points for given
             % theta
             import Methods.AutoId;
-            
+
             POS = pos;
+            %fprintf('Density @ Local start  = %f\n', size(pos, 1) / max(pos(:,1)) * max(pos(:,2)) * max(pos(:,3)))
             
             % GMM for computing the likelihood of current local alignment
-%             gm = gmdistribution(model.mu,model.sigma);
+            %             gm = gmdistribution(model.mu,model.sigma);
             
             % standardize positions by axis aligning it
             pos = AutoId.major_axis_align(POS,sgn);
+            %fprintf('Density @ Local major axis align = %f\n', size(pos, 1) / max(pos(:,1)) * max(pos(:,2)) * max(pos(:,3)))
+
             
             % compute the rough transformation between atlas centers and
             % its axis-aligned version 
@@ -288,27 +291,32 @@ classdef AutoId < handle
             % to roughly align it
             pos(:,[2 3]) = pos(:,[2 3])*AutoId.rotmat(theta);
             pos = pos*coeff_mu'+mu_mu;
+            %fprintf('Density @ Local pca rotmat = %f\n', size(pos, 1) / max(pos(:,1)) * max(pos(:,2)) * max(pos(:,3)))
+
             
             % standardize positions by axis aligning it
             pos = AutoId.major_axis_align(pos,1);
+
+            %fprintf('Density @ Local standardized axis = %f\n', size(pos, 1) / max(pos(:,1)) * max(pos(:,2)) * max(pos(:,3)))
             
             % upweighting already annotated neurons
             weights = ones(1,size(model.mu,1));
             weights(annotated(:,2)) = 1/(size(model.mu,1)*AutoId.annotation_weight);
             
             sigma_weighted = bsxfun(@times, model.sigma, reshape(weights,1,1,size(model.mu,1)));
+
             
             for iteration = 1: AutoId.iter_rwc
                 % sample from GMM components
-%                 Z = arrayfun(@(i) mvnrnd(model.mu(i,:), model.sigma(:,:,i)), 1:size(model.mu,1), 'UniformOutput', false);
-%                 Z = vertcat(Z{:});
+                %                 Z = arrayfun(@(i) mvnrnd(model.mu(i,:), model.sigma(:,:,i)), 1:size(model.mu,1), 'UniformOutput', false);
+                %                 Z = vertcat(Z{:});
                 
                 % update permutation
                 P = AutoId.update_permutation(col,pos,model,annotated);
                 
                 % align point to sample
                 beta_pos = AutoId.MCR_solver(model.mu(:,1:3), P'*[pos ones(size(pos,1),1)], sigma_weighted(1:3,1:3,:),0);
-                beta_col = AutoId.MCR_solver(model.mu(:,4:end), P'*[col ones(size(col,1),1)], sigma_weighted(4:end,4:end,:),1e5);
+                %beta_col = AutoId.MCR_solver(model.mu(:,4:end), P'*[col ones(size(col,1),1)], sigma_weighted(4:end,4:end,:),1e5);
                 
                 % making sure that there are no mirror flips
                 det_cost = sign(det(beta_pos(1:3,1:3)));
@@ -317,15 +325,20 @@ classdef AutoId < handle
                     return
                 end
 %                 beta_pos(1:3,1:3) = beta_pos(1:3,1:3)*det_cost;
-                
+
                 % update positions and colors
                 pos = [pos ones(size(pos,1),1)]*beta_pos;
-                col = [col ones(size(col,1),1)]*beta_col;
+                %col = [col ones(size(col,1),1)]*beta_col;
+
+                %fprintf('Density @ Local gmm permutation %f = %f\n', iteration, size(pos, 1) / max(pos(:,1)) * max(pos(:,2)) * max(pos(:,3)))
             end
+
+            %fprintf('Density @ Local post-gmm = %f\n', size(pos, 1) / max(pos(:,1)) * max(pos(:,2)) * max(pos(:,3)))
             
 %             % compute the cost based on Hungarian
             [~,cost] = AutoId.update_permutation(col,pos,model,annotated);
             
+            %fprintf('Density @  Local end = %f\n', size(pos, 1) / max(pos(:,1)) * max(pos(:,2)) * max(pos(:,3)))
         end
         
     end
@@ -335,11 +348,11 @@ classdef AutoId < handle
       
         %% I have no idea what these functions do, maybe we can add more
         % descriptive comments?- Ev
-        function add_to_image(obj, im, worm)
+        function add_to_image(obj, im, worm, neuron_names)
             % add_to_image  function simply updates some properties of the image
             % structure that depend on auto_id
             
-            neuron_names = obj.atlas.(lower(worm.sex)).(lower(worm.body)).N;
+            %neuron_names = obj.atlas.(lower(worm.sex)).(lower(worm.body)).N;
             % convert assignment (probabilistic/deterministic) to neuron
             % names
             ids = repmat({'Artifact'}, size(obj.assignments,1),1);
@@ -414,8 +427,14 @@ classdef AutoId < handle
             
         end
         
-        function id(obj,file,im,worm)
-            
+        function id(obj,file,im,worm, atlas)
+    
+            model = load(atlas);
+            obj.atlas_version.xx = model.version;
+            obj.atlas.xx = model.atlas;
+
+            fprintf('Auto IDing with atlas: %s', atlas)
+
             % We don't have age-specific atlases yet. For now, use the
             % hermaphrodite ID model to approximate anything younger adult.
             sex = lower(worm.sex);
@@ -437,7 +456,42 @@ classdef AutoId < handle
             annotation_confidences = im.get_annotation_confidences();
             is_emphasized = im.get_is_emphasized();
             [annotations{annotation_confidences<=0.5 & is_emphasized}] = deal('');
+
+
+            % Strip all non-neuronal glia from atlas
+            %socket_cells = {'ADESOL', 'ADESOR', 'AMSOL', 'AMSOR', 'CEPSODL', 'CEPSODR', 'CEPSOVL', 'CEPSOVR', 'ILSODL', 'ILSODR', 'ILSOL', 'ILSOR', 'ILSOVL', 'ILSOVR', 'OLLSOL', 'OLLSOR', 'OLQSODL', 'OLQSODR', 'OLQSOVL', 'OLQSOVR', 'PDESOL', 'PDESOR', 'PHSO1L', 'PHSO2L', 'PHSO1R', 'PHSO2R'};
+            %idxToRemove = find(ismember(neurons, socket_cells));
             
+            % Truncate atlas (FOCO PAPER HOTFIX CHECK)
+            num_neurons = size(annotations,1);
+            num_atlas = size(model.mu,1);
+            kill_n = num_atlas - num_neurons;
+            m1_pos = model.mu(find(strcmp(neurons, 'M1')), 1:3);
+            vb3_pos = model.mu(find(strcmp(neurons, 'VB3')), 1:3);
+            diff = vb3_pos-m1_pos;
+            post_coord = find(abs(vb3_pos-m1_pos) == max(abs(vb3_pos-m1_pos))); % Coordinate corresponding to posterior direction
+
+            if diff(find(abs(diff) == max(abs(diff)))) > 0
+                mode = 'descend';
+            else
+                mode = 'ascend';
+            end
+
+            % Find the indices of the kill_n highest values in the 2nd column
+            K = model.mu;
+            [~, idx] = sort(K(:, post_coord), mode);
+            %idxToRemove = [idxToRemove; idx(1:kill_n)];
+            %idxToRemove = idx(1:kill_n);
+
+            % Remove the corresponding rows
+            %model.mu(idxToRemove, :) = [];
+            %model.sigma(:, :, idxToRemove) = [];
+            %neurons(idxToRemove) = [];
+
+            %obj.atlas.xx.head.model.mu(idxToRemove, :) = [];
+            %obj.atlas.xx.head.model.sigma(:, :, idxToRemove) = [];
+            %obj.atlas.xx.head.N(idxToRemove) = [];
+
             % find the annotated neurons
             nempty_annotations = find(cellfun(@(x) ~isempty(x), annotations));
             annotated = zeros(length(nempty_annotations), 2);
@@ -457,7 +511,7 @@ classdef AutoId < handle
             
             % read features of the current image
             colors = im.get_colors_readout();
-            colors = colors(:,[1 2 3]);
+            colors = colors(:,[1 2 3]);\
             
             % Check that we have enough neurons.
             if size(colors,1) < 4
@@ -486,7 +540,7 @@ classdef AutoId < handle
             
             % convert the assignments to names and update the information
             % in the image
-            obj.add_to_image(im,worm);
+            obj.add_to_image(im,worm, neurons);
         end
         
         function update_id(obj, im, worm)
@@ -535,14 +589,17 @@ classdef AutoId < handle
             
             
         end
-        
-        
+
         
         function aligned = global_alignment(obj, file, col, pos, model, annotated)
         % Global alignment based on search in the theta space
         %
         % Amin & Erdem
-        
+            
+            densities = {};
+            densities = Methods.calculate_density(densities, 'Alignment Start', pos);
+            %fprintf('Density @ Global start = %f\n', size(pos, 1) / max(pos(:,1)) * max(pos(:,2)) * max(pos(:,3)))
+
             import Methods.AutoId;
             
             % Do we have the parallelization toolbox?
@@ -621,7 +678,7 @@ classdef AutoId < handle
                     end
                 end
             end
-            
+
             % Terminate the existing parallel session.
             delete(gcp('nocreate'));
             
@@ -635,9 +692,13 @@ classdef AutoId < handle
             % Find the best alignment.
             [theta_idx] = find(cost==min(cost(:)));
             pos = positions{theta_idx};
-            col = colors{theta_idx};
+            densities = Methods.calculate_density(densities, 'Alignment End', pos);
+            %fprintf('Density @ Global end = %f\n', size(pos, 1) / max(pos(:,1)) * max(pos(:,2)) * max(pos(:,3)))
+            %col = colors{theta_idx};
             
             aligned = [pos col];
+
+            Methods.plot_densities(densities, file)
         end
         
         function update_log_likelihood(obj, im, worm)
@@ -731,7 +792,8 @@ classdef AutoId < handle
             % original data
             model = obj.atlas.(sex).(body).model;
             neurons = obj.atlas.(sex).(body).N;
-            col = im.get_colors_readout(); col = col(:,[1 2 3]);
+            col = im.get_colors_readout();
+            col = col(:,[1 2 3]);
             pos = im.get_positions().*im.scale;
             det_ids = im.get_deterministic_ids();
             

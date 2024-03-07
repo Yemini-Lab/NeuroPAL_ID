@@ -97,6 +97,48 @@ classdef Image < handle
             neuron.color_readout = median(reshape(cpatch, [numel(cpatch)/size(cpatch, 4), size(cpatch, 4)]));
             obj.neurons(end+1) = neuron;
         end
+
+        function import_neuron(obj, volume, position, nsz, scale, imported_color, imported_alxyz)
+            %ADD_NEURON Add a neuron to the list of neurons.
+            %   by running one iteration of Matching Pursuit.
+            %   volume: the full z-scored image.
+            %   position: the location in the neighbourhood of which the
+            %   neuron should be added.
+            %   nsz: the window size around the patch for the  new neuron.
+            %   trunc: the truncation value of the Gaussian function used
+            %   for fitting.
+            %color = squeeze(volume(round(position(1)),round(position(2)),round(position(3)),:))';
+            obj.scale = scale;
+            if size(obj.scale,1) > size(obj.scale,2)
+                obj.scale = obj.scale';
+            end
+            bpatch = Methods.Utils.subcube(volume, round(position), nsz);
+            if isKey(obj.meta_data, 'auto_detect') && obj.meta_data('auto_detect')
+                auto_detect = Methods.AutoDetect.instance();
+                auto_detect.scale = scale;
+                auto_detect.szext = size(volume);
+                auto_detect.fsize = nsz;
+                [~, sp] = auto_detect.fit_gaussian(double(bpatch), color, position);
+            else
+                sp             = [];
+                sp.positions   = position;
+                sp.color       = nan(1,size(volume,4));
+                sp.baseline    = nan(1,size(volume,4));
+                sp.covariances = nan(1,3,3);
+            end
+            cpatch = Methods.Utils.subcube(volume, round(sp.positions), [1,1,0]);
+            
+            % Construct the neuron.
+            neuron = Neurons.Neuron;
+            neuron.position = sp.positions;
+            neuron.color = sp.color;
+            neuron.color_readout = imported_color;
+            neuron.baseline = sp.baseline;
+            neuron.covariance = sp.covariances;
+            %neuron.aligned_xyzRGB = [imported_alxyz(1) imported_alxyz(2) imported_alxyz(3) imported_color(1) imported_color(2) imported_color(3)];
+            %neuron.color_readout = median(reshape(cpatch, [numel(cpatch)/size(cpatch, 4), size(cpatch, 4)]));
+            obj.neurons(end+1) = neuron;
+        end
         
         function del_neuron(obj, neuron_i)
             %DEL_NEURON Delete a neuron from the list of neurons.
@@ -570,6 +612,7 @@ classdef Image < handle
                 return;
             end
             aligned_xyzRGBs = vertcat(obj.neurons.aligned_xyzRGB);
+            %aligned_xyzRGBs
         end
 
         
