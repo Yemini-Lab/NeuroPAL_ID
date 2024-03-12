@@ -6,7 +6,6 @@ function matched_data = run_histmatch(image_data, RGBW)
     
         data_RGBW = zeros(size(data,1), size(data,2), size(data,3),4);
         data_RGBW(:,:,:,1:3) = data_RGB;
-    
     else
         data_RGBW = data(:,:,:,RGBW);
     end
