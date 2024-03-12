@@ -54,21 +54,17 @@ def create_im_vol(device, metadata, grid_spacing=[0.3208, 0.3208, 0.75],
     OptChannels = []
     OptChanRefData = []
     for eachChannel in range(len(metadata['channels'])):
-        excite = float(metadata['channels'][eachChannel]['wavelength'].split('-')[0])
-        emiss_mid = float(metadata['channels'][eachChannel]['wavelength'].split('-')[1])
-        emiss_range = float(metadata['channels'][eachChannel]['wavelength'].split('-')[2][:-1])
-
         OptChan = OpticalChannelPlus(
             name=metadata['channels'][eachChannel]['fluorophore'],
             description=metadata['channels'][eachChannel]['filter'],
-            excitation_lambda=excite,
-            excitation_range=[excite - 1.5, excite + 1.5],
-            emission_range=[emiss_mid - emiss_range / 2, emiss_mid + emiss_range / 2],
-            emission_lambda=emiss_mid
+            excitation_lambda=metadata['channels'][eachChannel]['ex_lambda'],
+            excitation_range=[metadata['channels'][eachChannel]['ex_low'], metadata['channels'][eachChannel]['ex_high']],
+            emission_range=[metadata['channels'][eachChannel]['em_low'], metadata['channels'][eachChannel]['em_high']],
+            emission_lambda=metadata['channels'][eachChannel]['em_lambda'],
         )
 
         OptChannels.append(OptChan)
-        OptChanRefData.append(metadata['channels'][eachChannel]['wavelength'])
+        OptChanRefData.append(f"{metadata['channels'][eachChannel]['ex_lambda']}-{metadata['channels'][eachChannel]['em_lambda']}-{float(metadata['channels'][eachChannel]['em_high']) - float(metadata['channels'][eachChannel]['em_low'])}nm")
 
     OpticalChannelRefs = OpticalChannelReferences(
         name='OpticalChannelRefs',
@@ -511,12 +507,22 @@ def main():
     for eachChannel in range(len(cache['nwb_metadata'][0][0][5])):
         fluorophore = cache['nwb_metadata'][0][0][5][eachChannel][0][0][0]
         filter = cache['nwb_metadata'][0][0][5][eachChannel][1][0][0]
-        wavelength = cache['nwb_metadata'][0][0][5][eachChannel][2][0][0]
+        excitation_lambda = cache['nwb_metadata'][0][0][5][eachChannel][2][0][0]
+        excitation_low = cache['nwb_metadata'][0][0][5][eachChannel][3][0][0]
+        excitation_high = cache['nwb_metadata'][0][0][5][eachChannel][4][0][0]
+        emission_lambda = cache['nwb_metadata'][0][0][5][eachChannel][5][0][0]
+        emission_low = cache['nwb_metadata'][0][0][5][eachChannel][6][0][0]
+        emission_high = cache['nwb_metadata'][0][0][5][eachChannel][7][0][0]
 
         metadata['channels'] += [{
             'fluorophore': fluorophore,
             'filter': filter,
-            'wavelength': wavelength,
+            'ex_lambda': excitation_lambda,
+            'ex_low': excitation_low,
+            'ex_high': excitation_high,
+            'em_lambda': emission_lambda,
+            'em_low': emission_low,
+            'em_high': emission_high,
         }]
 
     create_file_yemini(metadata)

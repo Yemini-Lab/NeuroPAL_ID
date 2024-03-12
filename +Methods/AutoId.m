@@ -454,6 +454,8 @@ classdef AutoId < handle
             if ~isempty(~remove_i)
             	annotated(:,2) = [atlas_annotations{~remove_i}];
             end
+
+            
             
             % read features of the current image
             colors = im.get_colors_readout();
