@@ -12,5 +12,5 @@ function matched_data = run_histmatch(image_data, RGBW)
     end
     
     data_RGBW = data_RGBW(:,:,:,1:3);
-    matched_data = MatchHist(data_RGBW);
+    matched_data = Methods.MatchHist(data_RGBW);
 end
