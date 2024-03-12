@@ -1,7 +1,8 @@
 function newim = MatchHist(A)
     clear avg_hist;
 
-    avg_hist = load('avg_hist.mat');
+    avg_hist = load('avg_hist.mat', 'avg_hist');
+    avg_hist = avg_hist.avg_hist;
     
     im_flat = reshape(A, [], size(A,4));
     
