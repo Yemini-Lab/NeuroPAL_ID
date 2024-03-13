@@ -501,6 +501,11 @@ classdef NeuroPALImage
             npalraw = image_data.acquisition.get('NeuroPALImageRaw');
             rgbw = npalraw.RGBW_channels.load();
             info.RGBW = rgbw+1;
+
+            if size(data, 4) < size(info.RGBW(~isnan(info.RGBW)), 1)
+                info.RGBW = info.RGBW(1:size(data, 4));
+            end
+
             info.GFP = nan;
             info.gamma = NeuroPALImage.gamma_default;
 
