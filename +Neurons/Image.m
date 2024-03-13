@@ -72,6 +72,7 @@ classdef Image < handle
             if size(obj.scale,1) > size(obj.scale,2)
                 obj.scale = obj.scale';
             end
+            
             bpatch = Methods.Utils.subcube(volume, round(position), nsz);
             if isKey(obj.meta_data, 'auto_detect') && obj.meta_data('auto_detect')
                 auto_detect = Methods.AutoDetect.instance();

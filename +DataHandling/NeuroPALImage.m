@@ -473,115 +473,92 @@ classdef NeuroPALImage
             
             % Open the file.
             np_file = [];
-            nwb = nwbRead(nwb_file);
-
-            acq_keySet = keys(nwb.acquisition.map);
-            proc_keySet = keys(nwb.processing.map);
-
-            % Filter keys based on substrings "gcamp" and "video"
-            filtered_acq_keys = acq_keySet(~contains(lower(acq_keySet), {'gcamp', 'video'}));
-            filtered_proc_keys = proc_keySet(~contains(lower(proc_keySet), {'gcamp', 'video'}));
+            image_data = nwbRead(nwb_file);
+            data = image_data.acquisition.get('NeuroPALImageRaw').data.load();
+        
+            data_order = 1:ndims(data);
+            data_order(1) = 3;
+            data_order(2) = 4;
+            data_order(3) = 2;
+            data_order(4) = 1;
+            %data_order(1) = 2;
+            %data_order(2) = 1;
+            data = permute(data, data_order);
             
-            % Combine the filtered keys
-            all_filtered_keys = [filtered_acq_keys; filtered_proc_keys];
+            %image_data.scale(1) = image_data.scale(2);
+            %image_data.scale(2) = image_data.scale(2);
+                    
+            % Setup the NP file data.
+            info.file = nwb_file;
+            imagingVolume = image_data.general_optophysiology.get('NeuroPALImVol');
+            grid_spacing_data = imagingVolume.grid_spacing.load();
+            info.scale = grid_spacing_data;
+            info.DIC = nan;
+                    
+            % Determine the color channels.
+            %colors = image_data.colors;
+            %colors = round(colors/max(colors(:)));
+            npalraw = image_data.acquisition.get('NeuroPALImageRaw');
+            rgbw = npalraw.RGBW_channels.load();
+            info.RGBW = rgbw+1;
+            info.GFP = nan;
+            info.gamma = NeuroPALImage.gamma_default;
 
-            % Display uiconfirm dialog
-            chosenKey = uiconfirm(gcbf, sprintf('Non-video multi-channel volumes found in %s:', nwb_file), 'Multi-Channel Volume Selection', 'Options', all_filtered_keys, 'DefaultOption', 1, 'CancelOption', 1);
-
-            if isKey(nwb.acquisition,chosenKey)
-                target_module = nwb.acquisition.get(chosenKey).nwbdatainterface;
-                target_path = ['nwb.acquisition.get(',chosenKey,').nwbdatainterface'];
-            elseif isKey(nwb.processing,chosenKey)
-                target_module = nwb.processing.get(chosenKey).nwbdatainterface;
-                target_path = ['nwb.processing.get(',chosenKey,').nwbdatainterface'];
-            else
-                'Something went very, very, very wrong.' % It really did.
+            % Did we find the GFP channel?
+            if isnan(info.GFP) && size(data,4) > 4
+                % Assume the first unused channel is GFP.
+                unused = setdiff(1:size(data,4), info.RGBW);
+                info.GFP = unused(1);
             end
 
-            if isKey(target_module,'NeuroPALImageRaw')
-                data = target_module.get('NeuroPALImageRaw').data.load;
-
-                [sorted_dims, xyzc_order] = sort(size(data));
-                xyzc_order = flip(xyzc_order);
-                xyzc_order([1, 2]) = xyzc_order([2, 1]);
-                data = permute(data,xyzc_order);
-
-                info.file = nwb_file;
-                
-                %info.RGBW = target_module.get('NeuroPALImageRaw').RGBW_channels.load;
-                %if info.RGBW(1) < 1
-                %    info.RGBW = info.RGBW + 1;
-                %end
-                default_RGBW = [1;2;3;4];
-                info.RGBW = default_RGBW(1:min(size(data,4),4));
-                info.gamma = NeuroPALImage.gamma_default;
-
-                soft_link = target_module.get('NeuroPALImageRaw').imaging_volume;
-                npal_volume = soft_link.deref(nwb);
-
-                info.scale = npal_volume.grid_spacing.load;
-                info.DIC = nan;
-                info.GFP = nan;
-
-                % Did we find the GFP channel?
-                if isnan(info.GFP) && size(data,4) > 4
-                    % Assume the first unused channel is GFP.
-                    unused = setdiff(1:size(data,4), info.RGBW);
-                    info.GFP = unused(1);
+            % Initialize the worm info.
+            valid_locations = {'Whole Worm', 'Head', 'Midbody', 'Anterior Midbody', 'Central Midbody', 'Posterior Midbody', 'Tail'};
+            nwb_loc = lower(imagingVolume.location);
+            for j = 1:length(valid_locations)
+                list_str = lower(valid_locations{j});
+                if contains(list_str, nwb_loc)
+                    worm.body = valid_locations{j};
+                    break;
                 end
-
-                % Initialize the worm info.
-                valid_locations = {'Whole Worm', 'Head', 'Midbody', 'Anterior Midbody', 'Central Midbody', 'Posterior Midbody', 'Tail'};
-                nwb_loc = lower(npal_volume.location);
-                for j = 1:length(valid_locations)
-                    list_str = lower(valid_locations{j});
-                    if contains(list_str, nwb_loc)
-                        worm.body = valid_locations{j};
-                        break;
-                    end
-                end
-
-                valid_ages = {'Adult', 'L4', 'L3', 'L2', 'L1'};
-                if ~any(strcmp(valid_ages, nwb.general_subject.growth_stage))
-                    worm.age = 'Adult';
-                else
-                    worm.age = nwb.general_subject.growth_stage;
-                end
-
-                valid_sexes = {'XX', 'XO'}; % Isn't Massachusetts supposed to be deep blue?
-                if ~any(strcmp(valid_sexes, nwb.general_subject.sex))
-                    male_syns = {'M','Male', 'm', 'male'};
-                    if ~any(strcmp(male_syns, nwb.general_subject.sex))
-                        worm.sex = 'XX';
-                    else
-                        worm.sex = 'XO';
-                    end
-                else
-                    worm.sex = nwb.general_subject.sex;
-                end
-
-                worm.strain = nwb.general_subject.strain;
-                worm.notes = nwb.general_subject.description;
-
-                % Initialize the user preferences.
-                prefs.RGBW = info.RGBW;
-                prefs.DIC = info.DIC;
-                prefs.GFP = info.GFP;
-                prefs.gamma = info.gamma;
-                prefs.rotate.horizontal = false;
-                prefs.rotate.vertical = false;
-                prefs.z_center = ceil(size(data,3) / 2);
-                prefs.is_Z_LR = true;
-                prefs.is_Z_flip = true;
-
-                % Save the ND2 file to our MAT file format.
-                np_file = strrep(nwb_file, '.nwb', '.mat');
-                version = ProgramInfo.version;
-                save(np_file, 'version', 'data', 'info', 'prefs', 'worm');
-
-            else
-                error('No NeuroPAL image found in %s.',target_path)
             end
+
+            valid_ages = {'Adult', 'L4', 'L3', 'L2', 'L1'};
+            if ~any(strcmp(valid_ages, image_data.general_subject.growth_stage))
+                worm.age = 'Adult';
+            else
+                worm.age = image_data.general_subject.growth_stage;
+            end
+
+            valid_sexes = {'XX', 'XO'}; % Isn't Massachusetts supposed to be deep blue?
+            if ~any(strcmp(valid_sexes, image_data.general_subject.sex))
+                male_syns = {'M','Male', 'm', 'male'};
+                if ~any(strcmp(male_syns, image_data.general_subject.sex))
+                    worm.sex = 'XX';
+                else
+                    worm.sex = 'XO';
+                end
+            else
+                worm.sex = image_data.general_subject.sex;
+            end
+
+            worm.strain = image_data.general_subject.strain;
+            worm.notes = image_data.general_subject.description;
+
+            % Initialize the user preferences.
+            prefs.RGBW = info.RGBW;
+            prefs.DIC = info.DIC;
+            prefs.GFP = info.GFP;
+            prefs.gamma = info.gamma;
+            prefs.rotate.horizontal = false;
+            prefs.rotate.vertical = false;
+            prefs.z_center = ceil(size(data,3) / 2);
+            prefs.is_Z_LR = true;
+            prefs.is_Z_flip = true;
+
+            % Save the ND2 file to our MAT file format.
+            np_file = strrep(nwb_file, '.nwb', '.mat');
+            version = ProgramInfo.version;
+            save(np_file, 'version', 'data', 'info', 'prefs', 'worm');
         end
         
         function np_file = convertAny(any_file)
