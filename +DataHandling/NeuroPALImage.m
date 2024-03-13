@@ -490,7 +490,7 @@ classdef NeuroPALImage
                     
             % Setup the NP file data.
             info.file = nwb_file;
-            imagingVolume = image_data.general_optophysiology.get('NeuroPALImVol');
+            imagingVolume = image_data.acquisition.get('NeuroPALImageRaw').imaging_volume.deref(image_data);
             grid_spacing_data = imagingVolume.grid_spacing.load();
             info.scale = grid_spacing_data;
             info.DIC = nan;
