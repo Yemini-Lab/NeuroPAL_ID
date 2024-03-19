@@ -1,5 +1,5 @@
 <deployment-project plugin="plugin.ezdeploy" plugin-version="1.0">
-  <configuration build-checksum="2169105258" file="C:\Users\sep27\Documents\GitHub\NeuroPAL_ID\win_visualize.prj" location="C:\Users\sep27\Documents\GitHub\NeuroPAL_ID" name="win_visualize" preferred-package-location="C:\Users\sep27\Documents\GitHub\NeuroPAL_ID\win_visualize\for_redistribution" preferred-package-type="package.type.exe" target="target.ezdeploy.standalone" target-name="Application Compiler">
+  <configuration build-checksum="2931891489" file="C:\Users\sep27\Documents\GitHub\NeuroPAL_ID\win_visualize.prj" location="C:\Users\sep27\Documents\GitHub\NeuroPAL_ID" name="win_visualize" preferred-package-location="C:\Users\sep27\Documents\GitHub\NeuroPAL_ID\win_visualize\for_redistribution" preferred-package-type="package.type.exe" target="target.ezdeploy.standalone" target-name="Application Compiler">
     <param.appname>NeuroPAL_ID</param.appname>
     <param.icon>${PROJECT_ROOT}\win_visualize_resources\icon.ico</param.icon>
     <param.icons>
@@ -221,10 +221,12 @@ Please add it to your desktop so you can easily find it.
       <file>${PROJECT_ROOT}\+Methods\AutoId.m</file>
       <file>${PROJECT_ROOT}\+Methods\find_outlier.m</file>
       <file>${PROJECT_ROOT}\+Methods\logsumexp.m</file>
+      <file>${PROJECT_ROOT}\+Methods\MatchHist.m</file>
       <file>${PROJECT_ROOT}\+Methods\munkres.m</file>
       <file>${PROJECT_ROOT}\+Methods\munkres_extended.m</file>
       <file>${PROJECT_ROOT}\+Methods\NNDetect.m</file>
       <file>${PROJECT_ROOT}\+Methods\Preprocess.m</file>
+      <file>${PROJECT_ROOT}\+Methods\run_histmatch.m</file>
       <file>${PROJECT_ROOT}\+Methods\Utils.m</file>
       <file>${PROJECT_ROOT}\+Neurons\Hermaphrodite.m</file>
       <file>${PROJECT_ROOT}\+Neurons\Image.m</file>
@@ -238,6 +240,7 @@ Please add it to your desktop so you can easily find it.
       <file>${PROJECT_ROOT}\autoseg_window.mlapp</file>
       <file>${PROJECT_ROOT}\channel_selector.mlapp</file>
       <file>${PROJECT_ROOT}\Data\Images\ZephIR_Logo.png</file>
+      <file>${PROJECT_ROOT}\Data\Models\avg_hist.mat</file>
       <file>${PROJECT_ROOT}\Data\NeuroPAL\herm_data.mat</file>
       <file>${PROJECT_ROOT}\Data\NeuroPAL\NeuroPAL_male_data.mat</file>
       <file>${PROJECT_ROOT}\downsample_window.mlapp</file>
