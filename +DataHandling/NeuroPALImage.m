@@ -477,20 +477,29 @@ classdef NeuroPALImage
             data = image_data.acquisition.get('NeuroPALImageRaw').data.load();
         
             data_order = 1:ndims(data);
-            data_order(1) = 3;
-            data_order(2) = 4;
-            data_order(3) = 2;
-            data_order(4) = 1;
-            %data_order(1) = 2;
-            %data_order(2) = 1;
-            data = permute(data, data_order);
+
+            if size(data, 4) ~= min(size(data))
+                data_order(1) = 3;
+                data_order(2) = 4;
+                data_order(3) = 2;
+                data_order(4) = 1;
+                %data_order(1) = 2;
+                %data_order(2) = 1;
+                data = permute(data, data_order);
+            end
             
             %image_data.scale(1) = image_data.scale(2);
             %image_data.scale(2) = image_data.scale(2);
                     
             % Setup the NP file data.
             info.file = nwb_file;
-            imagingVolume = image_data.acquisition.get('NeuroPALImageRaw').imaging_volume.deref(image_data);
+            
+            if strcmp(class(image_data.acquisition.get('NeuroPALImageRaw').imaging_volume), 'types.untyped.SoftLink')
+                imagingVolume = image_data.acquisition.get('NeuroPALImageRaw').imaging_volume.deref(image_data);
+            else
+                imagingVolume = image_data.acquisition.get('NeuroPALImageRaw').imaging_volume;
+            end
+
             grid_spacing_data = imagingVolume.grid_spacing.load();
             info.scale = grid_spacing_data;
             info.DIC = nan;
@@ -547,7 +556,12 @@ classdef NeuroPALImage
             end
 
             worm.strain = image_data.general_subject.strain;
-            worm.notes = image_data.general_subject.description;
+
+            if strcmp(class(image_data.general_subject.description), 'types.untyped.DataStub')
+                worm.notes = image_data.general_subject.description.load();
+            else
+                worm.notes = image_data.general_subject.description;
+            end
 
             % Initialize the user preferences.
             prefs.RGBW = info.RGBW;
