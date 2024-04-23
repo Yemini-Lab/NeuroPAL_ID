@@ -509,7 +509,12 @@ classdef NeuroPALImage
             %colors = round(colors/max(colors(:)));
             npalraw = image_data.acquisition.get('NeuroPALImageRaw');
             rgbw = npalraw.RGBW_channels.load();
-            info.RGBW = rgbw+1;
+
+            if min(rgbw) <= 0
+                info.RGBW = rgbw+1;
+            else
+                info.RGBW = rgbw;
+            end
 
             if size(data, 4) < size(info.RGBW(~isnan(info.RGBW)), 1)
                 info.RGBW = info.RGBW(1:size(data, 4));
