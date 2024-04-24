@@ -173,10 +173,6 @@ The `Neurons` sub-menu in NeuroPAL's main menu ("a" in the main GUI) contains a 
 
 Click on each of the previews below to view them in full resolution.
 
-#### Loading NWB Files
-
-![NWB_Load](https://i.imgur.com/vUKlL2z.gif)
-
 
 #### Loading Activity
 
