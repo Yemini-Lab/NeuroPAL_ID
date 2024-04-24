@@ -17,8 +17,8 @@ You can contribute to the project on its [repository page](https://github.com/Ye
 ## Installation
 
 1. Download the [Windows](https://drive.google.com/file/d/14FjCNzHCSGtJgjtvzpf1j0ZVjsgxQA_d/view?usp=sharing) or [MacOS](https://drive.google.com/file/d/1-fOORobZ63jO3KNGm_r5faBJkvJUT5PQ/view?usp=sharing) release.
-2. Run the setup file.
-3. Run NeuroPAL_ID.
+2. Run the [setup file](https://i.imgur.com/ck6ti3d.png).
+3. Run [NeuroPAL_ID](https://i.imgur.com/lPJnTXn.png).
 
 ## Working with NWB Files
 
