@@ -28,19 +28,19 @@ Click on each of the previews below to view them in full resolution.
 
 ### Loading NWB Volumes
 
- <a href="/media/opening-nwb-file.gif"><image src="/media/opening-nwb-file.gif" alt="Loading Tutorial" /></a>
+ <a href="https://i.imgur.com/UCptKL0.gif"><image src="https://i.imgur.com/UCptKL0.gif" alt="Loading Tutorial" /></a>
 
 ### Loading Activity
 
-  <a href="/media/opening-nwb-file.gif"><image src="/media/loading-activity.gif" alt="Activity Tutorial" /></a>
+  <a href="https://i.imgur.com/HOPigw3.gif"><image src="https://i.imgur.com/HOPigw3.gif" alt="Activity Tutorial" /></a>
 
 ### Loading Video
 
-  <a href="/media/opening-nwb-file.gif"><image src="/media/loading-videos.gif" alt="Video Tutorial" /></a>
+  <a href="https://i.imgur.com/u3JkPS9.gif"><image src="https://i.imgur.com/u3JkPS9.gif" alt="Video Tutorial" /></a>
 
 ### Saving NWB files
 
-  <a href="/media/opening-nwb-file.gif"><image src="/media/saving-nwb-files.gif" alt="Saving Tutorial" /></a>
+  <a href="https://i.imgur.com/9BPUD7w.gif"><image src="https://i.imgur.com/9BPUD7w.gif" alt="Saving Tutorial" /></a>
 
 
 ---
