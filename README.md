@@ -25,7 +25,12 @@
     1. Main GUI
     2. Image Manipulation
     3. Neuron Segmentation
-    4. Technical Details
+    4. Working with NWB files
+        1. Loading NWB files
+        2. Loading Activity
+        3. Loading Videos
+        4. Saving NWB files
+    5. Technical Details
 5. **Further Reading**
     1. Manuals
     2. References
@@ -161,6 +166,26 @@ The `Neurons` sub-menu in NeuroPAL's main menu ("a" in the main GUI) contains a 
 |**b**|This panel features the core controls of the auto-segmentation window. The black out tool allows you to zero out specific sections of the image (such as the gut) to minimize false positives. The histogram tool will open the histogram window described earlier. The "Generate" button starts the segmentation process and the "Reset" button undoes all changes made to the image since the window was opened.|
 |**c**|This panel allows users to edit the parameters of the segmentation process. Hovering over each label will show information regarding what each parameter means.|
 |**d**|These panels allow users to change some of the segmentation settings. By default, the noise filter level is calculated automatically using the 95th percentile of pixels, but it can also be set manually. The cell filter specifies the measure by which all detected segments are filtered -- either by the minimum size (in microns) or by the neuron count (in which case only the n biggest segments are kept).|
+
+#### Working with NWB Files
+
+#### Loading NWB Files
+
+![NWB](https://imgur.com/wqe9yFB.gif)
+
+
+#### Loading Activity
+
+![NWB_Activity](https://imgur.com/wGXsSCT.gif)
+
+
+#### Loading Video
+
+![NWB_Video](https://imgur.com/9PWTw6u.gif)
+
+#### Saving NWB Files
+
+![NWB_Save](https://imgur.com/rGbQOPQ.gif)
 
 #### Technical Details
 
