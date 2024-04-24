@@ -40,7 +40,7 @@ Click on each of the previews below to view them in full resolution.
 
 ### Saving NWB files
 
-  <a href="https://i.imgur.com/9BPUD7w.gif"><image src="https://i.imgur.com/9BPUD7w.gif" alt="Saving Tutorial" /></a>
+  <a href="https://i.imgur.com/zcxJxfm.gif"><image src="https://i.imgur.com/zcxJxfm.gif" alt="Saving Tutorial" /></a>
 
 
 ---
