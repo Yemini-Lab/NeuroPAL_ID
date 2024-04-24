@@ -169,11 +169,13 @@ The `Neurons` sub-menu in NeuroPAL's main menu ("a" in the main GUI) contains a 
 
 #### Working with NWB Files
 
+**NeuroPAL_ID** natively supports loading, viewing, editing, and saving data in the [NWB](https://www.nwb.org/nwb-neurophysiology/) format using the [ndx-multichannel-volume](https://github.com/focolab/ndx-multichannel-volume/tree/main) extension. Future software expansions will build on this support as well.
+
 Click on each of the previews below to view them in full resolution.
 
 #### Loading NWB Files
 
-![NWB_Load](https://imgur.com/wqe9yFB.gif)
+![NWB_Load](https://i.imgur.com/vUKlL2z.gif)
 
 
 #### Loading Activity
