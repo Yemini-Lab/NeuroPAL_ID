@@ -458,7 +458,7 @@ classdef NeuroPALImage
             % Save the ND2 file to our MAT file format.
             np_file = strrep(nd2_file, 'nd2', 'mat');
             version = ProgramInfo.version;
-            save(np_file, 'version', 'data', 'info', 'prefs', 'worm');
+            save(np_file, 'version', 'data', 'info', 'prefs', 'worm', '-v7.3');
         end
 
         function np_file = convertNWB(nwb_file)
