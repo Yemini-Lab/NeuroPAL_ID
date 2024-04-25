@@ -521,7 +521,17 @@ classdef NeuroPALImage
             end
 
             info.GFP = nan;
-            info.gamma = NeuroPALImage.gamma_default;
+
+            if any(ismember(image_data.processing.keys, 'NeuroPAL'))
+                if any(ismember(image_data.processing.get('NeuroPAL').dynamictable.keys, 'NeuroPAL_ID'))
+                    gammas = image_data.processing.get('NeuroPAL').dynamictable.get('NeuroPAL_ID').vectordata.get('gammas').data.load();
+                    info.gamma = gammas';
+                else
+                    info.gamma = NeuroPALImage.gamma_default;
+                end
+            else
+                info.gamma = NeuroPALImage.gamma_default;
+            end
 
             % Did we find the GFP channel?
             if isnan(info.GFP) && size(data,4) > 4
