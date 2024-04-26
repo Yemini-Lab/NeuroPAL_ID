@@ -57,9 +57,12 @@ from zephir.__version__ import __version__
 from zephir.methods import *
 from zephir.models.container import Container
 from zephir.utils.io import *
+import build_tree
+import track_all
+import n_io
 
 
-def run_zephir(dataset: Path, args: dict):
+def run_zephir(dataset: Path, filename: Path, args: dict):
 
     if not (dataset / 'backup').is_dir():
         Path.mkdir(dataset / 'backup')
@@ -156,11 +159,12 @@ def run_zephir(dataset: Path, args: dict):
             nn_max=int(args['--nn_max']),
         )
 
-        container = build_tree(
+        container = build_tree.build_tree(
             container=container,
             sort_mode=str(args['--sort_mode']),
             t_ignore=eval(args['--t_ignore']) if args['--t_ignore'] else None,
             t_track=eval(args['--t_track']) if args['--t_track'] else None,
+            filename=filename
         )
 
         update_checkpoint(dataset, {'state': 'track', '_t_list': None})
@@ -173,7 +177,7 @@ def run_zephir(dataset: Path, args: dict):
     # tracking all frames in _t_list
     if state == 'track':
 
-        container, results = track_all(
+        container, results = track_all.track_all(
             container=container,
             results=results,
             zephir=zephir,
@@ -190,6 +194,7 @@ def run_zephir(dataset: Path, args: dict):
             n_epoch_d=(int(args['--n_epoch_d'])
                        if float(args['--lambda_d']) > 0 else 0),
             _t_list=get_checkpoint(dataset, '_t_list'),
+            filename=filename
         )
 
     else:
@@ -227,10 +232,11 @@ def main():
     # print(args, '\n')
 
     dataset = Path(args['--dataset']).parent
-    
+    filename = Path(args['--dataset']).name
 
     run_zephir(
         dataset=dataset,
+        filename=filename,
         args=args
     )
 
