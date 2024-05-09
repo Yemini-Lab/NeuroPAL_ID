@@ -7,13 +7,14 @@ Usage:
     zephir -h | --help
     zephir -v | --version
     zephir --dataset=<dataset> [options]
-    zephir --dataset=<dataset> [options]
 
 Options:
     -h --help                           show this message and exit.
     -v --version                        show version information and exit.
     --dataset=<dataset>                 path to data directory to analyze.
-    --load_checkpoint=<load_checkpoint>  resume from last checkpoint. [default: False]
+    --filename=<filename>               name of the video file.
+    --args=<arg_dict>                   dict containing args
+    --load_checkpoint=<load_checkpoint> resume from last checkpoint. [default: False]
     --load_args=<load_args>             load arguments from existing args.json file. [default: False]
     --allow_rotation=<allow_rotation>   enable rho parameter to rotate descriptors. [default: False]
     --channel=<channel>                 data channel to register.
@@ -52,14 +53,20 @@ Options:
 
 import shutil
 from docopt import docopt
+from multiprocessing import Pool
+from multiprocessing import Manager, freeze_support
+import sys
 
 from zephir.__version__ import __version__
 from zephir.methods import *
 from zephir.models.container import Container
 from zephir.utils.io import *
+import build_tree
+import track_all
+import n_io
 
 
-def run_zephir(dataset: Path, args: dict):
+def run_zephir(dataset: Path, filename: Path, args: dict):
 
     if not (dataset / 'backup').is_dir():
         Path.mkdir(dataset / 'backup')
@@ -99,6 +106,7 @@ def run_zephir(dataset: Path, args: dict):
     # building/loading variable container
     if state == 'init':
 
+        print("Initializing...")
         container = Container(
             dataset=dataset,
             allow_rotation=args['--allow_rotation'] in ['True', 'Y', 'y'],
@@ -123,6 +131,7 @@ def run_zephir(dataset: Path, args: dict):
     # building annotations table and tracking models
     if state == 'load':
 
+        print("Loading...")
         container, results = build_annotations(
             container=container,
             annotation=None,
@@ -140,6 +149,8 @@ def run_zephir(dataset: Path, args: dict):
     # compiling spring network and frame tree
     if state == 'build':
 
+        print("Building...")
+        print("Building models!")
         container, zephir, zephod = build_models(
             container=container,
             dimmer_ratio=float(args['--dimmer_ratio']),
@@ -150,17 +161,20 @@ def run_zephir(dataset: Path, args: dict):
             n_chunks=int(args['--n_chunks']),
         )
 
+        print("Building springs!")
         container = build_springs(
             container=container,
             load_nn=args['--load_nn'] in ['True', 'Y', 'y'],
             nn_max=int(args['--nn_max']),
         )
 
-        container = build_tree(
+        print("Building trees!")
+        container = build_tree.build_tree(
             container=container,
             sort_mode=str(args['--sort_mode']),
             t_ignore=eval(args['--t_ignore']) if args['--t_ignore'] else None,
             t_track=eval(args['--t_track']) if args['--t_track'] else None,
+            filename=filename
         )
 
         update_checkpoint(dataset, {'state': 'track', '_t_list': None})
@@ -173,7 +187,8 @@ def run_zephir(dataset: Path, args: dict):
     # tracking all frames in _t_list
     if state == 'track':
 
-        container, results = track_all(
+        print("Tracking all!")
+        container, results = track_all.track_all(
             container=container,
             results=results,
             zephir=zephir,
@@ -190,6 +205,7 @@ def run_zephir(dataset: Path, args: dict):
             n_epoch_d=(int(args['--n_epoch_d'])
                        if float(args['--lambda_d']) > 0 else 0),
             _t_list=get_checkpoint(dataset, '_t_list'),
+            filename=filename
         )
 
     else:
@@ -227,10 +243,20 @@ def main():
     # print(args, '\n')
 
     dataset = Path(args['--dataset']).parent
-    
+    filename = Path(args['--dataset']).name
+
+    if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+        print('Running deployed...')
+        # freeze_support()
+        # print("Starting multiprocessing manager...")
+        # manager = Manager()
+        # print("Multiprocessing manager working.")
+    else:
+        print('Running in a normal Python process...')
 
     run_zephir(
-        dataset=dataset,
+        dataset=Path(dataset),
+        filename=Path(filename),
         args=args
     )
 

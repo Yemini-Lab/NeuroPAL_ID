@@ -1,3 +1,5 @@
+![Header](https://camo.githubusercontent.com/3fe98099010efa3e31428cb2aff3cd4cbca21a5be0ad1477f498a920746c8463/68747470733a2f2f692e696d6775722e636f6d2f77707a374c4b662e706e67)
+
 #### Table of Contents
 
 1. **Background**
@@ -8,15 +10,8 @@
     1. User Mode
     2. Developer Mode
 4. **Usage Guide**
-    1. Main GUI
-    2. Image Manipulation
-    3. Neuron Segmentation
-    4. Working with NWB files
-        1. Loading NWB files
-        2. Loading Activity
-        3. Loading Videos
-        4. Saving NWB files
-    5. Technical Details
+    1. Tutorial Video
+    2. [Documentation](https://yemini-lab.github.io/NeuroPAL_ID/docs/)
 5. **Further Reading**
     1. Manuals
     2. References
@@ -42,9 +37,9 @@ For further details regarding the experimental set up and the methodology involv
 This program is the result of the combined efforts of the following people:
 
 - Eviatar Yemini
+- Kevin Rusch
 - Amin Nejabakhsh
 - Erdem Varol
-- Kevin Rusch
 - Gonzalo Mena
 - Matt Creamer
 - Albert Lin
@@ -69,6 +64,7 @@ Please review our [contributors page](https://github.com/Yemini-Lab/NeuroPAL_ID/
 - [NeuroPAL: A Multicolor Atlas for Whole-Brain Neuronal Identification in C. elegans](https://www.cell.com/cell/fulltext/S0092-8674(20)31682-2)
 - [3DeeCellTracker, a deep learning-based pipeline for segmenting and tracking cells in 3D time lapse images eLife](https://elifesciences.org/articles/59187)
 - [Versatile Multiple Object Tracking in Sparse 2D/3D Videos Via Diffeomorphic Image Registration](https://www.biorxiv.org/content/10.1101/2022.07.18.500485v1)
+- [Unifying community-wide whole-brain imaging datasets enables robust automated neuron identification and reveals determinants of neuron positioning in C. elegans](https://www.biorxiv.org/content/10.1101/2024.04.28.591397v1)
 
 --- 
 
@@ -83,7 +79,7 @@ For the latest compiled release that can be run independently of MATLAB, please 
 
 ### Developer Mode
 
-**(Requires Python 3.9+ and MATLAB 2020b+.)**
+**(Requires Python 3.10+ and MATLAB 2023b+.)**
 
 1. Install the following dependencies:
    a. [Mlapptools](https://github.com/StackOverflowMATLABchat/mlapptools)

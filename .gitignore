@@ -4055,3 +4055,5 @@ Thumbs.db
 *.swp
 ._*
 *~
+.idea/.name
+/.idea

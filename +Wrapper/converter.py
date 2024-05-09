@@ -81,7 +81,7 @@ def cellid_to_annotator(video_path, metadata, data):
     no_annotations = 0
 
     for t in tqdm(frames, desc='Processing frames...', leave=True):
-        for eachWL in tqdm(range(len(names)), desc='Processing annotations...', leave=False):
+        for eachWL in range(len(names)):
             a = Annotation()
             a.id = annotation_idx + 1
             a.t_idx = t
