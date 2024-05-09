@@ -191,7 +191,9 @@ for i=1:numChannels
     
     % Get the laser excitation.
     laserI = find(endsWith(laserKeys, num2str(bandI)), 1);
-    image.lasers(i) = str2double(laserValues{laserI});
+    if ~isempty(laserI)
+        image.lasers(i) = str2double(laserValues{laserI});
+    end
     
     % Get the emission band.
     emissionI = find(endsWith(emissionKeys, num2str(bandI)), 1);
