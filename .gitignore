@@ -79,7 +79,6 @@ octave-core
 # pictures
 *.jpg
 *.jpeg
-*.gif
 
 # movies
 *.mp4
@@ -4055,3 +4054,30 @@ Thumbs.db
 *.swp
 ._*
 *~
+External_Dependencies/NeurodataWithoutBorders_matnwb/doc/simulinkicon.gif
+External_Dependencies/NeurodataWithoutBorders_matnwb/doc/matlabicon.gif
+External_Dependencies/NeurodataWithoutBorders_matnwb/doc/demoicon.gif
+External_Dependencies/3dct/CellTracker/windows/tk/images/tai-ku.gif
+External_Dependencies/3dct/CellTracker/windows/tk/images/pwrdLogo75.gif
+External_Dependencies/3dct/CellTracker/windows/tk/images/pwrdLogo200.gif
+External_Dependencies/3dct/CellTracker/windows/tk/images/pwrdLogo175.gif
+External_Dependencies/3dct/CellTracker/windows/tk/images/pwrdLogo150.gif
+External_Dependencies/3dct/CellTracker/windows/tk/images/pwrdLogo100.gif
+External_Dependencies/3dct/CellTracker/windows/tk/images/logoMed.gif
+External_Dependencies/3dct/CellTracker/windows/tk/images/logoLarge.gif
+External_Dependencies/3dct/CellTracker/windows/tk/images/logo64.gif
+External_Dependencies/3dct/CellTracker/windows/tk/images/logo100.gif
+External_Dependencies/3dct/CellTracker/windows/skimage/data/no_time_for_that_tiny.gif
+External_Dependencies/3dct/CellTracker/windows/imageio/resources/images/newtonscradle.gif
+External_Dependencies/3dct/CellTracker/python/dist/npal_seg/tk/images/tai-ku.gif
+External_Dependencies/3dct/CellTracker/python/dist/npal_seg/tk/images/pwrdLogo75.gif
+External_Dependencies/3dct/CellTracker/python/dist/npal_seg/tk/images/pwrdLogo200.gif
+External_Dependencies/3dct/CellTracker/python/dist/npal_seg/tk/images/pwrdLogo175.gif
+External_Dependencies/3dct/CellTracker/python/dist/npal_seg/tk/images/pwrdLogo150.gif
+External_Dependencies/3dct/CellTracker/python/dist/npal_seg/tk/images/pwrdLogo100.gif
+External_Dependencies/3dct/CellTracker/python/dist/npal_seg/tk/images/logoMed.gif
+External_Dependencies/3dct/CellTracker/python/dist/npal_seg/tk/images/logoLarge.gif
+External_Dependencies/3dct/CellTracker/python/dist/npal_seg/tk/images/logo64.gif
+External_Dependencies/3dct/CellTracker/python/dist/npal_seg/tk/images/logo100.gif
+External_Dependencies/3dct/CellTracker/python/dist/npal_seg/skimage/data/no_time_for_that_tiny.gif
+External_Dependencies/3dct/CellTracker/python/dist/npal_seg/imageio/resources/images/newtonscradle.gif
