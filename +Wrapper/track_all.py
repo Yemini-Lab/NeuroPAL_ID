@@ -12,31 +12,30 @@ import n_io
 
 
 def track_all(
-    container,
-    results,
-    zephir,
-    zephod,
-    clip_grad,
-    lambda_t,
-    lambda_d,
-    lambda_n,
-    lambda_n_mode,
-    lr_ceiling,
-    lr_floor,
-    motion_predict,
-    n_epoch,
-    n_epoch_d,
-    kernel_size=(3, 9, 9),
-    lambda_n_decay=1.0,
-    lr_step_size=10,
-    lr_gamma=0.5,
-    nb_delta=(2, 1),
-    nb_epoch=5,
-    restrict_update=False,
-    sigmas=(1, 4, 4),
-    _t_list=None,
-    filename=None):
-
+        container,
+        results,
+        zephir,
+        zephod,
+        clip_grad,
+        lambda_t,
+        lambda_d,
+        lambda_n,
+        lambda_n_mode,
+        lr_ceiling,
+        lr_floor,
+        motion_predict,
+        n_epoch,
+        n_epoch_d,
+        kernel_size=(3, 9, 9),
+        lambda_n_decay=1.0,
+        lr_step_size=10,
+        lr_gamma=0.5,
+        nb_delta=(2, 1),
+        nb_epoch=5,
+        restrict_update=False,
+        sigmas=(1, 4, 4),
+        _t_list=None,
+        filename=None):
     # pull variables from container
     dataset = container.get('dataset')
     allow_rotation = container.get('allow_rotation')
@@ -59,10 +58,10 @@ def track_all(
 
     if _t_list is None:
         _t_list = t_list.copy()
-        update_checkpoint(dataset, {
+        n_io.update_checkpoint(dataset, {
             'results': results,
             '_t_list': _t_list,
-        }, verbose=False)
+        }, verbose=False, filename=filename)
     else:
         t_list = _t_list.copy()
 
@@ -89,7 +88,7 @@ def track_all(
                    f'\t\tDistance to parent: d={distance:.4f}')
 
         if n_frame > 1:
-            t_patch = np.arange(max(t-n_frame//2, 0), min(t+n_frame//2+1, shape_t))
+            t_patch = np.arange(max(t - n_frame // 2, 0), min(t + n_frame // 2 + 1, shape_t))
             t_idx = np.where(t_patch == t)[0][0]
         else:
             t_patch = np.array([t])
@@ -150,7 +149,7 @@ def track_all(
             if covar is not None:
                 nn_covar = np.empty_like(ind)
                 for k in range(ind.shape[1]):
-                    nn_covar[:, k] = covar[range(ind.shape[0]), ind[:, k].astype(int)]/20
+                    nn_covar[:, k] = covar[range(ind.shape[0]), ind[:, k].astype(int)] / 20
                 k_ij = to_tensor(
                     nn_covar /
                     np.clip(np.max(nn_covar, axis=-1)[:, None], 1, None),
@@ -274,9 +273,9 @@ def track_all(
                 # to compensate
                 with torch.no_grad():
                     zephir.rho[:, :, -1] += (
-                        - z_compensator
-                        * optimizer.param_groups[0]['lr']
-                        * zephir.rho.grad[:, :, -1]
+                            - z_compensator
+                            * optimizer.param_groups[0]['lr']
+                            * zephir.rho.grad[:, :, -1]
                     )
 
             # gradient descent step, update model parameters
@@ -305,7 +304,7 @@ def track_all(
                 if subset is not None:
                     _rho[:, subset] = zephir.rho.clone()
                     _rho.requires_grad = False
-                
+
                 # resetting model parameters for rotation
                 if not allow_rotation:
                     zephir.theta.zero_()
@@ -321,9 +320,9 @@ def track_all(
             _t_list = np.setdiff1d(_t_list, np.array([t]), assume_unique=True)
 
             # push results to checkpoint
-            update_checkpoint(dataset, {
+            n_io.update_checkpoint(dataset, {
                 'results': results,
                 '_t_list': _t_list,
-            }, verbose=False)
+            }, verbose=False, filename=filename)
 
     return container, results

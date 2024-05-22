@@ -114,12 +114,15 @@ def get_annotation(annotation, t, exclusive_prov=None, exclude_self=True):
     return u, annot[i, ...], provenance[i]
 
 
-def get_checkpoint(path, key: str, verbose=False):
+def get_checkpoint(path, key: str, verbose=False, filename=None):
     """
     Retrieves given key and value from an existing checkpoint.
     """
 
-    checkpoint = load_checkpoint(path, verbose=verbose)
+    if filename is not None:
+        checkpoint = load_checkpoint(path, verbose=verbose, filename=filename)
+    else:
+        checkpoint = load_checkpoint(path, verbose=verbose)
 
     if key in checkpoint.keys():
         value = checkpoint[key]
@@ -131,12 +134,15 @@ def get_checkpoint(path, key: str, verbose=False):
     return None
 
 
-def update_checkpoint(path, dictionary: dict, verbose=True):
+def update_checkpoint(path, dictionary: dict, verbose=True, filename=None):
     """
     Updates an existing checkpoint dictionary with given key and value and saves to file.
     """
 
-    checkpoint = load_checkpoint(path, verbose=False)
+    if filename is not None:
+        checkpoint = load_checkpoint(path, verbose=False, filename=filename)
+    else:
+        checkpoint = load_checkpoint(path, verbose=False)
 
     for key in dictionary.keys():
         checkpoint[key] = dictionary[key]
@@ -147,8 +153,12 @@ def update_checkpoint(path, dictionary: dict, verbose=True):
 
     checkpoint['last_update'] = str(datetime.datetime.now())
 
-    with open(Path(path) / 'checkpoint.pt', 'wb') as f:
-        torch.save(checkpoint, f)
+    if filename is not None:
+        with open(Path(path) / f'{filename}_checkpoint.pt', 'wb') as f:
+            torch.save(checkpoint, f)
+    else:
+        with open(Path(path) / 'checkpoint.pt', 'wb') as f:
+            torch.save(checkpoint, f)
 
     if verbose:
         print(f'Checkpoint updated for {list(dictionary.keys())} '
@@ -158,11 +168,15 @@ def update_checkpoint(path, dictionary: dict, verbose=True):
     return
 
 
-def load_checkpoint(path, fallback=True, verbose=True):
+def load_checkpoint(path, fallback=True, verbose=True, filename=None):
     if verbose:
         print('Loading checkpoint...')
 
-    file_name = Path(path) / 'checkpoint.pt'
+    if filename is not None:
+        file_name = Path(path) / f'{filename}_checkpoint.pt'
+    else:
+        file_name = Path(path) / 'checkpoint.pt'
+
     checkpoint, map_loc = None, None
     if file_name.is_file():
 
