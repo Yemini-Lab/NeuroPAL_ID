@@ -67,7 +67,6 @@ def track_all(
         t_list = _t_list.copy()
 
     zephir.to(dev)
-    print('about to start...')
     tpbar = tqdm(t_list, desc='Analyzing movie', unit='frames')
     for t in tpbar:
 

@@ -61,6 +61,7 @@ from zephir.__version__ import __version__
 from zephir.methods import *
 from zephir.models.container import Container
 from zephir.utils.io import *
+import save_movie
 import build_tree
 import track_all
 import n_io
@@ -226,6 +227,7 @@ def run_zephir(dataset: Path, filename: Path, args: dict):
     save_movie(
         container=container,
         results=results,
+        filename=filename
     )
 
     now = datetime.datetime.now()
