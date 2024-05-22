@@ -52,15 +52,26 @@ def get_all_pdists(dataset, shape_t, channel,
     """Return all pairwise distances between the first shape_t frames in a dataset."""
 
     f = dataset / 'null.npy'
-    if load or save:
-        if channel is not None:
-            f = dataset / f'pdcc_c{channel}.npy'
-        else:
-            f = dataset / f'pdcc.npy'
-    if f.is_file() and load:
-        pdcc = np.load(str(f), allow_pickle=True)
-        if pdcc.shape == (shape_t, shape_t):
-            return pdcc
+    if filename is not None:
+        if load or save:
+            if channel is not None:
+                f = dataset / f'{filename}_pdcc_c{channel}.npy'
+            else:
+                f = dataset / f'{filename}_pdcc.npy'
+        if f.is_file() and load:
+            pdcc = np.load(str(f), allow_pickle=True)
+            if pdcc.shape == (shape_t, shape_t):
+                return pdcc
+    else:
+        if load or save:
+            if channel is not None:
+                f = dataset / f'pdcc_c{channel}.npy'
+            else:
+                f = dataset / f'pdcc.npy'
+        if f.is_file() and load:
+            pdcc = np.load(str(f), allow_pickle=True)
+            if pdcc.shape == (shape_t, shape_t):
+                return pdcc
 
     if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
         print('Running deployed...')
@@ -135,11 +146,18 @@ def get_partial_pdists(dataset, shape_t, p_list, channel,
     """Return pairwise distances between shape_t frames and their parents in a dataset."""
 
     f = dataset / 'null.npy'
-    if load:
-        if channel is not None:
-            f = dataset / f'pdcc_c{channel}.npy'
-        else:
-            f = dataset / f'pdcc.npy'
+    if filename is not None:
+        if load:
+            if channel is not None:
+                f = dataset / f'{filename}_pdcc_c{channel}.npy'
+            else:
+                f = dataset / f'{filename}_pdcc.npy'
+    else:
+        if load:
+            if channel is not None:
+                f = dataset / f'pdcc_c{channel}.npy'
+            else:
+                f = dataset / f'pdcc.npy'
     d_full = None
     if f.is_file() and load:
         d_full = np.load(str(f), allow_pickle=True)
