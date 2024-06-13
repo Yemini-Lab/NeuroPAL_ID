@@ -36,6 +36,7 @@ from zephir.__version__ import __version__
 from skimage.transform import resize
 from zephir.utils.utils import *
 from zephir.utils.io import *
+from getters import *
 import numpy as np
 import sys
 
@@ -50,10 +51,10 @@ def dist_corrcoef(image_1, image_2):
     return dist
 
 
-def get_thumbnail(dataset, channel, t, scale):
+def get_thumbnail(dataset, filename, channel, t, scale):
     """Return low-resolution thumbnail of data volume."""
 
-    v = get_slice(dataset, t)
+    v = get_slice(dataset, t, filename)
     if channel is not None:
         v = v[channel]
     elif len(v.shape) == 4:
@@ -66,7 +67,7 @@ def get_thumbnail(dataset, channel, t, scale):
     return tmg
 
 
-def get_all_pdists(dataset, shape_t, channel,
+def get_all_pdists(dataset, filename, shape_t, channel,
                    dist_fn=dist_corrcoef,
                    load=True, save=True,
                    scale=(4, 16, 16),
@@ -85,8 +86,9 @@ def get_all_pdists(dataset, shape_t, channel,
         if pdcc.shape == (shape_t, shape_t):
             return pdcc
 
-    print('Compiling thumbnails...')
-    thumbnails = [get_thumbnail(dataset, channel, t, scale) for t in range(shape_t)]
+    thumbnails = []
+    for t in tqdm(range(shape_t), desc='Compiling thumbnails from rf...', unit='frames', file=sys.stdout):
+        thumbnails += [get_thumbnail(dataset, filename, channel, t, scale)]
 
     d = np.zeros((shape_t, shape_t))
     for i in (tqdm(range(shape_t), desc='Calculating distances', unit='frames', file=sys.stdout) if pbar else range(shape_t)):
@@ -126,7 +128,7 @@ def get_partial_pdists(dataset, shape_t, p_list, channel,
     thumbnails = [get_thumbnail(dataset, channel, t, scale) for t in range(shape_t)]
 
     d_partial = np.zeros(shape_t)
-    for i in (tqdm(range(shape_t), desc='Calculating distances', unit='frames') if pbar else range(shape_t)):
+    for i in (tqdm(range(shape_t), desc='Calculating distances', unit='frames', file=sys.stdout) if pbar else range(shape_t)):
 
         if p_list[i] < 0:
             continue
@@ -143,7 +145,7 @@ def get_partial_pdists(dataset, shape_t, p_list, channel,
     return d_partial
 
 
-def recommend_frames(dataset, n_frames, n_iter, t_list, channel, metadata, save_to_metadata, verbose):
+def recommend_frames(dataset, filename, n_frames, n_iter, t_list, channel, metadata, save_to_metadata, verbose):
 
     if str(dataset)[-1] == '"':
         dataset = Path(str(dataset)[:-1])
@@ -155,7 +157,7 @@ def recommend_frames(dataset, n_frames, n_iter, t_list, channel, metadata, save_
         t_list = list(range(shape_t))
 
     print('Building frame correlation graph...')
-    d_full = get_all_pdists(dataset, shape_t, channel, pbar=True)
+    d_full = get_all_pdists(dataset, filename, shape_t, channel, pbar=True)
     d_slice = (d_full[t_list, :])[:, t_list]
 
     scores = np.mean(d_slice, axis=-1)
@@ -232,6 +234,7 @@ def main():
 
     t_ref = recommend_frames(
         dataset=Path(args['--dataset']).parent,
+        filename=Path(args['--dataset']).name,
         n_frames=int(args['--n_frames']),
         n_iter=int(args['--n_iter']),
         t_list=eval(args['--t_list']) if args['--t_list'] else None,
