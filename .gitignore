@@ -4064,3 +4064,14 @@ External_Dependencies/3dct/CellTracker/python/dist/npal_seg/tk/images/pwrdLogo15
 External_Dependencies/3dct/CellTracker/python/dist/npal_seg/tk/images/pwrdLogo200.gif
 External_Dependencies/3dct/CellTracker/python/dist/npal_seg/tk/images/pwrdLogo75.gif
 External_Dependencies/3dct/CellTracker/python/dist/npal_seg/tk/images/tai-ku.gif
+Data/Images/loading-activity.gif
+Data/Images/loading-videos.gif
+Data/Images/opening-nwb-file.gif
+Data/Images/saving-nwb-files.gif
+doc/media/loading-activity.gif
+doc/media/loading-videos.gif
+doc/media/opening-nwb-file.gif
+doc/media/saving-nwb-files.gif
+External_Dependencies/matnwb/doc/demoicon.gif
+External_Dependencies/matnwb/doc/matlabicon.gif
+External_Dependencies/matnwb/doc/simulinkicon.gif
