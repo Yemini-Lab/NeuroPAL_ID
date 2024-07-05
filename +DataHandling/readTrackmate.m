@@ -17,10 +17,14 @@ function [n_arr, l_arr] = readTrackmate(file)
             label = target.Spot{n}.Attributes.name;
             frame = str2num(target.Spot{n}.Attributes.POSITION_T);
 
-            n_arr = [n_arr; [frame x y z]];
-            l_arr{end+1} = label;
+            if ~any(isempty([x y z]))
+                n_arr = [n_arr; [frame x y z]];
+                l_arr{end+1} = label;
+            end
         end
     end
-    
-    n_arr = n_arr + 1;
+
+    if min(n_arr(:, 1))==0
+        n_arr(:, 1) = n_arr(:, 1) + 1;
+    end
 end
