@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<TrackMate version="7.12.2">
+    <Log>
+        <Text></Text>
+    </Log>
+    <Model spatialunits="pixel" timeunits="sec">
+        <FeatureDeclarations>
+            <SpotFeatures>
+                <Feature/>
+            </SpotFeatures>
+            <EdgeFeatures>
+                <Feature/>
+            </EdgeFeatures>
+            <TrackFeatures>
+                <Feature/>
+            </TrackFeatures>
+        </FeatureDeclarations>
+        <AllSpots>
+        </AllSpots>
+        <AllTracks>
+        </AllTracks>
+        <FilteredTracks>
+        </FilteredTracks>
+    </Model>
+    <Settings>
+        <ImageData filename="file.fmt" folder="C:\" height="ny" width="nx" nframes="nt" nslices="nz" pixelheight="1.0" pixelwidth="1.0" timeinterval="1.0" voxeldepth="1.0">
+            <Text></Text>
+        </ImageData>
+        <BasicSettings tend="nt-1" tstart="0" xend="nx-1" xstart="0" yend="ny-1" ystart="0" zend="nz-1" zstart="0">
+            <Text></Text>
+        </BasicSettings>
+        <DetectorSettings>
+            <Text></Text>
+            <Attributes>
+                <DETECTOR_NAME>MANUAL_DETECTOR</DETECTOR_NAME>
+                <RADIUS>5.0</RADIUS>
+            </Attributes>
+        </DetectorSettings>
+        <InitialSpotFilter>
+            <Text></Text>
+            <Attributes>
+                <feature>QUALITY</feature>
+                <isabove>true</isabove>
+                <value>0.0</value>
+            </Attributes>
+        </InitialSpotFilter>
+        <SpotFilterCollection>
+            <Text></Text>
+        </SpotFilterCollection>
+        <TrackerSettings>
+            <Text></Text>
+            <Attributes>
+                <TRACKER_NAME>MANUAL_TRACKER</TRACKER_NAME>
+            </Attributes>
+        </TrackerSettings>
+        <TrackFilterCollection>
+            <Text></Text>
+        </TrackFilterCollection>
+        <AnalyzerCollection>
+            <SpotAnalyzers>
+                <Analyzer/>
+            </SpotAnalyzers>
+            <EdgeAnalyzers>
+                <Analyzer/>
+            </EdgeAnalyzers>
+            <TrackAnalyzers>
+                <Analyzer/>
+            </TrackAnalyzers>
+        </AnalyzerCollection>
+    </Settings>
+    <GUIState state="ConfigureViews">
+        <Text></Text>
+    </GUIState>
+    <DisplaySettings>
+        <Text>{
+  &quot;name&quot;: &quot;User-default&quot;,
+  &quot;spotUniformColor&quot;: &quot;204, 51, 204, 255&quot;,
+  &quot;spotColorByType&quot;: &quot;TRACKS&quot;,
+  &quot;spotColorByFeature&quot;: &quot;TRACK_INDEX&quot;,
+  &quot;spotDisplayRadius&quot;: 0.5,
+  &quot;spotDisplayedAsRoi&quot;: false,
+  &quot;spotMin&quot;: 0.0,
+  &quot;spotMax&quot;: 285.0,
+  &quot;spotShowName&quot;: true,
+  &quot;trackMin&quot;: 0.0,
+  &quot;trackMax&quot;: 285.0,
+  &quot;trackColorByType&quot;: &quot;TRACKS&quot;,
+  &quot;trackColorByFeature&quot;: &quot;TRACK_INDEX&quot;,
+  &quot;trackUniformColor&quot;: &quot;204, 204, 51, 255&quot;,
+  &quot;undefinedValueColor&quot;: &quot;0, 0, 0, 255&quot;,
+  &quot;missingValueColor&quot;: &quot;89, 89, 89, 255&quot;,
+  &quot;highlightColor&quot;: &quot;51, 230, 51, 255&quot;,
+  &quot;trackDisplayMode&quot;: &quot;LOCAL&quot;,
+  &quot;colormap&quot;: &quot;Jet&quot;,
+  &quot;limitZDrawingDepth&quot;: false,
+  &quot;drawingZDepth&quot;: 2.0,
+  &quot;fadeTracks&quot;: true,
+  &quot;fadeTrackRange&quot;: 9,
+  &quot;useAntialiasing&quot;: true,
+  &quot;spotVisible&quot;: true,
+  &quot;trackVisible&quot;: true,
+  &quot;font&quot;: {
+    &quot;name&quot;: &quot;Arial&quot;,
+    &quot;style&quot;: 1,
+    &quot;size&quot;: 12,
+    &quot;pointSize&quot;: 12.0,
+    &quot;fontSerializedDataVersion&quot;: 1
+  },
+  &quot;lineThickness&quot;: 0.4,
+  &quot;selectionLineThickness&quot;: 4.0,
+  &quot;trackschemeBackgroundColor1&quot;: &quot;128, 128, 128, 255&quot;,
+  &quot;trackschemeBackgroundColor2&quot;: &quot;192, 192, 192, 255&quot;,
+  &quot;trackschemeForegroundColor&quot;: &quot;0, 0, 0, 255&quot;,
+  &quot;trackschemeDecorationColor&quot;: &quot;0, 0, 0, 255&quot;,
+  &quot;trackschemeFillBox&quot;: false,
+  &quot;spotFilled&quot;: true,
+  &quot;spotTransparencyAlpha&quot;: 1.0
+}</Text>
+    </DisplaySettings>
+</TrackMate>
