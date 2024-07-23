@@ -42,9 +42,12 @@ function writeTrackMate(video_info, video_neurons, output_file, figure)
                 x = video_neurons(n).rois(t).x_slice;
                 y = video_neurons(n).rois(t).y_slice;
                 z = video_neurons(n).rois(t).z_slice;
+
+                if ~isempty(x) && ~isempty(y) && ~isempty(z)
+                    new_frame = [new_frame, sprintf(spot_line, idx, name, t-1, t-1, x, y, z)];
+                    idx = idx + 1;
+                end
     
-                new_frame = [new_frame, sprintf(spot_line, idx, name, t-1, t-1, x, y, z)];
-                idx = idx + 1;
             catch
                 % ...
             end
