@@ -1,5 +1,7 @@
 function writeTrackMate(video_info, video_neurons, output_file, figure)
     template_file = 'Data\NeuroPAL\xmlTemplate.xml';
+    [fpath, fname, ffmt] = fileparts(video_info.file);
+    fname = [fname, ffmt];
 
     fileID = fopen(template_file, 'r');
     plainXML = textscan(fileID, '%s', 'Delimiter', '\n');
@@ -55,6 +57,13 @@ function writeTrackMate(video_info, video_neurons, output_file, figure)
     
     new_file{lineIndex} = sprintf('        <AllSpots nspots="%.f">', idx);
     new_file = [new_file; plaintext(lineIndex+1:end)];
+
+    dataIndex = find(contains(new_file, '<ImageData filename="file.fmt"'), 1);
+    settingsIndex = find(contains(new_file, '<BasicSettings tend="nt-1"'), 1);
+
+    new_file{dataIndex} = sprintf('        <ImageData filename="%s" folder="%s" height="%.f" width="%.f" nframes="%.f" nslices="%.f" pixelheight="1.0" pixelwidth="1.0" timeinterval="1.0" voxeldepth="1.0" />', fname, fpath, video_info.ny, video_info.nx, video_info.nt, video_info.nz);
+    new_file{settingsIndex} = sprintf('        <BasicSettings tend="%.f" tstart="0" xend="%.f" xstart="0" yend="%.f" ystart="0" zend="%.f" zstart="0" />', video_info.nt-1, video_info.nx-1, video_info.ny-1, video_info.nz-1); 
+
     writecell(new_file, output_file, FileType='text', QuoteStrings='none');
 
     if exist('d', 'var')
