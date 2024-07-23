@@ -1,4 +1,4 @@
-function writeTrackMate(t_gap, video_info, video_neurons, output_file, figure)
+function writeTrackMate(video_info, video_neurons, output_file, figure)
     template_file = 'Data\NeuroPAL\xmlTemplate.xml';
 
     fileID = fopen(template_file, 'r');
@@ -27,7 +27,7 @@ function writeTrackMate(t_gap, video_info, video_neurons, output_file, figure)
             d.Value = t/video_info.nt;
         end
 
-        new_frame = sprintf(sif_start, t+t_gap);
+        new_frame = sprintf(sif_start, t);
     
         for n=1:nn
             if exist('d', 'var')
@@ -37,18 +37,18 @@ function writeTrackMate(t_gap, video_info, video_neurons, output_file, figure)
             try
                 name = video_neurons(n).worldline.name;
         
-                x = video_neurons(n).rois(t+t_gap).x_slice;
-                y = video_neurons(n).rois(t+t_gap).y_slice;
-                z = video_neurons(n).rois(t+t_gap).z_slice;
+                x = video_neurons(n).rois(t).x_slice;
+                y = video_neurons(n).rois(t).y_slice;
+                z = video_neurons(n).rois(t).z_slice;
     
-                new_frame = [new_frame, sprintf(spot_line, idx, name, t+t_gap, t+t_gap, x, y, z)];
+                new_frame = [new_frame, sprintf(spot_line, idx, name, t, t, x, y, z)];
                 idx = idx + 1;
             catch
                 % ...
             end
         end
 
-        if ~strcmp(new_frame, sprintf(sif_start, t+t_gap))
+        if ~strcmp(new_frame, sprintf(sif_start, t))
             new_file{end+1} = [new_frame, sif_end];
         end
     end
