@@ -27,7 +27,7 @@ function writeTrackMate(video_info, video_neurons, output_file, figure)
             d.Value = t/video_info.nt;
         end
 
-        new_frame = sprintf(sif_start, t);
+        new_frame = sprintf(sif_start, t-1);
     
         for n=1:nn
             if exist('d', 'var')
@@ -41,7 +41,7 @@ function writeTrackMate(video_info, video_neurons, output_file, figure)
                 y = video_neurons(n).rois(t).y_slice;
                 z = video_neurons(n).rois(t).z_slice;
     
-                new_frame = [new_frame, sprintf(spot_line, idx, name, t, t, x, y, z)];
+                new_frame = [new_frame, sprintf(spot_line, idx, name, t-1, t-1, x, y, z)];
                 idx = idx + 1;
             catch
                 % ...
