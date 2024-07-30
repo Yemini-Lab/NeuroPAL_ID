@@ -15,6 +15,60 @@ classdef ChunkyMethods
             Methods.ChunkyMethods.npal_gui = gui;
         end
 
+        function slice = apply_slice(action, slice)
+            app = Methods.ChunkyMethods.npal_id.ProcColormapButton.Value;
+            RGBW = [app.ProcRDropDown.Value, app.ProcGDropDown.Value, app.ProcBDropDown.Value, app.ProcWDropDown.Value];
+            
+            switch action
+                case 'norm'
+                    slice = Methods.Preprocess.zscore_frame(slice); 
+                case 'histmatch'
+                    slice(:, :, :, RGBW(1:3)) = Methods.run_histmatch(slice, RGBW);
+                    slice = Methods.Preprocess.zscore_frame(slice);     
+                case 'debleed'
+                    % TBD
+            end            
+        end
+
+        function processed_vol = apply_vol(action, vol, progress)
+            switch action
+                case 'debleed'
+                    processed_vol = Methods.ChunkyMethods.debleed(vol);
+
+                otherwise
+                    if isa(vol, 'matlab.io.MatFile')
+                        dims = size(vol, 'data');
+                        nz = dims(3);
+                    else
+                        dims = size(vol);
+                        nz = size(vol, 3);
+                    end
+
+                    % Initialize cache array.
+                    processed_vol = zeros(dims);
+    
+                    % Iterate over slices.
+                    for z=1:nz
+                        if exist('progress', 'var')
+                            progress.Value = z/nz;   
+                        end
+    
+                        % Grab slice.
+                        if isa(vol, 'matlab.io.MatFile')
+                            slice = app.proc_image.data(:, :, z, :);
+                        else
+                            slice = vol(:, :, z, :);
+                        end
+    
+                        % Apply operation.
+                        slice = Methods.ChunkyMethods.apply_slice(action, slice);
+    
+                        % Update appropriate slice in cache array.
+                        processed_vol(:, :, z, :) = slice;
+                    end
+            end            
+        end
+
         function spectral_unmix(ctx)
             % Remove spectral crosstalk of images based on a linear spectral crosstalk remover.
             
