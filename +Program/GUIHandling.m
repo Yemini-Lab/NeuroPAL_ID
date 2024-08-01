@@ -5,6 +5,9 @@ classdef GUIHandling
     properties (Constant, Access = public)
         pos_prefixes = {'tl', 'tm', 'tr', 'bl', 'bm', 'br'};
 
+        activity_components = {
+            'DisplayNeuronActivityMenu'};
+
         id_components = {
             'ImageMenu', ...
             'PreprocessingMenu', ...
@@ -67,6 +70,38 @@ classdef GUIHandling
     methods (Static)
 
         %% Global Handlers
+        function gui_init(app)
+            % Resize the figure to fit most of the screen size.
+            screen_size = get(groot, 'ScreenSize');
+            screen_size = screen_size(3:4);
+            screen_margin = floor(screen_size .* [0.07,0.05]);
+            figure_size(1:2) = screen_margin / 2;
+            figure_size(3) = screen_size(1) - screen_margin(1);
+            figure_size(4) = screen_size(2) - 2*screen_margin(2);
+            app.CELL_ID.Position = figure_size;
+
+            % Set up placeholder buttons
+            button_locations = figure_size;
+            
+            if any(button_locations <= 0)
+                button_locations = figure_size;
+            end
+
+            button_locations(1:2) = [1 1];
+            
+            app.ProcessingButton.Parent = app.ProcessingGridLayout.Parent;
+            app.ProcessingButton.Position = button_locations;
+            set(app.ProcessingButton, 'Visible', 'on');
+
+            app.IdButton.Parent = app.IdGridLayout.Parent;
+            app.IdButton.Position = button_locations;
+            set(app.IdButton, 'Visible', 'on');
+
+            app.TrackingButton.Parent = app.VideoGridLayout.Parent;
+            app.TrackingButton.Position = button_locations;
+            set(app.TrackingButton, 'Visible', 'on');
+        end
+
         function gui_lock(app, action, group)
             switch action
                 case {1, 'unlock', 'enable', 'on'}
@@ -76,10 +111,16 @@ classdef GUIHandling
             end
 
             switch group
-                case 'neuron'
+                case 'neuron_gui'
                     gui_components = Program.GUIHandling.neuron_components;
+
+                case 'activity_gui'
+                    gui_components = Program.GUIHandling.activity_components;
+
                 case 'identification_tab'
                     gui_components = Program.GUIHandling.id_components;
+                    Program.GUIHandling.gui_lock(app, state, 'neuron_gui');
+
                 case 'processing_tab'
                     gui_components = Program.GUIHandling.proc_components;
 
@@ -103,6 +144,9 @@ classdef GUIHandling
 
         %% Mouse & Click Handlers
         function init_click_states(app)
+            % Initialize the mouse click states (a hack to detect double clicks).
+            % Note: initialization is performed by startupFcn due construction issues.
+
             app.mouse_clicked.double_click_delay = 0.3;
             app.mouse_clicked.click = false;
         end
@@ -198,78 +242,12 @@ classdef GUIHandling
         end
 
         %% Neuronal Identification Tab
-
         function init_neuron_marker(app)
-            %% Initialize the neuron marker GUI attributes.
+            % Initialize the neuron marker GUI attributes.
             % Note: initialization is performed by startupFcn due construction issues.
 
             app.neuron_marker.shape = 'c';
             app.neuron_marker.color.edge = [0,0,0];
-        end
-
-        function freeze_image_gui(app, action)
-
-
-            switch action
-                case {1, 'unlock', 'enable'}
-                    % Enable all image GUI functionality.
-        
-                case {0, 'lock', 'disable'}
-                    % Disable all image GUI functionality.
-        
-                    % Disable the menu items.
-                    app.ImageMenu.Enable = 'off';
-                    app.PreprocessingMenu.Enable = 'off';
-        
-                    % Disable the worm info.
-                    app.BodyDropDown.Enable = 'off';
-                    app.AgeDropDown.Enable = 'off';
-                    app.SexDropDown.Enable = 'off';
-                    app.StrainEditField.Enable = 'off';
-                    app.NotesEditField.Enable = 'off';
-        
-                    % Disable the color channels.
-                    app.RCheckBox.Enable = 'off';
-                    app.GCheckBox.Enable = 'off';
-                    app.BCheckBox.Enable = 'off';
-                    app.WCheckBox.Enable = 'off';
-                    app.DICCheckBox.Enable = 'off';
-                    app.GFPCheckBox.Enable = 'off';
-                    app.RDropDown.Enable = 'off';
-                    app.GDropDown.Enable = 'off';
-                    app.BDropDown.Enable = 'off';
-                    app.WDropDown.Enable = 'off';
-                    app.DICDropDown.Enable = 'off';
-                    app.GFPDropDown.Enable = 'off';
-        
-                    % Disable the neuron detection info.
-                    app.AutoDetectButton.Enable = 'off';
-                    app.MouseClickDropDown.Enable = 'off';
-        
-                    % Disable the image info.
-                    app.ZSlider.Enable = 'off';
-                    app.ZAxisDropDown.Enable = 'off';
-                    app.FlipZButton.Enable = 'off';
-                    app.ZCenterEditField.Enable = 'off';
-        
-                    % Disable the neuron info.
-                    DisableNeuronGUI(app);
-            end
-        end
-
-        function freeze_neuron_gui(app, action)
-
-            switch action
-                case {1, 'unlock', 'enable', 'on'}
-                    state = 'on';
-        
-                case {0, 'lock', 'disable', 'off'}
-                    state = 'off';
-            end
-
-            for comp=1:length(neuron_gui_components)
-                app.(neuron_gui_components).Enable = state;
-            end
         end
 
         function activity_format_stack(app)
