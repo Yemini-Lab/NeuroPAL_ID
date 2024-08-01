@@ -228,12 +228,8 @@ classdef ChunkyMethods
                 app.spectral_cache = struct('ch_db', [], 'ch_px', {}, 'ch_val', {}, 'bg_px', [], 'bg_val', [], 'blurred_img', []);
             end
 
-
             % Grab channel indices.
             ch_idx = [app.RDropDown.Value, app.GDropDown.Value, app.BDropDown.Value, app.WDropDown.Value];
-            
-            % Grab channel gammas.
-            gammas = [app.tl_GammaEditField.Value, app.tm_GammaEditField.Value, app.tr_GammaEditField.Value, app.bl_GammaEditField.Value, app.bm_GammaEditField.Value, app.br_GammaEditField.Value];
 
             check = uiconfirm(app.UIFigure,sprintf('Click on the pixel on this slice that best represents %s.', channel),'Confirmation','Options',{'OK', 'Select different slice'},'DefaultOption','OK');
 
