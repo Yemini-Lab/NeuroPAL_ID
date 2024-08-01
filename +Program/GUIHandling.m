@@ -2,14 +2,100 @@ classdef GUIHandling
     % Functions responsible for handling our dynamic GUI solutions.
 
     %% Public variables.
-    properties (Access = public)
+    properties (Constant, Access = public)
+        pos_prefixes = {'tl', 'tm', 'tr', 'bl', 'bm', 'br'};
+
+        id_components = {
+            'ImageMenu', ...
+            'PreprocessingMenu', ...
+            'BodyDropDown', ...
+            'AgeDropDown', ...
+            'SexDropDown', ...
+            'StrainEditField', ...
+            'NotesEditField', ...
+            'RCheckBox', ...
+            'GCheckBox', ...
+            'BCheckBox', ...
+            'WCheckBox', ...
+            'DICCheckBox', ...
+            'GFPCheckBox', ...
+            'RDropDown', ...
+            'GDropDown', ...
+            'BDropDown', ...
+            'WDropDown', ...
+            'DICDropDown', ...
+            'GFPDropDown', ...
+            'AutoDetectButton', ...
+            'MouseClickDropDown', ...
+            'ZSlider', ...
+            'ZAxisDropDown', ...
+            'FlipZButton', ...
+            'ZCenterEditField'};
+
+        neuron_components = {
+            'AnalysisMenu', ...
+            'RotateImageMenu', ...
+            'RotateNeuronsMenu', ...
+            'DeleteUserIDsMenu', ...
+            'DeleteModelIDsMenu', ...
+            'SaveIDImageMenu', ...
+            'SaveIDsButton', ...
+            'AutoIDAllButton', ...
+            'AutoIDButton', ...
+            'UserIDButton', ...
+            'ColorAtlasCheckBox', ...
+            'NextNeuronDropDown', ...
+            'UserNeuronIDsListBox'};
+
+        proc_components = {
+            'ProcNoiseThresholdKnob', ...
+            'ProcNoiseThresholdField', ...
+            'ProcNormalizeColorsButton', ...
+            'ProcHistogramMatchingButton', ...
+            'ProcMeasureROINoiseButton', ...
+            'ProcMeasure90pthNoiseButton', ...
+            'ProcMirrorImageButton', ...
+            'ProcRotateClockwiseButton', ...
+            'ProcRotateCounterclockwiseButton', ...
+            'ProcZSlicesEditField', ...
+            'ProcXYFactorEditField', ...
+            'ProcXYFactorUpdateButton', ...
+            'ProcZFactorUpdateButton', ...
+            'ProcPreviewZslowCheckBox'};
     end
 
     methods (Static)
 
         %% Global Handlers
-        function SendFocus(app, ui_element)
-            %% Send focus to a UI element.
+        function gui_lock(app, action, group)
+            switch action
+                case {1, 'unlock', 'enable', 'on'}
+                    state = 'on';
+                case {0, 'lock', 'disable', 'off'}
+                    state = 'off';
+            end
+
+            switch group
+                case 'neuron'
+                    gui_components = Program.GUIHandling.neuron_components;
+                case 'identification_tab'
+                    gui_components = Program.GUIHandling.id_components;
+                case 'processing_tab'
+                    gui_components = Program.GUIHandling.proc_components;
+
+                    for pos=1:length(Program.GUIHandling.pos_prefixes)
+                        app.(sprintf('%s_hist_slider', Program.GUIHandling.pos_prefixes{pos})).Enable = state;
+                        app.(sprintf('%s_GammaEditField', Program.GUIHandling.pos_prefixes{pos})).Enable = state;
+                    end
+            end
+
+            for comp=1:length(gui_components)
+                app.(gui_components{comp}).Enable = state;
+            end
+        end
+
+        function send_focus(ui_element)
+            % Send focus to a UI element.
             % Hack: Matlab App Designer!!!
             focus(ui_element);
         end
@@ -122,44 +208,12 @@ classdef GUIHandling
         end
 
         function freeze_image_gui(app, action)
+
+
             switch action
                 case {1, 'unlock', 'enable'}
                     % Enable all image GUI functionality.
         
-                    % Enable the menu items.
-                    app.ImageMenu.Enable = 'on';
-                    app.PreprocessingMenu.Enable = 'on';
-        
-                    % Enable the worm info.
-                    app.BodyDropDown.Enable = 'on';
-                    app.AgeDropDown.Enable = 'on';
-                    app.SexDropDown.Enable = 'on';
-                    app.StrainEditField.Enable = 'on';
-                    app.NotesEditField.Enable = 'on';
-        
-                    % Enable the color channels.
-                    app.RCheckBox.Enable = 'on';
-                    app.GCheckBox.Enable = 'on';
-                    app.BCheckBox.Enable = 'on';
-                    app.WCheckBox.Enable = 'on';
-                    app.DICCheckBox.Enable = 'on';
-                    app.GFPCheckBox.Enable = 'on';
-                    app.RDropDown.Enable = 'on';
-                    app.GDropDown.Enable = 'on';
-                    app.BDropDown.Enable = 'on';
-                    app.WDropDown.Enable = 'on';
-                    app.DICDropDown.Enable = 'on';
-                    app.GFPDropDown.Enable = 'on';
-        
-                    % Enable the neuron detection info.
-                    app.AutoDetectButton.Enable = 'on';
-                    app.MouseClickDropDown.Enable = 'on';
-        
-                    % Enable the image info.
-                    app.ZSlider.Enable = 'on';
-                    app.ZAxisDropDown.Enable = 'on';
-                    app.FlipZButton.Enable = 'on';
-                    app.ZCenterEditField.Enable = 'on';
                 case {0, 'lock', 'disable'}
                     % Disable all image GUI functionality.
         
@@ -204,45 +258,17 @@ classdef GUIHandling
         end
 
         function freeze_neuron_gui(app, action)
-            switch action
-                case {1, 'unlock', 'enable'}
-                    % Enable all neuron GUI functionality.
-        
-                    % Enable the menu items.
-                    app.AnalysisMenu.Enable = 'on';
-                    app.RotateImageMenu.Enable = 'on';
-                    app.RotateNeuronsMenu.Enable = 'on';
-                    app.DeleteUserIDsMenu.Enable = 'on';
-                    app.DeleteModelIDsMenu.Enable = 'on';
-                    app.SaveIDImageMenu.Enable = 'on';
-        
-                    % Enable the neuron info.
-                    app.SaveIDsButton.Enable = 'on';
-                    app.AutoIDAllButton.Enable = 'on';
-                    app.AutoIDButton.Enable = 'on';
-                    app.UserIDButton.Enable = 'on';
-                    app.ColorAtlasCheckBox.Enable = 'on';
-                    app.NextNeuronDropDown.Enable = 'on';
-                    app.UserNeuronIDsListBox.Enable = 'on';
-                case {0, 'lock', 'disable'}
-                   % Disable all neuron GUI functionality.
 
-                    % Disable the menu items.
-                    app.AnalysisMenu.Enable = 'off';
-                    app.RotateImageMenu.Enable = 'off';
-                    app.RotateNeuronsMenu.Enable = 'off';
-                    app.DeleteUserIDsMenu.Enable = 'off';
-                    app.DeleteModelIDsMenu.Enable = 'off';
-                    app.SaveIDImageMenu.Enable = 'off';
+            switch action
+                case {1, 'unlock', 'enable', 'on'}
+                    state = 'on';
         
-                    % Disable the neuron info.
-                    app.SaveIDsButton.Enable = 'off';
-                    app.AutoIDAllButton.Enable = 'off';
-                    app.AutoIDButton.Enable = 'off';
-                    app.UserIDButton.Enable = 'off';
-                    app.ColorAtlasCheckBox.Enable = 'off';
-                    app.NextNeuronDropDown.Enable = 'off';
-                    app.UserNeuronIDsListBox.Enable = 'off';
+                case {0, 'lock', 'disable', 'off'}
+                    state = 'off';
+            end
+
+            for comp=1:length(neuron_gui_components)
+                app.(neuron_gui_components).Enable = state;
             end
         end
 
@@ -291,7 +317,7 @@ classdef GUIHandling
 
         %% Log Tab
 
-        function fade_log(app, t, hLabel)
+        function fade_log(t, hLabel)
             currentColor = hLabel.FontColor;
             newColor = min(currentColor + [0.02 0.02 0.02], [0.9 0.9 0.9]);
             hLabel.FontColor = newColor;
@@ -305,101 +331,17 @@ classdef GUIHandling
 
 
         %% Processing Tab
-        function freeze_processing_gui(app, action)
-            switch action
-                case {1, 'unlock', 'enable'}
-                    set(app.tl_hist_slider, 'Enable', 'on');
-                    set(app.tm_hist_slider, 'Enable', 'on');
-                    set(app.tr_hist_slider, 'Enable', 'on');
-                    set(app.bl_hist_slider, 'Enable', 'on');
-                    set(app.bm_hist_slider, 'Enable', 'on');
-                    set(app.br_hist_slider, 'Enable', 'on');
-
-                    set(app.tl_GammaEditField, 'Enable', 'on');
-                    set(app.tm_GammaEditField, 'Enable', 'on');
-                    set(app.tr_GammaEditField, 'Enable', 'on');
-                    set(app.bl_GammaEditField, 'Enable', 'on');
-                    set(app.bm_GammaEditField, 'Enable', 'on');
-                    set(app.br_GammaEditField, 'Enable', 'on');
-                    
-                    set(app.ProcNoiseThresholdKnob, 'Enable', 'on');
-                    set(app.ProcNoiseThresholdField, 'Enable', 'on');
-
-                    set(app.ProcNormalizeColorsButton, 'Enable', 'on');
-                    set(app.ProcHistogramMatchingButton, 'Enable', 'on');
-
-                    set(app.ProcMeasureROINoiseButton, 'Enable', 'on');
-                    set(app.ProcMeasure90pthNoiseButton, 'Enable', 'on');
-
-                    set(app.ProcMirrorImageButton, 'Enable', 'on');
-                    set(app.ProcRotateClockwiseButton, 'Enable', 'on');
-                    set(app.ProcRotateCounterclockwiseButton, 'Enable', 'on');
-
-                    set(app.ProcZSlicesEditField, 'Enable', 'on');
-                    set(app.ProcXYFactorEditField, 'Enable', 'on');
-                    set(app.ProcXYFactorUpdateButton, 'Enable', 'on');
-                    set(app.ProcZFactorUpdateButton, 'Enable', 'on');
-                    set(app.ProcPreviewZslowCheckBox, 'Enable', 'on');
-                case {0, 'lock', 'disable'}
-                    set(app.tl_hist_slider, 'Enable', 'off');
-                    set(app.tm_hist_slider, 'Enable', 'off');
-                    set(app.tr_hist_slider, 'Enable', 'off');
-                    set(app.bl_hist_slider, 'Enable', 'off');
-                    set(app.bm_hist_slider, 'Enable', 'off');
-                    set(app.br_hist_slider, 'Enable', 'off');
-
-                    set(app.tl_GammaEditField, 'Enable', 'off');
-                    set(app.tm_GammaEditField, 'Enable', 'off');
-                    set(app.tr_GammaEditField, 'Enable', 'off');
-                    set(app.bl_GammaEditField, 'Enable', 'off');
-                    set(app.bm_GammaEditField, 'Enable', 'off');
-                    set(app.br_GammaEditField, 'Enable', 'off');
-                    
-                    set(app.ProcNoiseThresholdKnob, 'Enable', 'off');
-                    set(app.ProcNoiseThresholdField, 'Enable', 'off');
-
-                    set(app.ProcNormalizeColorsButton, 'Enable', 'off');
-                    set(app.ProcHistogramMatchingButton, 'Enable', 'off');
-
-                    set(app.ProcMeasureROINoiseButton, 'Enable', 'off');
-                    set(app.ProcMeasure90pthNoiseButton, 'Enable', 'off');
-
-                    set(app.ProcMirrorImageButton, 'Enable', 'off');
-                    set(app.ProcRotateClockwiseButton, 'Enable', 'off');
-                    set(app.ProcRotateCounterclockwiseButton, 'Enable', 'off');
-
-                    set(app.ProcZSlicesEditField, 'Enable', 'off');
-                    set(app.ProcXYFactorEditField, 'Enable', 'off');
-                    set(app.ProcXYFactorUpdateButton, 'Enable', 'off');
-                    set(app.ProcZFactorUpdateButton, 'Enable', 'off');
-                    set(app.ProcPreviewZslowCheckBox, 'Enable', 'off');
-            end
-        end
-
         function set_thresholds(app, max_val)
-            app.ProcNoiseThresholdKnob.Limits = [1 max_val];
-            app.ProcNoiseThresholdField.Limits = app.ProcNoiseThresholdKnob.Limits;
+            new_limits = [1 max_val];
 
-            app.tl_hist_slider.Limits = app.ProcNoiseThresholdKnob.Limits;
-            app.tm_hist_slider.Limits = app.ProcNoiseThresholdKnob.Limits;
-            app.tr_hist_slider.Limits = app.ProcNoiseThresholdKnob.Limits;
-            app.bl_hist_slider.Limits = app.ProcNoiseThresholdKnob.Limits;
-            app.bm_hist_slider.Limits = app.ProcNoiseThresholdKnob.Limits;
-            app.br_hist_slider.Limits = app.ProcNoiseThresholdKnob.Limits;
+            app.ProcNoiseThresholdKnob.Limits = new_limits;
+            app.ProcNoiseThresholdField.Limits = new_limits;
 
-            app.tl_hist_slider.Value = app.ProcNoiseThresholdKnob.Limits;
-            app.tm_hist_slider.Value = app.ProcNoiseThresholdKnob.Limits;
-            app.tr_hist_slider.Value = app.ProcNoiseThresholdKnob.Limits;
-            app.bl_hist_slider.Value = app.ProcNoiseThresholdKnob.Limits;
-            app.bm_hist_slider.Value = app.ProcNoiseThresholdKnob.Limits;
-            app.br_hist_slider.Value = app.ProcNoiseThresholdKnob.Limits; 
-
-            app.tl_hist_ax.XLim = app.ProcNoiseThresholdKnob.Limits;
-            app.tm_hist_ax.XLim = app.ProcNoiseThresholdKnob.Limits;
-            app.tr_hist_ax.XLim = app.ProcNoiseThresholdKnob.Limits;
-            app.bl_hist_ax.XLim = app.ProcNoiseThresholdKnob.Limits;
-            app.bm_hist_ax.XLim = app.ProcNoiseThresholdKnob.Limits;
-            app.br_hist_ax.XLim = app.ProcNoiseThresholdKnob.Limits;
+            for pos=1:length(Program.GUIHandling.pos_prefixes)
+                app.(sprintf('%s_hist_slider', Program.GUIHandling.pos_prefixes{pos})).Limits = new_limits;
+                app.(sprintf('%s_hist_slider', Program.GUIHandling.pos_prefixes{pos})).Value = new_limits;
+                app.(sprintf('%s_hist_ax', Program.GUIHandling.pos_prefixes{pos})).XLim = new_limits;
+            end
         end
 
         function shorten_knob_labels(app)
