@@ -5,6 +5,21 @@ classdef GUIHandling
     properties (Constant, Access = public)
         pos_prefixes = {'tl', 'tm', 'tr', 'bl', 'bm', 'br'};
 
+        % NWB components
+        device_lists = {
+            'Npal', ...
+            'Video'};
+
+        optical_fields = {
+            'Fluorophore', ...
+            'Filter', ...
+            'ExLambda', ...
+            'ExFilterLow', ...
+            'ExFilterHigh', ...
+            'EmLambda', ...
+            'EmFilterLow', ...
+            'EmFilterHigh'};
+
         activity_components = {
             'DisplayNeuronActivityMenu'};
 
@@ -132,6 +147,16 @@ classdef GUIHandling
 
             for comp=1:length(gui_components)
                 app.(gui_components{comp}).Enable = state;
+            end
+        end
+
+        function mutually_exclusive(event, counterparts, property)
+            % Ensures that the GUI component that triggered this function
+            % call always expresses the opposite boolean property of all
+            % GUI components in the counterparts cell array.
+
+            for comp=1:length(counterparts)
+                counterparts{comp}.(property) = ~event.Source.(property);
             end
         end
 
@@ -338,6 +363,78 @@ classdef GUIHandling
             end
         
             app.ProcNoiseThresholdKnob.MajorTickLabels = fixedLabels;
+        end
+
+
+        %% Saving GUI
+        
+        function device_handler(app, action, device)
+            device_table = app.DeviceUITable.Data;
+
+            switch action
+                case 'add'
+                    for comp=1:length(Program.GUIHandling.device_lists)
+                        app.(sprintf('%sHardwareDeviceDropDown', Program.GUIHandling.device_lists{comp})).Items{end+1} = device.name;
+                        app.(sprintf('%sHardwareDeviceDropDown', Program.GUIHandling.device_lists{comp})).ItemsData{end+1} = device.name;
+                    end
+
+                    app.NameEditField.Value = '';
+                    app.ManufacturerEditField.Value = '';
+                    app.HardwareDescriptionTextArea.Value = '';
+
+                    app.DeviceUITable.Data = [device_table; {device.name, device.manu, device.desc}];
+
+                case 'edit'
+                    logged_device = struct(...
+                        'name', char(device_table(device, 1)), ...
+                        'manu', char(device_table(device, 2)), ...
+                        'desc', char(device_table(device, 3)));
+
+                    app.NameEditField.Value = logged_device.name;
+                    app.ManufacturerEditField.Value = logged_device.manu;
+                    app.HardwareDescriptionTextArea.Value = logged_device.desc;
+                    
+                    Program.GUIHandling.device_handler(app, 'remove', device);
+
+                case 'remove'
+                    app.DeviceUITable.Data(device, :) = [];
+
+                    for comp=1:length(Program.GUIHandling.device_lists)
+                        app.(sprintf('%sHardwareDeviceDropDown', Program.GUIHandling.device_lists{comp})).Items(device) = [];
+                        app.(sprintf('%sHardwareDeviceDropDown', Program.GUIHandling.device_lists{comp})).ItemsData(device) = [];
+                    end
+
+            end
+
+        end
+        
+        function channel_handler(app, action, channel)
+            channel_table = app.OpticalUITable.Data;
+
+            switch action
+                case 'add'
+                    columns = fieldnames(channel);
+
+                    new_row = {};
+                    for comp=1:length(columns)
+                        new_row{end+1} = channel.(columns.(comp));
+                    end
+
+                    app.OpticalUITable.Data = [channel_table; new_row];
+
+                    for comp=1:length(Program.GUIHandling.optical_fields)
+                        clear(app.(Program.GUIHandling.optical_fields{comp}).Value); 
+                    end
+                case 'edit'
+                    for comp=1:length(Program.GUIHandling.optical_fields)
+                        app.(Program.GUIHandling.optical_fields{comp}).Value = channel_table(channel, comp); 
+                    end
+                    
+                    Program.GUIHandling.device_handler(app, 'remove', channel);
+                case 'remove'
+                    app.OpticalUITable.Data(device, :) = [];
+            end
+
         end
 
     end
