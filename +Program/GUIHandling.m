@@ -3,7 +3,24 @@ classdef GUIHandling
 
     %% Public variables.
     properties (Constant, Access = public)
+        % Processing components
         pos_prefixes = {'tl', 'tm', 'tr', 'bl', 'bm', 'br'};
+
+        proc_components = {
+            'ProcNoiseThresholdKnob', ...
+            'ProcNoiseThresholdField', ...
+            'ProcNormalizeColorsButton', ...
+            'ProcHistogramMatchingButton', ...
+            'ProcMeasureROINoiseButton', ...
+            'ProcMeasure90pthNoiseButton', ...
+            'ProcMirrorImageButton', ...
+            'ProcRotateClockwiseButton', ...
+            'ProcRotateCounterclockwiseButton', ...
+            'ProcZSlicesEditField', ...
+            'ProcXYFactorEditField', ...
+            'ProcXYFactorUpdateButton', ...
+            'ProcZFactorUpdateButton', ...
+            'ProcPreviewZslowCheckBox'};
 
         % NWB components
         device_lists = {
@@ -30,7 +47,7 @@ classdef GUIHandling
             'AgeDropDown', ...
             'SexDropDown', ...
             'StrainEditField', ...
-            'NotesEditField', ...
+            'SubjectNotesTextArea', ...
             'RCheckBox', ...
             'GCheckBox', ...
             'BCheckBox', ...
@@ -64,22 +81,6 @@ classdef GUIHandling
             'ColorAtlasCheckBox', ...
             'NextNeuronDropDown', ...
             'UserNeuronIDsListBox'};
-
-        proc_components = {
-            'ProcNoiseThresholdKnob', ...
-            'ProcNoiseThresholdField', ...
-            'ProcNormalizeColorsButton', ...
-            'ProcHistogramMatchingButton', ...
-            'ProcMeasureROINoiseButton', ...
-            'ProcMeasure90pthNoiseButton', ...
-            'ProcMirrorImageButton', ...
-            'ProcRotateClockwiseButton', ...
-            'ProcRotateCounterclockwiseButton', ...
-            'ProcZSlicesEditField', ...
-            'ProcXYFactorEditField', ...
-            'ProcXYFactorUpdateButton', ...
-            'ProcZFactorUpdateButton', ...
-            'ProcPreviewZslowCheckBox'};
     end
 
     methods (Static)
@@ -131,6 +132,7 @@ classdef GUIHandling
 
                 case 'activity_gui'
                     gui_components = Program.GUIHandling.activity_components;
+                    app.data_flag.('Neuronal_Activity') = 1;
 
                 case 'identification_tab'
                     gui_components = Program.GUIHandling.id_components;
@@ -150,6 +152,38 @@ classdef GUIHandling
             end
         end
 
+        function loaded_files = loaded_file_check(app, tree)
+            % Checks which of the files that NeuroPAL_ID can load have been
+            % loaded and checks their associated nodes in the passed uitree.
+
+            files_to_check = fieldnames(app.data_flags);
+            loaded_files = [];
+
+            if app.image_neurons.num_neurons > 1
+                app.data_flags.('Neurons') = 1;
+            end
+
+            if app.image_neurons.is_any_annotated
+                app.data_flags.('Neuronal_Identities') = 1;
+            end
+
+            for data=1:length(files_to_check)
+                data_file = files_to_check{data};
+                if app.data_flags.(data_file)
+                    if exist('tree', 'var')
+                        tree_app = Program.GUIHandling.get_parent_app(tree);
+                        loaded_files = [loaded_files tree_app.(sprintf('%sNode', strrep(data_file, '_', '')))];
+                    else
+                        loaded_files = [loaded_files {strrep(data_file, '_', '')}];
+                    end
+                end
+            end  
+
+            if exist('tree', 'var')
+                tree.CheckedNodes = loaded_files;
+            end
+        end
+
         function mutually_exclusive(event, counterparts, property)
             % Ensures that the GUI component that triggered this function
             % call always expresses the opposite boolean property of all
@@ -164,6 +198,16 @@ classdef GUIHandling
             % Send focus to a UI element.
             % Hack: Matlab App Designer!!!
             focus(ui_element);
+        end
+
+        function app = get_parent_app(component)
+            % Get the application a given component belongs to.
+
+            if any(ismember(properties(component), 'RunningAppInstance'))
+                app = component.RunningAppInstance;
+            else
+                app = Program.GUIHandling.get_parent_app(component.Parent);
+            end
         end
 
 
@@ -367,6 +411,53 @@ classdef GUIHandling
 
 
         %% Saving GUI
+
+        function nwb_init(app)          
+            Program.GUIHandling.loaded_file_check(app.parent_app, app.Tree)
+            worm_properties = {
+                'AgeDropDown', ...
+                'BodyDropDown', ...
+                'SexDropDown', ...
+                'StrainEditField', ...
+                'SubjectNotesTextArea'};
+
+            for node=1:length(app.Tree.CheckedNodes)
+                file = app.Tree.CheckedNodes(node).Text;
+                
+                switch file
+                    case 'NeuroPAL Volume'
+                        allow_save = 1;
+                        for child=1:length(app.NPALVolumeGrid)
+                            app.NPALVolumeGrid.Children(child).Enable = 'on';
+                        end
+
+                    case 'Neuronal Identities'
+                        app.NeuroPALIDsDescription.Enable = 'on';
+
+                    case {'Video Volume', 'Tracking ROIs'}
+                        allow_save = 1;
+                        for child=1:length(app.VideoVolumeGrid)
+                            app.VideoVolumeGrid.Children(child).Enable = 'on';
+                        end
+
+                    case {'Neuronal Activity', 'Stimulus File'}
+                        app.NeuronalActivityDescription.Enable = 'on';
+                        app.StimulusFileSelect.Enable = 'on';
+                end
+            end
+
+            if allow_save
+                app.SaveButton.Enable = 'on';
+
+                for prop=1:length(worm_properties)
+                    app.(worm_properties{prop}).Value = app.parent_app.(worm_properties{prop}).Value;
+                end
+
+            else
+                uiconfirm(app.parent_app.CELLID, "You need to load a volume before you can save to an NWB file.", "Error!");
+                delete(app);
+            end
+        end
         
         function device_handler(app, action, device)
             device_table = app.DeviceUITable.Data;
