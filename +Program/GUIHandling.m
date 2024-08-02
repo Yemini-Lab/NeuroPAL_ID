@@ -152,6 +152,14 @@ classdef GUIHandling
             end
         end
 
+        function package = global_grab(window, var)
+            % Fulfills requests for local variables across AppDesigner apps.
+
+            global_figures = findall(groot, 'Type','figure');
+            scope = Program.GUIHandling.get_parent_app(global_figures(strcmp(global_figures.Name, window)));
+            package = scope.(var);
+        end
+
         function loaded_files = loaded_file_check(app, tree)
             % Checks which of the files that NeuroPAL_ID can load have been
             % loaded and checks their associated nodes in the passed uitree.
@@ -198,6 +206,19 @@ classdef GUIHandling
             % Send focus to a UI element.
             % Hack: Matlab App Designer!!!
             focus(ui_element);
+        end
+
+        function output = get_child_properties(component, property)
+            % Get the value of the given property for all children of a component.
+            output = struct();
+
+            for comp=1:length(component.Children)
+                child = component.Children(comp);
+
+                if any(ismember(properties(child), char(property)))
+                    output.(child.Tag) = child.(property);
+                end
+            end
         end
 
         function app = get_parent_app(component)
@@ -526,6 +547,31 @@ classdef GUIHandling
                     app.OpticalUITable.Data(device, :) = [];
             end
 
+        end
+
+        function package = read_gui(app)
+            worm = Program.GUIHandling.get_child_properties(app.WormGrid, 'Value');
+            author = Program.GUIHandling.get_child_properties(app.AuthorGrid, 'Value');
+            colormap = Program.GUIHandling.get_child_properties(app.NPALVolumeGrid, 'Value');
+            video = Program.GUIHandling.get_child_properties(app.VideoVolumeGrid, 'Value');
+            neurons = Program.GUIHandling.get_child_properties(app.NeuronDataGrid, 'Value');
+
+            device_table = app.DeviceUITable.Data;
+            optical_table = app.OpticalUITable.Data;
+
+            colormap.grid_spacing = struct( ...
+                'values', [colormap.grid_x, colormap.grid_y, colormap.grid_z], ...
+                'unit', colormap.grid_unit);
+            colormap.prefs = Program.GUIHandling.global_grab('NeuroPAL ID', 'image_prefs');
+
+            package = struct( ...
+                'worm', worm, ...
+                'author', author, ...
+                'colormap', colormap, ...
+                'video', video, ...
+                'neurons', neurons, ...
+                'device_table', device_table, ...
+                'optical_table', optical_table);
         end
 
     end
