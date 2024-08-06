@@ -99,7 +99,7 @@ classdef writeNWB
             if ctx.flags.Neurons || ctx.flags.Neuronal_Identities
                 progress.Message = 'Populating neuronal identities...';
                 ctx.neurons.colormap = DataHandling.writeNWB.create_segmentation('colormap', ctx);
-                ctx.build.file.processing.set(ctx.neurons.colormap.name, ctx.neurons.colormap);
+                ctx.build.file.processing.set('NeuroPALNeurons', ctx.neurons.colormap);
             end
 
             if ctx.flags.Video_Volume
@@ -300,34 +300,45 @@ classdef writeNWB
                         'description', ctx.neurons.id_description, ...
                         'imaging_volume', ctx.(preset).imaging_volume);
 
+                    voxel_mask = [];
+                    for n=1:length(ctx.neurons.(preset).neurons)
+                        positions = ctx.neurons.(preset).neurons(n).position;
+                        
+                        x = positions(1);
+                        y = positions(2);
+                        z = positions(3);
+                        id = ctx.neurons.(preset).neurons(n).annotation;
+                        neuron = [x y z {id}];
+        
+                        voxel_mask = [voxel_mask neuron];
+                    end
+        
+                    voxel_mask = types.hdmf_common.VectorData('data', voxel_mask);
+                    obj.voxel_mask = voxel_mask;
+
                 case 'video'
                     obj = types.core.PlaneSegmentation( ...
                         'name', 'TrackedNeurons', ...
                         'description', ctx.video.tracking_notes, ...
                         'imaging_plane', ctx.video.imaging_volume);
 
+                    voxel_mask = [];
+                    for n=1:length(ctx.neurons.(preset).labels)
+                        positions = ctx.neurons.positions(n);
+                        
+                        x = positions(1);
+                        y = positions(2);
+                        z = positions(3);
+                        t = positions(4);
+                        id = ctx.neurons.labels(n);
+                        neuron = [x y z t {id}];
+        
+                        voxel_mask = [voxel_mask neuron];
+                    end
+        
+                    obj.voxel_mask = voxel_mask;
+
             end
-
-            voxel_mask = [];
-            for n=1:length(ctx.neurons.(preset).labels)
-                positions = ctx.neurons.positions(n);
-                
-                x = positions(1);
-                y = positions(2);
-                z = positions(3);
-                id = ctx.neurons.labels(n);
-
-                if length(ctx.neurons.positions(n))>3
-                    t = positions(4);
-                    neuron = [x y z t {id}];
-                else
-                    neuron = [x y z {id}];
-                end
-
-                voxel_mask = [voxel_mask neuron];
-            end
-
-            obj.voxel_mask = voxel_mask;
         end
 
         function obj = create_traces(ctx)
