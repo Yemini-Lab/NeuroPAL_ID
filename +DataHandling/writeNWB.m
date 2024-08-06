@@ -118,13 +118,13 @@ classdef writeNWB
             if ctx.flags.Tracking_ROIs
                 progress.Message = 'Populating tracking ROIs...';
                 ctx.neurons.video = DataHandling.writeNWB.create_segmentation('video', ctx);
-                ctx.build.file.processing.set(ctx.neurons.video.name, ctx.neurons.video);
+                ctx.build.file.processing.set('TrackedNeuronROIs', ctx.neurons.video);
             end
 
             if ctx.flags.Neuronal_Activity
                 progress.Message = 'Populating neuronal activity...';
                 ctx.neurons.activity = DataHandling.writeNWB.create_traces(ctx);
-                ctx.build.file.processing.set(ctx.neurons.activity.name, ctx.neurons.activity);
+                ctx.build.file.processing.set('ActivityTraces', ctx.neurons.activity);
             end
 
             if ctx.flags.Stimulus_Files
