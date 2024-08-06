@@ -9,14 +9,21 @@ classdef writeNWB
         function code = write_order(app, path, progress)
             % Full-shot NWB save routine
 
+            if ~exist('progress', 'var')
+                progress = struct();
+            end
+
             % Grab NWB-compatible metadata from nwbsave.mlapp
+            progress.Message = 'Parsing metadata...';
             [ctx, device_table, optical_table] = Program.GUIHandling.read_gui(app);
 
             % Grab data flags from visualize_light.mlapp so we know which
             % parts of the save routine to skip.
+            progress.Message = 'Checking flags...';
             ctx.flags = Program.GUIHandling.global_grab('NeuroPAL ID', 'data_flags');
 
             % Grab NWB-compatible data from visualize_light.mlapp
+            progress.Message = 'Loading volume data...';
             ctx.colormap.data = Program.GUIHandling.global_grab('NeuroPAL ID', 'image_data');
             ctx.video.info = Program.GUIHandling.global_grab('NeuroPAL ID', 'video_info');
 
@@ -25,12 +32,14 @@ classdef writeNWB
             ctx.neurons.activity_data = Program.GUIHandling.global_grab('NeuroPAL ID', 'activity_table');
 
             % Build nwb file.
+            progress.Message = 'Initializing file...';
             ctx.build = struct();
             ctx.build.file = DataHandling.writeNWB.create_file(ctx);
             
             % Initialize variable to store devices objects.
             devices = [];
 
+            progress.Message = 'Parsing hardware data...';
             % Iterate over hardware devices
             for eachDevice=1:length(device_table)
 
@@ -50,9 +59,11 @@ classdef writeNWB
             end
 
             % Create optical channel objects.
+            progress.Message = 'Parsing channel data...';
             ctx.optical_metadata = DataHandling.writeNWB.create_channels(optical_table);
             
             % Initialize struct to store NWB modules.
+            progress.Message = 'Building modules...';
             ctx.build.modules = struct();
 
             % Create acquisition module & assign raw volume objects.
@@ -65,6 +76,7 @@ classdef writeNWB
 
             % Create required volume objects.
             if ctx.flags.NeuroPAL_Volume
+                progress.Message = 'Populating NeuroPAL volume...';
                 ctx.colormap.imaging_volume = DataHandling.writeNWB.create_volume('colormap', 'imaging', ctx);
                 ctx.build.file.acquisition.set(ctx.colormap.imaging_volume.name, ctx.colormap.imaging_volume);
     
@@ -73,11 +85,13 @@ classdef writeNWB
             end
 
             if ctx.flags.Neurons || ctx.flags.Neuronal_Identities
+                progress.Message = 'Populating neuronal identities...';
                 ctx.neurons.colormap = DataHandling.writeNWB.create_segmentation('colormap', ctx);
                 ctx.build.file.processing.set(ctx.neurons.colormap.name, ctx.neurons.colormap);
             end
 
             if ctx.flags.Video_Volume
+                progress.Message = 'Populating video volume...';
                 ctx.video.imaging_volume = DataHandling.writeNWB.create_volume('video', 'imaging', ctx);
                 ctx.build.file.processing.set(ctx.video.imaging_volume.name, ctx.video.imaging_volume);
     
@@ -86,16 +100,19 @@ classdef writeNWB
             end
 
             if ctx.flags.Tracking_ROIs
+                progress.Message = 'Populating tracking ROIs...';
                 ctx.neurons.video = DataHandling.writeNWB.create_segmentation('video', ctx);
                 ctx.build.file.processing.set(ctx.neurons.video.name, ctx.neurons.video);
             end
 
             if ctx.flags.Neuronal_Activity
+                progress.Message = 'Populating neuronal activity...';
                 ctx.neurons.activity = DataHandling.writeNWB.create_traces(ctx);
                 ctx.build.file.processing.set(ctx.neurons.activity.name, ctx.neurons.activity);
             end
 
             if ctx.flags.Stimulus_Files
+                progress.Message = 'Populating stimuli...';
                 switch class(ctx.neurons.stim_file)
                     case {'char', 'string'}
                         ctx.neurons.stim_table = DataHandling.readStimFile(ctx.neurons.stim_file);
@@ -114,6 +131,7 @@ classdef writeNWB
 
 
             % Check if NWB file to be saved already exists.
+            progress.Message = 'Writing to file...';
             if ~exist(path, "file")
                 % If not, save.
                 nwbExport(ctx.build.file, path);
@@ -157,11 +175,11 @@ classdef writeNWB
         end
 
         function device = create_device(name, description, manufacturer)
-            new_device = types.core.Device(...
-                    'name', name, ...
-                    'description', description, ...
-                    'manufacturer', manufacturer ...
-                    );
+            device = types.core.Device(...
+                'name', name, ...
+                'description', description, ...
+                'manufacturer', manufacturer ...
+                );
         end
 
         function nwb_module = create_module(module, ctx)
