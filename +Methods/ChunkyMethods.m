@@ -454,9 +454,9 @@ classdef ChunkyMethods
                     [~, ~, fmt] = fileparts(video_info.annotations);
                     
                     switch fmt
-                        case 'xml'
+                        case '.xml'
                             [positions, labels] = DataHandling.readTrackmate(video_info.annotations);
-                        case 'h5'
+                        case '.h5'
                             [positions, labels] = DataHandling.readAnnoH5(video_info.annotations);                            
                     end
 
