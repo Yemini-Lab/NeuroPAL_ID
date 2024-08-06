@@ -438,10 +438,10 @@ classdef ChunkyMethods
         end
 
         function neurons = stream_neurons(mode)
-            if ~exist('mode', 'var')
-                video_info = Program.GUIHandling.global_grab('NeuroPAL ID', 'video_info');
-                video_neurons = Program.GUIHandling.global_grab('NeuroPAL_ID', 'video_neurons');
+            video_info = Program.GUIHandling.global_grab('NeuroPAL ID', 'video_info');
+            video_neurons = Program.GUIHandling.global_grab('NeuroPAL ID', 'video_neurons');
 
+            if ~exist('mode', 'var')
                 if isfield(video_info.annotations)
                     mode = 'annotations';
                 elseif length(video_neurons) > 1

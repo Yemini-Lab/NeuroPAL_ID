@@ -10,7 +10,7 @@ classdef writeNWB
             % Full-shot NWB save routine
 
             % Grab NWB-compatible metadata from nwbsave.mlapp
-            ctx = Program.GUIHandling.read_gui(app);
+            [ctx, device_table, optical_table] = Program.GUIHandling.read_gui(app);
 
             % Grab data flags from visualize_light.mlapp so we know which
             % parts of the save routine to skip.
@@ -32,12 +32,12 @@ classdef writeNWB
             devices = [];
 
             % Iterate over hardware devices
-            for eachDevice=1:length(ctx.device_table)
+            for eachDevice=1:length(device_table)
 
                 % Get relevant name, description, & manufacturer.
-                name = ctx.device_table(eachDevice, 1);
-                desc = ctx.device_table(eachDevice, 2);
-                manu = ctx.device_table(eachDevice, 3);
+                name = device_table(eachDevice, 1);
+                desc = device_table(eachDevice, 2);
+                manu = device_table(eachDevice, 3);
 
                 % Create device object & add to device array.
                 devices = [devices; DataHandling.writeNWB.create_device(name, desc, manu)];
@@ -50,7 +50,7 @@ classdef writeNWB
             end
 
             % Create optical channel objects.
-            ctx.optical_metadata = DataHandling.writeNWB.create_channels(ctx.optical_table);
+            ctx.optical_metadata = DataHandling.writeNWB.create_channels(optical_table);
             
             % Initialize struct to store NWB modules.
             ctx.build.modules = struct();

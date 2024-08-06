@@ -157,7 +157,12 @@ classdef GUIHandling
 
             global_figures = findall(groot, 'Type','figure');
             scope = Program.GUIHandling.get_parent_app(global_figures(strcmp({global_figures.Name}, window)));
-            package = scope.(var);
+
+            if ~isempty(scope)
+                package = scope.(var);
+            else
+                package = [];
+            end
         end
 
         function loaded_files = loaded_file_check(app, tree)
@@ -224,10 +229,14 @@ classdef GUIHandling
         function app = get_parent_app(component)
             % Get the application a given component belongs to.
 
-            if any(ismember(properties(component), 'RunningAppInstance'))
-                app = component.RunningAppInstance;
+            if ~isempty(component)
+                if any(ismember(properties(component), 'RunningAppInstance'))
+                    app = component.RunningAppInstance;
+                else
+                    app = Program.GUIHandling.get_parent_app(component.Parent);
+                end
             else
-                app = Program.GUIHandling.get_parent_app(component.Parent);
+                app = [];
             end
         end
 
@@ -559,7 +568,7 @@ classdef GUIHandling
 
         end
 
-        function package = read_gui(app)
+        function [package, device_table, optical_table] = read_gui(app)
             worm = Program.GUIHandling.get_child_properties(app.WormGrid, 'Value');
             author = Program.GUIHandling.get_child_properties(app.AuthorGrid, 'Value');
             colormap = Program.GUIHandling.get_child_properties(app.NPALVolumeGrid, 'Value');
@@ -579,9 +588,7 @@ classdef GUIHandling
                 'author', author, ...
                 'colormap', colormap, ...
                 'video', video, ...
-                'neurons', neurons, ...
-                'device_table', device_table, ...
-                'optical_table', optical_table);
+                'neurons', neurons);
         end
 
     end
