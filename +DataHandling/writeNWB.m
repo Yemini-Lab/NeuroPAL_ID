@@ -41,7 +41,7 @@ classdef writeNWB
 
             progress.Message = 'Parsing hardware data...';
             % Iterate over hardware devices
-            for eachDevice=1:length(device_table)
+            for eachDevice=1:size(device_table, 1)
 
                 % Get relevant name, description, & manufacturer.
                 name = device_table(eachDevice, 1);
@@ -49,7 +49,8 @@ classdef writeNWB
                 manu = device_table(eachDevice, 3);
 
                 % Create device object & add to device array.
-                devices = [devices; DataHandling.writeNWB.create_device(name, desc, manu)];
+                new_device = DataHandling.writeNWB.create_device(name, desc, manu);
+                devices = [devices; new_device];
 
                 % If current device was selected as colormap microscope,
                 % save the object for later.
@@ -201,7 +202,7 @@ classdef writeNWB
             OptChanRefData = [];
             
             % Populate device data
-            for eachChannel = 1:length(optical_table)
+            for eachChannel = 1:size(optical_table, 1)
                 name = optical_table(eachChannel, 1);
                 desc = optical_table(eachChannel, 2);
 
