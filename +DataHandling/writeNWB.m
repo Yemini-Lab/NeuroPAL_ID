@@ -65,24 +65,34 @@ classdef writeNWB
             
             % Initialize struct to store NWB modules.
             progress.Message = 'Building modules...';
-            ctx.build.modules = struct();
-
-            % Create acquisition module & assign raw volume objects.
-            ctx.build.modules.acquisition = DataHandling.writeNWB.create_module('acquisition', ctx);
 
             % Create processing module & assign all objects containing work product.
-            ctx.build.modules.processing = DataHandling.writeNWB.create_module('processing', ctx);
-            ctx.build.modules.processing.nwbdatainterface = types.untyped.Set(ctx.optical_metadata.order, ctx.optical_metadata.channels);
-            ctx.build.file.processing.set('NeuroPAL', ctx.build.modules.processing);
+            %ctx.build.file.processing.nwbdatainterface = types.untyped.Set(ctx.optical_metadata.order, ctx.optical_metadata.channels);
 
             % Create required volume objects.
             if ctx.flags.NeuroPAL_Volume
                 progress.Message = 'Populating NeuroPAL volume...';
                 ctx.colormap.imaging_volume = DataHandling.writeNWB.create_volume('colormap', 'imaging', ctx);
-                ctx.build.file.acquisition.set(ctx.colormap.imaging_volume.name, ctx.colormap.imaging_volume);
+                ctx.build.file.acquisition.set('NeuroPALImVol', ctx.colormap.imaging_volume);
     
                 ctx.colormap.multichannel_volume = DataHandling.writeNWB.create_volume('colormap', 'multichannel', ctx);
-                ctx.build.file.acquisition.set(ctx.colormap.multichannel_volume.name, ctx.colormap.multichannel_volume);
+                ctx.build.file.acquisition.set('NeuroPALImageRaw', ctx.colormap.multichannel_volume);
+                
+                progress.Message = 'Populating NeuroPAL settings...';
+                ctx.colormap.settings = types.hdmf_common.DynamicTable( ...
+                    'name', 'NeuroPAL_ID', ...
+                    'description', 'NeuroPAL_ID Settings');
+
+                ctx.colormap.settings.addColumn( ...
+                    'name', 'gammas', ...
+                    'description', 'channel gamma values');
+
+                for ch=1:length(ctx.colormap.prefs.gammas)
+                    ctx.colormap.settings.addRow(ctx.colormap.prefs.gammas(ch))
+                end
+
+                ctx.build.file.processing.set(ctx.colormap.settings)
+
             end
 
             if ctx.flags.Neurons || ctx.flags.Neuronal_Identities
@@ -94,10 +104,10 @@ classdef writeNWB
             if ctx.flags.Video_Volume
                 progress.Message = 'Populating video volume...';
                 ctx.video.imaging_volume = DataHandling.writeNWB.create_volume('video', 'imaging', ctx);
-                ctx.build.file.processing.set(ctx.video.imaging_volume.name, ctx.video.imaging_volume);
+                ctx.build.file.processing.set('CalciumImVol', ctx.video.imaging_volume);
     
                 ctx.video.multichannel_volume = DataHandling.writeNWB.create_volume('video', 'multichannel', ctx);
-                ctx.build.file.processing.set(ctx.video.multichannel_volume.name, ctx.video.multichannel_volume);
+                ctx.build.file.processing.set('CalciumImageSeries', ctx.video.multichannel_volume);
             end
 
             if ctx.flags.Tracking_ROIs
@@ -244,7 +254,6 @@ classdef writeNWB
             switch module
                 case 'imaging'
                     nwb_volume = types.ndx_multichannel_volume.ImagingVolume( ...
-                        'name', 'ImagingVolume', ...
                         'optical_channel_plus', ctx.optical_metadata.channels, ...
                         'order_optical_channels', ctx.optical_metadata.order, ...
                         'description', ctx.(preset).description, ...
@@ -258,7 +267,6 @@ classdef writeNWB
                 case 'multichannel'
                     if strcmp(preset, 'colormap')
                         nwb_volume = types.ndx_multichannel_volume.MultiChannelVolume( ...
-                            'name', 'NeuroPALImageRaw', ...
                             'description', ctx.(preset).description, ...
                             'RGBW_channels', ctx.(preset).prefs.rgbw, ...
                             'data', ctx.colormap.data, ...
@@ -272,7 +280,6 @@ classdef writeNWB
                             'axis', 2);
 
                         nwb_volume = types.ndx_multichannel_volume.MultiChannelVolume( ...
-                            'name', 'CalciumImageSeries', ...
                             'description', ctx.(preset).description, ...
                             'data', data_pipe, ...
                             'scan_line_rate', ctx.(preset).scan_rate, ...
