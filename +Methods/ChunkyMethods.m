@@ -479,7 +479,7 @@ classdef ChunkyMethods
                     
             end
 
-            neurons = struct('positions', positions, 'labels', labels);
+            neurons = struct('positions', {positions}, 'labels', {labels});
         end
     end
 end

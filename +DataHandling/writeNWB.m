@@ -281,8 +281,13 @@ classdef writeNWB
 
                         data_pipe = types.untyped.DataPipe( ...
                             'data', video_preview, ...
-                            'maxSize', [ctx.(preset).data.nx ctx.(preset).data.ny ctx.(preset).data.nc ctx.(preset).data.nz ctx.(preset).data.nt], ...
+                            'maxSize', [ctx.(preset).info.nx ctx.(preset).info.ny ctx.(preset).info.nc ctx.(preset).info.nz ctx.(preset).info.nt], ...
                             'axis', 2);
+
+                        if ~isfield(ctx.(preset), 'scan_rate')
+                            ctx.(preset).scan_line_rate = 1;
+                            ctx.(preset).scan_rate = 1;
+                        end
 
                         nwb_volume = types.ndx_multichannel_volume.MultiChannelVolume( ...
                             'description', ctx.(preset).description, ...
@@ -317,8 +322,7 @@ classdef writeNWB
                         voxel_mask = [voxel_mask neuron];
                     end
         
-                    voxel_mask = types.hdmf_common.VectorData('data', voxel_mask);
-                    obj.voxel_mask = voxel_mask;
+                    obj.voxel_mask = types.hdmf_common.VectorData('data', voxel_mask);
 
                 case 'video'
                     obj = types.core.PlaneSegmentation( ...
@@ -327,20 +331,20 @@ classdef writeNWB
                         'imaging_plane', ctx.video.imaging_volume);
 
                     voxel_mask = [];
-                    for n=1:length(ctx.neurons.(preset).labels)
-                        positions = ctx.neurons.positions(n);
+                    for n=1:length({ctx.neurons.(preset).labels})
+                        positions = ctx.neurons.(preset).positions(n, :);
                         
                         x = positions(1);
                         y = positions(2);
                         z = positions(3);
                         t = positions(4);
-                        id = ctx.neurons.labels(n);
+                        id = ctx.neurons.(preset).labels(n);
                         neuron = [x y z t {id}];
         
                         voxel_mask = [voxel_mask neuron];
                     end
         
-                    obj.voxel_mask = voxel_mask;
+                    obj.voxel_mask = types.hdmf_common.VectorData('data', voxel_mask);
 
             end
         end
