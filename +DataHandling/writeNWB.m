@@ -35,6 +35,7 @@ classdef writeNWB
             progress.Message = 'Initializing file...';
             ctx.build = struct();
             ctx.build.file = DataHandling.writeNWB.create_file(ctx);
+            ctx.build.modules = struct();
             
             % Initialize variable to store devices objects.
             devices = [];
@@ -50,7 +51,7 @@ classdef writeNWB
 
                 % Create device object & add to device array.
                 new_device = DataHandling.writeNWB.create_device(name, desc, manu);
-                devices = [devices; new_device];
+                ctx.build.file.general_devices.set(name, new_device);
 
                 % If current device was selected as colormap microscope,
                 % save the object for later.
@@ -77,10 +78,10 @@ classdef writeNWB
             if ctx.flags.NeuroPAL_Volume
                 progress.Message = 'Populating NeuroPAL volume...';
                 ctx.colormap.imaging_volume = DataHandling.writeNWB.create_volume('colormap', 'imaging', ctx);
-                ctx.build.file.acquisition.set('NeuroPALImVol', ctx.colormap.imaging_volume);
+                ctx.build.modules.acquisition.NeuroPALImVol = ctx.colormap.imaging_volume;
     
                 ctx.colormap.multichannel_volume = DataHandling.writeNWB.create_volume('colormap', 'multichannel', ctx);
-                ctx.build.file.acquisition.set('NeuroPALImageRaw', ctx.colormap.multichannel_volume);
+                ctx.build.modules.acquisition.NeuroPALImageRaw = ctx.colormap.multichannel_volume;
                 
                 progress.Message = 'Populating NeuroPAL settings...';
                 gammas = types.hdmf_common.VectorData( ...
@@ -97,34 +98,34 @@ classdef writeNWB
                     'gammas', gammas, ...
                     'RGBW', RGBW);
 
-                ctx.build.file.processing.set('NeuroPAL_ID', ctx.colormap.settings);
+                ctx.build.modules.processing.NeuroPAL_ID = ctx.colormap.settings;
             end
 
             if ctx.flags.Neurons || ctx.flags.Neuronal_Identities
                 progress.Message = 'Populating neuronal identities...';
                 ctx.neurons.colormap = DataHandling.writeNWB.create_segmentation('colormap', ctx);
-                ctx.build.file.processing.set('NeuroPALNeurons', ctx.neurons.colormap);
+                ctx.build.modules.processing.NeuroPALNeurons =  ctx.neurons.colormap;
             end
 
             if ctx.flags.Video_Volume
                 progress.Message = 'Populating video volume...';
                 ctx.video.imaging_volume = DataHandling.writeNWB.create_volume('video', 'imaging', ctx);
-                ctx.build.file.processing.set('CalciumImVol', ctx.video.imaging_volume);
+                ctx.build.modules.acquisition.CalciumImVol = ctx.video.imaging_volume;
     
                 ctx.video.multichannel_volume = DataHandling.writeNWB.create_volume('video', 'multichannel', ctx);
-                ctx.build.file.processing.set('CalciumImageSeries', ctx.video.multichannel_volume);
+                ctx.build.modules.acquisition.CalciumImageSeries = ctx.video.multichannel_volume;
             end
 
             if ctx.flags.Tracking_ROIs
                 progress.Message = 'Populating tracking ROIs...';
                 ctx.neurons.video = DataHandling.writeNWB.create_segmentation('video', ctx);
-                ctx.build.file.processing.set('TrackedNeuronROIs', ctx.neurons.video);
+                ctx.build.modules.processing.TrackedNeuronROIs = ctx.neurons.video;
             end
 
             if ctx.flags.Neuronal_Activity
                 progress.Message = 'Populating neuronal activity...';
                 ctx.neurons.activity = DataHandling.writeNWB.create_traces(ctx);
-                ctx.build.file.processing.set('ActivityTraces', ctx.neurons.activity);
+                ctx.build.modules.processing.ActivityTraces = ctx.neurons.activity;
             end
 
             if ctx.flags.Stimulus_Files
@@ -142,12 +143,46 @@ classdef writeNWB
                     'timestamps', ctx.neurons.stim_table{:, 1}, ...
                     'data', ctx.neurons.stim_table{:, 2});
 
-                ctx.build.file.processing.set(ctx.neurons.stim_table, ctx.neurons.stim_table);
+                ctx.build.modules.processing.StimulusInfo = ctx.stim_table;
             end
 
 
             % Check if NWB file to be saved already exists.
             progress.Message = 'Writing to file...';
+            
+            modules = fieldnames(ctx.build.modules);
+            for mod=1:length(modules)
+                parent = modules{mod};
+                obj_struct = ctx.build.modules.(parent);
+                obj_names = fieldnames(obj_struct);
+
+                if strcmp(parent, 'processing')
+                    module = types.core.ProcessingModule();
+                end
+
+                for obj=1:length(obj_names)
+                    obj_name = obj_names{obj};
+                    obj_data = obj_struct.(obj_name);
+
+                    switch class(obj_data)
+                        case 'types.ndx_multichannel_volume.MultiChannelVolume'
+                            ctx.build.file.(parent).set(obj_name, obj_data);
+                        case 'types.ndx_multichannel_volume.ImagingVolume'
+                            ctx.build.file.general_optophysiology.set(obj_name, obj_data);
+                        case {'types.hdmf_common.DynamicTable', 'types.core.PlaneSegmentation', 'types.ndx_multichannel_volume.VolumeSegmentation'}
+                            module.dynamictable.set(obj_name, obj_data);
+                        case {'types.core.NWBDataInterface', 'types.core.TimeSeries', 'types.core.RoiResponseSeries'}
+                            module.nwbdatainterface.set(obj_name, obj_data);
+                        otherwise
+                            class(obj_data)
+                    end
+                end
+
+                if strcmp(parent, 'processing')
+                    ctx.build.file.(parent).set('processing', module);
+                end
+            end
+
             if ~exist(path, "file")
                 % If not, save.
                 nwbExport(ctx.build.file, path);
@@ -352,13 +387,13 @@ classdef writeNWB
         function obj = create_traces(ctx)
             roi_table_region = types.hdmf_common.DynamicTableRegion( ...
                 'table', types.untyped.ObjectView(ctx.neurons.video), ...
-                'description', ctx.video.tracking_description, ...
+                'description', ctx.video.tracking_notes, ...
                 'data', (0:length(ctx.neurons.video)));
 
             obj = types.core.RoiResponseSeries( ...
                 'name', 'SignalCalciumImResponseSeries', ...
                 'rois', roi_table_region, ...
-                'data', ctx.neurons.activity_data, ...
+                'data', table2array(ctx.neurons.activity_data), ...
                 'data_unit', 'lumens', ...
                 'starting_time_rate', 1.0, ...
                 'starting_time', 0.0);
