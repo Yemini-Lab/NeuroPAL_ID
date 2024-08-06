@@ -57,6 +57,10 @@ classdef writeNWB
                 if strcmp(name, ctx.colormap.device)
                     ctx.colormap.device = new_device;
                 end
+
+                if strcmp(name, ctx.video.device)
+                    ctx.video.device = new_device;
+                end
             end
 
             % Create optical channel objects.
