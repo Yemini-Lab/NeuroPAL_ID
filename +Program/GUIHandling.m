@@ -132,7 +132,7 @@ classdef GUIHandling
 
                 case 'activity_gui'
                     gui_components = Program.GUIHandling.activity_components;
-                    app.data_flag.('Neuronal_Activity') = 1;
+                    app.data_flags.('Neuronal_Activity') = 1;
 
                 case 'identification_tab'
                     gui_components = Program.GUIHandling.id_components;
@@ -156,7 +156,7 @@ classdef GUIHandling
             % Fulfills requests for local variables across AppDesigner apps.
 
             global_figures = findall(groot, 'Type','figure');
-            scope = Program.GUIHandling.get_parent_app(global_figures(strcmp(global_figures.Name, window)));
+            scope = Program.GUIHandling.get_parent_app(global_figures(strcmp({global_figures.Name}, window)));
             package = scope.(var);
         end
 
@@ -464,6 +464,12 @@ classdef GUIHandling
                     case {'Neuronal Activity', 'Stimulus File'}
                         app.NeuronalActivityDescription.Enable = 'on';
                         app.StimulusFileSelect.Enable = 'on';
+
+                        if strcmp(file, 'Stimulus File')
+                            stim_file = Program.GUIHandling.global_grab('NeuroPAL ID', 'LoadStimuliButton').Tag;
+                            app.StimulusFileSelect.Items{end+1} = stim_file;
+                            app.StimulusFileSelect.ItemsData{end+1} = stim_file;
+                        end
                 end
             end
 
@@ -529,13 +535,17 @@ classdef GUIHandling
 
                     new_row = {};
                     for comp=1:length(columns)
-                        new_row{end+1} = channel.(columns.(comp));
+                        new_row{end+1} = channel.(columns{comp});
                     end
 
                     app.OpticalUITable.Data = [channel_table; new_row];
 
                     for comp=1:length(Program.GUIHandling.optical_fields)
-                        clear(app.(Program.GUIHandling.optical_fields{comp}).Value); 
+                        try
+                            app.(sprintf('%sEditField', Program.GUIHandling.optical_fields{comp})).Value = ''; 
+                        catch 
+                            app.(sprintf('%sEditField', Program.GUIHandling.optical_fields{comp})).Value = 0; 
+                        end
                     end
                 case 'edit'
                     for comp=1:length(Program.GUIHandling.optical_fields)
@@ -544,7 +554,7 @@ classdef GUIHandling
                     
                     Program.GUIHandling.device_handler(app, 'remove', channel);
                 case 'remove'
-                    app.OpticalUITable.Data(device, :) = [];
+                    app.OpticalUITable.Data(channel, :) = [];
             end
 
         end

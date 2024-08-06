@@ -20,6 +20,10 @@ classdef writeNWB
             ctx.colormap.data = Program.GUIHandling.global_grab('NeuroPAL ID', 'image_data');
             ctx.video.info = Program.GUIHandling.global_grab('NeuroPAL ID', 'video_info');
 
+            ctx.neurons.colormap = Program.GUIHandling.global_grab('NeuroPAL ID', 'image_neurons');
+            ctx.neurons.video = Methods.ChunkyMethods.stream_neurons('annotations');
+            ctx.neurons.activity_data = Program.GUIHandling.global_grab('NeuroPAL ID', 'activity_table');
+
             % Build nwb file.
             ctx.build = struct();
             ctx.build.file = DataHandling.writeNWB.create_file(ctx);
@@ -47,23 +51,67 @@ classdef writeNWB
 
             % Create optical channel objects.
             ctx.optical_metadata = DataHandling.writeNWB.create_channels(ctx.optical_table);
-
-            % Create required volume objects.
-            ctx.colormap.imaging_volume = DataHandling.writeNWB.create_volume(nwb_file, 'imaging', ctx);
-            ctx.colormap.multichannel_volume = DataHandling.writeNWB.create_volume(nwb_file, 'multichannel', ctx);
             
             % Initialize struct to store NWB modules.
             ctx.build.modules = struct();
 
             % Create acquisition module & assign raw volume objects.
             ctx.build.modules.acquisition = DataHandling.writeNWB.create_module('acquisition', ctx);
-            ctx.build.file.acquisition.set('NeuroPALImageRaw', ctx.colormap.multichannel_volume);
-            ctx.build.file.acquisition.set('ImagingVolume', ctx.colormap.imaging_volume);
 
             % Create processing module & assign all objects containing work product.
             ctx.build.modules.processing = DataHandling.writeNWB.create_module('processing', ctx);
             ctx.build.modules.processing.nwbdatainterface = types.untyped.Set(ctx.optical_metadata.order, ctx.optical_metadata.channels);
             ctx.build.file.processing.set('NeuroPAL', ctx.build.modules.processing);
+
+            % Create required volume objects.
+            if ctx.flags.NeuroPAL_Volume
+                ctx.colormap.imaging_volume = DataHandling.writeNWB.create_volume('colormap', 'imaging', ctx);
+                ctx.build.file.acquisition.set(ctx.colormap.imaging_volume.name, ctx.colormap.imaging_volume);
+    
+                ctx.colormap.multichannel_volume = DataHandling.writeNWB.create_volume('colormap', 'multichannel', ctx);
+                ctx.build.file.acquisition.set(ctx.colormap.multichannel_volume.name, ctx.colormap.multichannel_volume);
+            end
+
+            if ctx.flags.Neurons || ctx.flags.Neuronal_Identities
+                ctx.neurons.colormap = DataHandling.writeNWB.create_segmentation('colormap', ctx);
+                ctx.build.file.processing.set(ctx.neurons.colormap.name, ctx.neurons.colormap);
+            end
+
+            if ctx.flags.Video_Volume
+                ctx.video.imaging_volume = DataHandling.writeNWB.create_volume('video', 'imaging', ctx);
+                ctx.build.file.processing.set(ctx.video.imaging_volume.name, ctx.video.imaging_volume);
+    
+                ctx.video.multichannel_volume = DataHandling.writeNWB.create_volume('video', 'multichannel', ctx);
+                ctx.build.file.processing.set(ctx.video.multichannel_volume.name, ctx.video.multichannel_volume);
+            end
+
+            if ctx.flags.Tracking_ROIs
+                ctx.neurons.video = DataHandling.writeNWB.create_segmentation('video', ctx);
+                ctx.build.file.processing.set(ctx.neurons.video.name, ctx.neurons.video);
+            end
+
+            if ctx.flags.Neuronal_Activity
+                ctx.neurons.activity = DataHandling.writeNWB.create_traces(ctx);
+                ctx.build.file.processing.set(ctx.neurons.activity.name, ctx.neurons.activity);
+            end
+
+            if ctx.flags.Stimulus_Files
+                switch class(ctx.neurons.stim_file)
+                    case {'char', 'string'}
+                        ctx.neurons.stim_table = DataHandling.readStimFile(ctx.neurons.stim_file);
+                    case 'table'
+                        ctx.neurons.stim_table = ctx.neurons.stim_file;
+                end
+
+                ctx.neurons.stim_table = types.core.AnnotationSeries( ...
+                    'name', 'StimulusInfo', ...
+                    'description', 'Denotes which stimulus was released on which frames.', ...
+                    'timestamps', ctx.neurons.stim_table{:, 1}, ...
+                    'data', ctx.neurons.stim_table{:, 2});
+
+                ctx.build.file.processing.set(ctx.neurons.stim_table, ctx.neurons.stim_table);
+            end
+
 
             % Check if NWB file to be saved already exists.
             if ~exist(path, "file")
@@ -173,33 +221,101 @@ classdef writeNWB
                 'order', orderOpticalChannels);
         end
 
-        function nwb_volume = create_volume(module, ctx)
+        function nwb_volume = create_volume(preset, module, ctx)
             switch module
                 case 'imaging'
                     nwb_volume = types.ndx_multichannel_volume.ImagingVolume( ...
                         'name', 'ImagingVolume', ...
                         'optical_channel_plus', ctx.optical_metadata.channels, ...
                         'order_optical_channels', ctx.optical_metadata.order, ...
-                        'description', ctx.colormap.description, ...
-                        'device', ctx.colormap.device, ...
+                        'description', ctx.(preset).description, ...
+                        'device', ctx.(preset).device, ...
                         'location', ctx.worm.body_part, ...
-                        'grid_spacing', ctx.colormap.grid_spacing.values, ...
-                        'grid_spacing_unit', ctx.colormap.grid_spacing.unit, ...
+                        'grid_spacing', ctx.(preset).grid_spacing.values, ...
+                        'grid_spacing_unit', ctx.(preset).grid_spacing.unit, ...
                         'origin_coords', [0, 0, 0], ...
-                        'origin_coords_unit', ctx.colormap.grid_spacing.unit, ...
+                        'origin_coords_unit', ctx.(preset).grid_spacing.unit, ...
                         'reference_frame', ['Worm ', ctx.worm.body_part]);
                 case 'multichannel'
-                    nwb_volume = types.ndx_multichannel_volume.MultiChannelVolume( ...
-                        'name', 'NeuroPALImageRaw', ...
-                        'description', ctx.colormap.description, ...
-                        'RGBW_channels', ctx.colormap.prefs.rgbw, ...
-                        'data', ctx.colormap.data, ...
-                        'imaging_volume', ctx.colormap.imaging_volume);
-                case 'video'
-                    % TBD
+                    if strcmp(preset, 'colormap')
+                        nwb_volume = types.ndx_multichannel_volume.MultiChannelVolume( ...
+                            'name', 'NeuroPALImageRaw', ...
+                            'description', ctx.(preset).description, ...
+                            'RGBW_channels', ctx.(preset).prefs.rgbw, ...
+                            'data', ctx.colormap.data, ...
+                            'imaging_volume', ctx.colormap.imaging_volume);
+                    elseif strcmp(preset, 'video')
+                        video_preview = Program.GUIHandling.global_grab('NeuroPAL ID', 'retrieve_frame');
+
+                        data_pipe = types.untyped.DataPipe( ...
+                            'data', video_preview, ...
+                            'maxSize', [ctx.(preset).data.nx ctx.(preset).data.ny ctx.(preset).data.nc ctx.(preset).data.nz ctx.(preset).data.nt], ...
+                            'axis', 2);
+
+                        nwb_volume = types.ndx_multichannel_volume.MultiChannelVolume( ...
+                            'name', 'CalciumImageSeries', ...
+                            'description', ctx.(preset).description, ...
+                            'data', data_pipe, ...
+                            'scan_line_rate', ctx.(preset).scan_rate, ...
+                            'dimension', data_pipe, ...
+                            'resolution', 1, ...
+                            'rate', ctx.(preset).scan_rate, ...
+                            'imaging_volume', ctx.(preset).imaging_volume);
+                    end
             end
         end
 
+        function obj = create_segmentation(preset, ctx)
+            switch preset
+                case 'colormap'
+                    obj = types.ndx_multichannel_volume.VolumeSegmentation( ...
+                        'name', 'VolumeSegmentation', ...
+                        'description', ctx.neurons.id_description, ...
+                        'imaging_volume', ctx.(preset).imaging_volume);
 
+                case 'video'
+                    obj = types.core.PlaneSegmentation( ...
+                        'name', 'TrackedNeurons', ...
+                        'description', ctx.video.tracking_notes, ...
+                        'imaging_plane', ctx.video.imaging_volume);
+
+            end
+
+            voxel_mask = [];
+            for n=1:length(ctx.neurons.(preset).labels)
+                positions = ctx.neurons.positions(n);
+                
+                x = positions(1);
+                y = positions(2);
+                z = positions(3);
+                id = ctx.neurons.labels(n);
+
+                if length(ctx.neurons.positions(n))>3
+                    t = positions(4);
+                    neuron = [x y z t {id}];
+                else
+                    neuron = [x y z {id}];
+                end
+
+                voxel_mask = [voxel_mask neuron];
+            end
+
+            obj.voxel_mask = voxel_mask;
+        end
+
+        function obj = create_traces(ctx)
+            roi_table_region = types.hdmf_common.DynamicTableRegion( ...
+                'table', types.untyped.ObjectView(ctx.neurons.video), ...
+                'description', ctx.video.tracking_description, ...
+                'data', (0:length(ctx.neurons.video)));
+
+            obj = types.core.RoiResponseSeries( ...
+                'name', 'SignalCalciumImResponseSeries', ...
+                'rois', roi_table_region, ...
+                'data', ctx.neurons.activity_data, ...
+                'data_unit', 'lumens', ...
+                'starting_time_rate', 1.0, ...
+                'starting_time', 0.0);
+        end
     end
 end

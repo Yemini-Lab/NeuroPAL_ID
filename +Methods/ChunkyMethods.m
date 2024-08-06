@@ -436,5 +436,50 @@ classdef ChunkyMethods
                 sliceIndices = startIndex:endIndex;
             end
         end
+
+        function neurons = stream_neurons(mode)
+            if ~exist('mode', 'var')
+                video_info = Program.GUIHandling.global_grab('NeuroPAL ID', 'video_info');
+                video_neurons = Program.GUIHandling.global_grab('NeuroPAL_ID', 'video_neurons');
+
+                if isfield(video_info.annotations)
+                    mode = 'annotations';
+                elseif length(video_neurons) > 1
+                    mode = 'tree';
+                end
+            end
+
+            switch mode
+                case 'annotations'
+                    [~, ~, fmt] = fileparts(video_info.annotations);
+                    
+                    switch fmt
+                        case 'xml'
+                            [positions, labels] = DataHandling.readTrackmate(video_info.annotations);
+                        case 'h5'
+                            [positions, labels] = DataHandling.readAnnoH5(video_info.annotations);                            
+                    end
+
+                case 'tree'
+                    labels = {};
+                    positions = [];
+                    for i=1:length(video_neurons)
+                        neuron = video_neurons(i);
+
+                        for j=1:length(neuron.rois)
+                            x = neuron.rois.x_slice;
+                            y = neuron.rois.y_slice;
+                            z = neuron.rois.z_slice;
+                            t = j;
+
+                            positions = [positions; [x y z t]];
+                            labels{end+1} = neuron.worldline.name;
+                        end
+                    end
+                    
+            end
+
+            neurons = struct('positions', positions, 'labels', labels);
+        end
     end
 end
