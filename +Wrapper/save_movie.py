@@ -2,6 +2,11 @@ from zephir.utils.utils import *
 from n_io import *
 from getters import *
 
+import h5py.defs
+import h5py.utils
+import h5py.h5ac
+import h5py._proxy
+
 
 def save_movie(
     container,

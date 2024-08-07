@@ -19,6 +19,12 @@ import os
 import datetime
 from pathlib import Path
 
+
+import h5py.defs
+import h5py.utils
+import h5py.h5ac
+import h5py._proxy
+
 import h5py
 import numpy as np
 import pandas as pd

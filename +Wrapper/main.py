@@ -51,6 +51,11 @@ Options:
     --z_compensator=<z_compensator>     number of additional gradient descent steps for z-axis. [default: -1.0]
 """
 
+import h5py.defs
+import h5py.utils
+import h5py.h5ac
+import h5py._proxy
+
 import shutil
 from docopt import docopt
 from multiprocessing import Pool

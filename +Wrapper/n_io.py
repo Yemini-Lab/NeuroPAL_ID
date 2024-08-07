@@ -2,6 +2,11 @@
 This file collects key functions for preprocessing data and annotations.
 """
 
+import h5py.defs
+import h5py.utils
+import h5py.h5ac
+import h5py._proxy
+
 import datetime
 from functools import lru_cache, partial
 import h5py
