@@ -72,6 +72,9 @@ classdef writeNWB
             progress.Message = 'Building modules...';
 
             % Create processing module & assign all objects containing work product.
+            ctx.build.processing_modules = struct( ...
+                'CalciumActivity', types.core.ProcessingModule('description', 'Calcium time series metadata, segmentation, and fluorescence data.'), ...
+                'ProgramSettings', types.core.ProcessingModule('description', 'Various NeuroPAL_ID settings which specify how the colormap is processed once loaded into the program.'));
             %ctx.build.file.processing.nwbdatainterface = types.untyped.Set(ctx.optical_metadata.order, ctx.optical_metadata.channels);
 
             % Create required volume objects.
@@ -88,23 +91,19 @@ classdef writeNWB
                     'description', 'channel gamma values', ...
                     'data', ctx.colormap.prefs.gamma);
 
-                RGBW = types.hdmf_common.VectorData( ...
-                    'description', 'RGBW channel indices', ...
-                    'data', ctx.colormap.prefs.RGBW);
-
                 ctx.colormap.settings = types.hdmf_common.DynamicTable( ...
                     'description', 'NeuroPAL_ID Settings', ...
-                    'colnames', {'gammas', 'RGBW'}, ...
+                    'colnames', {'gammas'}, ...
                     'gammas', gammas, ...
-                    'RGBW', RGBW);
+                    'id', types.hdmf_common.ElementIdentifiers('data', 0:length(gammas)-1));
 
-                ctx.build.modules.processing.NeuroPAL_ID = ctx.colormap.settings;
+                ctx.build.modules.processing.NeuroPAL_IDSettings = ctx.colormap.settings;
             end
 
             if ctx.flags.Neurons || ctx.flags.Neuronal_Identities
                 progress.Message = 'Populating neuronal identities...';
                 ctx.neurons.colormap = DataHandling.writeNWB.create_segmentation('colormap', ctx);
-                ctx.build.modules.processing.NeuroPALNeurons =  ctx.neurons.colormap;
+                ctx.build.modules.processing.ColormapNeurons =  ctx.neurons.colormap;
             end
 
             if ctx.flags.Video_Volume
@@ -150,37 +149,44 @@ classdef writeNWB
             % Check if NWB file to be saved already exists.
             progress.Message = 'Writing to file...';
             
-            modules = fieldnames(ctx.build.modules);
-            for mod=1:length(modules)
-                parent = modules{mod};
+            module_names = fieldnames(ctx.build.modules);
+            processing_names = fieldnames(ctx.build.processing_modules);
+            for mod=1:length(module_names)
+                parent = module_names{mod};
                 obj_struct = ctx.build.modules.(parent);
                 obj_names = fieldnames(obj_struct);
-
-                if strcmp(parent, 'processing')
-                    module = types.core.ProcessingModule();
-                end
 
                 for obj=1:length(obj_names)
                     obj_name = obj_names{obj};
                     obj_data = obj_struct.(obj_name);
 
                     switch class(obj_data)
-                        case 'types.ndx_multichannel_volume.MultiChannelVolume'
+                        case {'types.ndx_multichannel_volume.MultiChannelVolume', 'types.ndx_multichannel_volume.MultiChannelVolumeSeries'}
                             ctx.build.file.(parent).set(obj_name, obj_data);
+
                         case 'types.ndx_multichannel_volume.ImagingVolume'
                             ctx.build.file.general_optophysiology.set(obj_name, obj_data);
+
                         case {'types.hdmf_common.DynamicTable', 'types.core.PlaneSegmentation', 'types.ndx_multichannel_volume.VolumeSegmentation'}
-                            module.dynamictable.set(obj_name, obj_data);
+                            if ismember(obj_data.colnames, 'gammas')
+                                ctx.build.processing_modules.('ProgramSettings').dynamictable.set(obj_name, obj_data);
+                            else
+                                ctx.build.processing_modules.('CalciumActivity').dynamictable.set(obj_name, obj_data);
+                            end
+
                         case {'types.core.NWBDataInterface', 'types.core.TimeSeries', 'types.core.RoiResponseSeries'}
-                            module.nwbdatainterface.set(obj_name, obj_data);
+                            ctx.build.processing_modules.('CalciumActivity').nwbdatainterface.set(obj_name, obj_data);
+
                         otherwise
                             class(obj_data)
                     end
                 end
+            end
 
-                if strcmp(parent, 'processing')
-                    ctx.build.file.(parent).set('processing', module);
-                end
+            for proc=1:length(processing_names)
+                name = processing_names{proc};
+                module = ctx.build.processing_modules.(name);
+                ctx.build.file.processing.set(name, module);
             end
 
             if ~exist(path, "file")
@@ -309,78 +315,64 @@ classdef writeNWB
                         nwb_volume = types.ndx_multichannel_volume.MultiChannelVolume( ...
                             'description', ctx.(preset).description, ...
                             'RGBW_channels', ctx.(preset).prefs.RGBW, ...
-                            'data', ctx.colormap.data, ...
-                            'imaging_volume', ctx.colormap.imaging_volume);
+                            'data', uint64(ctx.(preset).data), ...
+                            'imaging_volume', types.untyped.SoftLink(ctx.(preset).imaging_volume));
                     elseif strcmp(preset, 'video')
-                        video_preview = Program.GUIHandling.global_grab('NeuroPAL ID', 'retrieve_frame');
+                        rf_app = Program.GUIHandling.get_parent_app(Program.GUIHandling.global_grab('NeuroPAL ID', 'CELL_ID'));
+                        video_preview = zeros([ctx.(preset).info.ny ctx.(preset).info.nx ctx.(preset).info.nz ctx.(preset).info.nc 2]);
+                        video_preview(:, :, :, :, 1) = rf_app.retrieve_frame(1);
+                        video_preview(:, :, :, :, 2) = rf_app.retrieve_frame(2);
+                        
 
                         data_pipe = types.untyped.DataPipe( ...
-                            'data', video_preview, ...
-                            'maxSize', [ctx.(preset).info.nx ctx.(preset).info.ny ctx.(preset).info.nc ctx.(preset).info.nz ctx.(preset).info.nt], ...
-                            'axis', 2);
+                            'data', uint64(video_preview), ...
+                            'maxSize', [ctx.(preset).info.ny ctx.(preset).info.nx ctx.(preset).info.nz ctx.(preset).info.nc ctx.(preset).info.nt], ...
+                            'axis', 5);
 
                         if ~isfield(ctx.(preset), 'scan_rate')
                             ctx.(preset).scan_line_rate = 1;
                             ctx.(preset).scan_rate = 1;
                         end
 
-                        nwb_volume = types.ndx_multichannel_volume.MultiChannelVolume( ...
+                        nwb_volume = types.ndx_multichannel_volume.MultiChannelVolumeSeries( ...
                             'description', ctx.(preset).description, ...
                             'data', data_pipe, ...
-                            'scan_line_rate', ctx.(preset).scan_rate, ...
-                            'dimension', data_pipe, ...
-                            'resolution', 1, ...
-                            'rate', ctx.(preset).scan_rate, ...
-                            'imaging_volume', ctx.(preset).imaging_volume);
+                            'device', ctx.(preset).device, ...
+                            'imaging_volume', types.untyped.SoftLink(ctx.(preset).imaging_volume));
                     end
             end
         end
 
         function obj = create_segmentation(preset, ctx)
             switch preset
-                case 'colormap'
+                case 'colormap'        
+                    positions = ctx.neurons.(preset).get_positions;
                     obj = types.ndx_multichannel_volume.VolumeSegmentation( ...
                         'name', 'VolumeSegmentation', ...
+                        'colnames', {'voxel_mask'}, ...
                         'description', ctx.neurons.id_description, ...
-                        'imaging_volume', ctx.(preset).imaging_volume);
+                        'voxel_mask', types.hdmf_common.VectorData('description', 'Neuron ROIs', 'data', positions'), ...
+                        'id', types.hdmf_common.ElementIdentifiers('data', 0:length(positions')-1), ...
+                        'imaging_volume', types.untyped.SoftLink(ctx.(preset).imaging_volume), ...
+                        'imaging_plane', types.untyped.SoftLink(ctx.(preset).imaging_volume));
 
-                    voxel_mask = [];
+                    labels = {};
                     for n=1:length(ctx.neurons.(preset).neurons)
-                        positions = ctx.neurons.(preset).neurons(n).position;
-                        
-                        x = positions(1);
-                        y = positions(2);
-                        z = positions(3);
-                        id = ctx.neurons.(preset).neurons(n).annotation;
-                        neuron = [x y z {id}];
-        
-                        voxel_mask = [voxel_mask neuron];
+                        labels{end+1} = ctx.neurons.(preset).neurons(n).annotation;
                     end
-        
-                    obj.voxel_mask = types.hdmf_common.VectorData('data', voxel_mask);
+
+                    obj.addColumn('neuron_ids', types.hdmf_common.VectorData('description', 'Neuron IDs', 'data', labels'));
 
                 case 'video'
+                    positions = ctx.neurons.(preset).positions;
                     obj = types.core.PlaneSegmentation( ...
                         'name', 'TrackedNeurons', ...
+                        'colnames', {'voxel_mask', 'labels'}, ...
                         'description', ctx.video.tracking_notes, ...
-                        'imaging_plane', ctx.video.imaging_volume);
-
-                    voxel_mask = [];
-                    for n=1:length({ctx.neurons.(preset).labels})
-                        positions = ctx.neurons.(preset).positions(n, :);
-                        
-                        x = positions(1);
-                        y = positions(2);
-                        z = positions(3);
-                        t = positions(4);
-                        id = ctx.neurons.(preset).labels(n);
-                        neuron = [x y z t {id}];
-        
-                        voxel_mask = [voxel_mask neuron];
-                    end
-        
-                    obj.voxel_mask = types.hdmf_common.VectorData('data', voxel_mask);
-
+                        'voxel_mask', types.hdmf_common.VectorData('description', 'Neuron ROIs', 'data', positions'), ...
+                        'labels', types.hdmf_common.VectorData('description', 'Neuron IDs', 'data', ctx.neurons.(preset).labels), ...
+                        'id', types.hdmf_common.ElementIdentifiers('data', 0:length(positions')-1), ...
+                        'imaging_plane', types.untyped.SoftLink(ctx.(preset).imaging_volume));
             end
         end
 
