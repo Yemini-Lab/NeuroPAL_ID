@@ -1,4 +1,6 @@
-from ..utils.utils import *
+from zephir.utils.utils import *
+from n_io import *
+from getters import *
 
 
 def save_movie(
