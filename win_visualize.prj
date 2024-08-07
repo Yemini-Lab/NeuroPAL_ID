@@ -773,7 +773,6 @@ Please add it to your desktop so you can easily find it.
       <file>${PROJECT_ROOT}\downsample_window.mlapp</file>
       <file>${PROJECT_ROOT}\guide.mat</file>
       <file>${PROJECT_ROOT}\histogram_window.mlapp</file>
-      <file>${PROJECT_ROOT}\newtrace.mlapp</file>
       <file>${PROJECT_ROOT}\nwbsave.mlapp</file>
     </fileset.depfun>
     <build-deliverables>
