@@ -1,5 +1,5 @@
 <deployment-project plugin="plugin.ezdeploy" plugin-version="1.0">
-  <configuration build-checksum="145520311" file="C:\Users\sep27\Documents\GitHub\NeuroPAL_ID\win_visualize.prj" location="C:\Users\sep27\Documents\GitHub\NeuroPAL_ID" name="win_visualize" preferred-package-location="C:\Users\sep27\Documents\GitHub\NeuroPAL_ID\win_visualize\for_redistribution" preferred-package-type="package.type.exe" target="target.ezdeploy.standalone" target-name="Application Compiler">
+  <configuration build-checksum="3362907317" file="C:\Users\sep27\Documents\GitHub\NeuroPAL_ID\win_visualize.prj" location="C:\Users\sep27\Documents\GitHub\NeuroPAL_ID" name="win_visualize" preferred-package-location="C:\Users\sep27\Documents\GitHub\NeuroPAL_ID\win_visualize\for_redistribution" preferred-package-type="package.type.exe" target="target.ezdeploy.standalone" target-name="Application Compiler">
     <param.appname>NeuroPAL_ID</param.appname>
     <param.icon>${PROJECT_ROOT}\win_visualize_resources\icon.ico</param.icon>
     <param.icons>
@@ -117,6 +117,7 @@ Please add it to your desktop so you can easily find it.
       <file>${PROJECT_ROOT}\Data\Documents\Instructions.pdf</file>
     </fileset.package>
     <fileset.depfun>
+      <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Collections\Microscopy Image Browser 2 (MIB2)\ImportExportTools\HDF5\xml2struct.m</file>
       <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Collections\NeurodataWithoutBorders_matnwb(2)\+contrib\+blackrock\AddNEVFile.m</file>
       <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Collections\NeurodataWithoutBorders_matnwb(2)\+contrib\+blackrock\AddNSFile.m</file>
       <file>C:\Users\sep27\AppData\Roaming\MathWorks\MATLAB Add-Ons\Collections\NeurodataWithoutBorders_matnwb(2)\+contrib\+blackrock\get_channel_info.m</file>
@@ -744,8 +745,14 @@ Please add it to your desktop so you can easily find it.
       <file>${PROJECT_ROOT}\+DataHandling\imreadND2.m</file>
       <file>${PROJECT_ROOT}\+DataHandling\imreadVlab.m</file>
       <file>${PROJECT_ROOT}\+DataHandling\NeuroPALImage.m</file>
+      <file>${PROJECT_ROOT}\+DataHandling\readAnnoH5.m</file>
+      <file>${PROJECT_ROOT}\+DataHandling\readStimFile.m</file>
+      <file>${PROJECT_ROOT}\+DataHandling\readTrackmate.m</file>
+      <file>${PROJECT_ROOT}\+DataHandling\writeNWB.m</file>
+      <file>${PROJECT_ROOT}\+DataHandling\writeTrackMate.m</file>
       <file>${PROJECT_ROOT}\+Methods\AutoDetect.m</file>
       <file>${PROJECT_ROOT}\+Methods\AutoId.m</file>
+      <file>${PROJECT_ROOT}\+Methods\ChunkyMethods.m</file>
       <file>${PROJECT_ROOT}\+Methods\find_outlier.m</file>
       <file>${PROJECT_ROOT}\+Methods\logsumexp.m</file>
       <file>${PROJECT_ROOT}\+Methods\MatchHist.m</file>
@@ -762,10 +769,13 @@ Please add it to your desktop so you can easily find it.
       <file>${PROJECT_ROOT}\+Neurons\NeuronBirth.m</file>
       <file>${PROJECT_ROOT}\+Output\Illustration.m</file>
       <file>${PROJECT_ROOT}\+Output\ImageAnalysis.m</file>
+      <file>${PROJECT_ROOT}\+Program\GUIHandling.m</file>
       <file>${PROJECT_ROOT}\+Program\GUIPreferences.m</file>
       <file>${PROJECT_ROOT}\+Program\ProgramInfo.m</file>
+      <file>${PROJECT_ROOT}\+Program\ProgramTests.m</file>
       <file>${PROJECT_ROOT}\autoseg_window.mlapp</file>
       <file>${PROJECT_ROOT}\channel_selector.mlapp</file>
+      <file>${PROJECT_ROOT}\Data\Images\loading.gif</file>
       <file>${PROJECT_ROOT}\Data\Images\ZephIR_Logo.png</file>
       <file>${PROJECT_ROOT}\Data\Models\avg_hist.mat</file>
       <file>${PROJECT_ROOT}\Data\NeuroPAL\herm_data.mat</file>

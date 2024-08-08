@@ -188,3 +188,12 @@ External_Dependencies/matnwb/doc/matlabicon.gif
 External_Dependencies/matnwb/doc/simulinkicon.gif
 .idea/.name
 *.pyc
+*.pyc
+*.toc
+*.pyc
+*.pyz
++Wrapper/build/main/warn-main.txt
+*.html
++Wrapper/main.spec
+.idea/.name
+*.pkg

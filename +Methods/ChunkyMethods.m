@@ -152,7 +152,8 @@ classdef ChunkyMethods
                 if exist('progress', 'var')
                     progress.Value = a/length(actions);
                 end
-
+                
+                processed_vol = zeros(new_dims);
                 processed_vol = Methods.ChunkyMethods.apply_vol(app, actions{a}, processed_vol);
             end
     
@@ -221,17 +222,18 @@ classdef ChunkyMethods
             
             % Grab parent app & lock image processing tab.
             channel = ctx.Source.Tag;
-            app.proc_lock('lock');
+            Program.GUIHandling.gui_lock(app, 'lock', 'processing_tab');
 
             % Check if we've saved unmixing parameters. If not, initialize.
             if ~exist('app.spectral_cache', 'var')
-                app.spectral_cache = struct('ch_db', [], 'ch_px', {}, 'ch_val', {}, 'bg_px', [], 'bg_val', [], 'blurred_img', []);
+                app.spectral_cache = struct('ch_db', [0], 'ch_px', {}, 'ch_val', {}, 'bg_px', [], 'bg_val', [], 'blurred_img', []);
             end
 
             % Grab channel indices.
-            ch_idx = [app.RDropDown.Value, app.GDropDown.Value, app.BDropDown.Value, app.WDropDown.Value];
+            ch_idx = [str2num(app.ProcRDropDown.Value), str2num(app.ProcGDropDown.Value), str2num(app.ProcBDropDown.Value)];
 
-            check = uiconfirm(app.UIFigure,sprintf('Click on the pixel on this slice that best represents %s.', channel),'Confirmation','Options',{'OK', 'Select different slice'},'DefaultOption','OK');
+            check = uiconfirm(app.CELL_ID,sprintf('Click on the pixel on this slice that best represents %s.', channel),'Confirmation','Options',{'OK', 'Select different slice'},'DefaultOption','OK');
+            image_data = app.proc_image.data(:, :, :, :);
 
             switch check
                 case 'OK'
@@ -241,9 +243,9 @@ classdef ChunkyMethods
 
                     pixels = [pos(1), pos(2), round(app.proc_zSlider.Value)];
 
-                    r = impixel(app.image_data(:,:,app.proc_zSlider.Value, ch_idx(1)), pos(1), pos(2));
-                    g = impixel(app.image_data(:,:,app.proc_zSlider.Value, ch_idx(2)), pos(1), pos(2));
-                    b = impixel(app.image_data(:,:,app.proc_zSlider.Value, ch_idx(3)), pos(1), pos(2));
+                    r = impixel(image_data(:,:,app.proc_zSlider.Value, ch_idx(1)), pos(1), pos(2));
+                    g = impixel(image_data(:,:,app.proc_zSlider.Value, ch_idx(2)), pos(1), pos(2));
+                    b = impixel(image_data(:,:,app.proc_zSlider.Value, ch_idx(3)), pos(1), pos(2));
 
                     switch channel
                         case 'r'
@@ -265,14 +267,18 @@ classdef ChunkyMethods
                             % TBD
                     end
 
-                    if ~ismember(channel, app.spectral_cache.ch_db)
-                        app.spectral_cache.ch_db = [app.spectral_cache.ch_db, t_idx];
+                    if app.spectral_cache.ch_db ~= [0]
+                        if ~ismember(channel, app.spectral_cache.ch_db)
+                            app.spectral_cache.ch_db = [app.spectral_cache.ch_db, t_idx];
+                        end
+                    else
+                        app.spectral_cache.ch_db = [t_idx];
                     end
 
                     app.spectral_cache.ch_px{t_idx} = pixels;
 
                 case 'Select different slice'
-                    app.proc_lock('unlock');
+                    Program.GUIHandling.gui_lock(app, 'unlock', 'processing_tab');
                     return
             end
 
@@ -280,7 +286,7 @@ classdef ChunkyMethods
             if ~isempty(app.spectral_cache.bg_px)
                 bg_pixels = app.spectral_cache.bg_px;
             else
-                uiconfirm(app.UIFigure,'Click on the pixel on this slice that best represents background.','Confirmation','Options',{'OK'},'DefaultOption','OK');
+                uiconfirm(app.CELL_ID,'Click on the pixel on this slice that best represents background.','Confirmation','Options',{'OK'},'DefaultOption','OK');
                 color_roi = drawpoint(app.proc_xyAxes);
                 pos = round(color_roi.Position);
                 delete(color_roi);
