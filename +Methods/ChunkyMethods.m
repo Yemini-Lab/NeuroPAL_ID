@@ -237,9 +237,14 @@ classdef ChunkyMethods
                 sprintf('Click on the pixel on this slice that best represents %s.', channel), ...
                 app.proc_xyAxes, vol, app.proc_zSlider.Value);
 
-            app.(sprintf("%s_r", channel)).Value = mean(target.values(ch_idx(1)), 'all');
-            app.(sprintf("%s_g", channel)).Value = mean(target.values(ch_idx(2)), 'all');
-            app.(sprintf("%s_b", channel)).Value = mean(target.values(ch_idx(3)), 'all');
+            if isempty(target.values)
+                Program.GUIHandling.gui_lock(app, 'unlock', 'processing_tab');
+                return
+            else
+                app.(sprintf("%s_r", channel)).Value = mean(target.values(ch_idx(1)), 'all');
+                app.(sprintf("%s_g", channel)).Value = mean(target.values(ch_idx(2)), 'all');
+                app.(sprintf("%s_b", channel)).Value = mean(target.values(ch_idx(3)), 'all');
+            end
 
             % Construct filtered volume: stack channels & normalize.
             vol = double(Methods.Preprocess.zscore_frame(vol));
@@ -248,11 +253,6 @@ classdef ChunkyMethods
             filtered_vol = zeros(length(rgb), size(vol,1), size(vol,2), size(vol,3));
             for i = 1:length(rgb)
                 filtered_vol(i,:,:,:) = imgaussfilt3(vol(:,:,:,rgb(i))./max(vol(:,:,:,rgb(i)),[],'all').*65535, sigma_gauss);
-            end
-
-            if isempty(target.values)
-                Program.GUIHandling.gui_lock(app, 'unlock', 'processing_tab');
-                return
             end
 
             switch channel
