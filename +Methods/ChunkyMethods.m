@@ -153,8 +153,7 @@ classdef ChunkyMethods
                     progress.Value = a/length(actions);
                 end
                 
-                processed_vol = zeros(new_dims);
-                processed_vol = Methods.ChunkyMethods.apply_vol(app, actions{a}, processed_vol);
+                processed_vol = Methods.ChunkyMethods.apply_vol(app, actions{a}, app.proc_image.data);
             end
     
             % Save to file.
