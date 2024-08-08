@@ -3,6 +3,12 @@ classdef GUIHandling
 
     %% Public variables.
     properties (Constant, Access = public)
+        channel_map = containers.Map( ...
+            {'r', 'g', 'b', 'w', 'dic', 'gfp', ...
+            'red', 'green', 'blue', 'white', 'DIC', 'GFP'}, ...
+            [1, 2, 3, 4, 5, 6, ...
+            1, 2, 3, 4, 5, 6]);
+
         % Processing components
         pos_prefixes = {'tl', 'tm', 'tr', 'bl', 'bm', 'br'};
 
@@ -437,6 +443,46 @@ classdef GUIHandling
             end
         
             app.ProcNoiseThresholdKnob.MajorTickLabels = fixedLabels;
+        end
+
+        function target = dropper(message, display, image, z)
+            target = struct('pixels', {[]}, 'values', {[]});
+
+            app = Program.GUIHandling.get_parent_app(display);
+            child_fig = properties(Program.GUIHandling.get_parent_app(display));
+            child_fig = app.(child_fig{1});
+
+            check = uiconfirm(child_fig, message, ...
+                'Confirmation','Options',{'OK', 'Select different slice'}, ...
+                'DefaultOption','OK');
+
+            switch check
+                case 'OK'
+                    color_roi = drawpoint(display);
+                    pos = round(color_roi.Position);
+                    delete(color_roi);
+
+                    if exist('z', 'var')
+                        target.pixels = [pos(1), pos(2), z];
+                        target.values = zeros([1, size(image, 4)]);
+
+                        for c=1:size(image, 4)
+                            target.values(c) = unique(impixel(image(:, :, z, c), pos(1), pos(2)));
+                        end
+
+                    else
+                        target.pixels = [pos(1), pos(2)];
+                        target.values = zeros([1, size(image, 3)]);
+
+                        for c=1:size(image, 3)
+                            target.values(c) = unique(impixel(image(:, :, c), pos(1), pos(2)));
+                        end
+
+                    end
+
+                case 'Select different slice'
+                    return
+            end
         end
 
 

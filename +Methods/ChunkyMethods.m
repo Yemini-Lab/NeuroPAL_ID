@@ -216,124 +216,78 @@ classdef ChunkyMethods
             app.proc_swap_video();
         end
 
-        function spectral_unmix(app, ctx)
+        function spectral_unmix(app, channel)
             % Remove spectral crosstalk of images based on a linear spectral crosstalk remover.
-            
-            % Grab parent app & lock image processing tab.
-            channel = ctx.Source.Tag;
             Program.GUIHandling.gui_lock(app, 'lock', 'processing_tab');
 
-            % Check if we've saved unmixing parameters. If not, initialize.
-            if ~exist('app.spectral_cache', 'var')
-                app.spectral_cache = struct('ch_db', [0], 'ch_px', {}, 'ch_val', {}, 'bg_px', [], 'bg_val', [], 'blurred_img', []);
+            if isa(channel, 'matlab.ui.eventdata.ButtonPushedData')
+                channel = channel.Source.Tag;
             end
 
-            % Grab channel indices.
             ch_idx = [str2num(app.ProcRDropDown.Value), str2num(app.ProcGDropDown.Value), str2num(app.ProcBDropDown.Value)];
-
-            check = uiconfirm(app.CELL_ID,sprintf('Click on the pixel on this slice that best represents %s.', channel),'Confirmation','Options',{'OK', 'Select different slice'},'DefaultOption','OK');
-            image_data = app.proc_image.data(:, :, :, :);
-
-            switch check
-                case 'OK'
-                    color_roi = drawpoint(app.proc_xyAxes);
-                    pos = round(color_roi.Position);
-                    delete(color_roi);
-
-                    pixels = [pos(1), pos(2), round(app.proc_zSlider.Value)];
-
-                    r = impixel(image_data(:,:,app.proc_zSlider.Value, ch_idx(1)), pos(1), pos(2));
-                    g = impixel(image_data(:,:,app.proc_zSlider.Value, ch_idx(2)), pos(1), pos(2));
-                    b = impixel(image_data(:,:,app.proc_zSlider.Value, ch_idx(3)), pos(1), pos(2));
-
-                    switch channel
-                        case 'r'
-                            t_idx = ch_idx(1);
-                            app.red_r.Value = r(1);
-                            app.red_g.Value = g(1);
-                            app.red_b.Value = b(1);
-                        case 'g'
-                            t_idx = ch_idx(2);
-                            app.green_r.Value = r(1);
-                            app.green_g.Value = g(1);
-                            app.green_b.Value = b(1);
-                        case 'b'
-                            t_idx = ch_idx(3);
-                            app.blue_r.Value = r(1);
-                            app.blue_g.Value = g(1);
-                            app.blue_b.Value = b(1);
-                        case {'w', 'gfp', 'dic', 'gut'}
-                            % TBD
-                    end
-
-                    if app.spectral_cache.ch_db ~= [0]
-                        if ~ismember(channel, app.spectral_cache.ch_db)
-                            app.spectral_cache.ch_db = [app.spectral_cache.ch_db, t_idx];
-                        end
-                    else
-                        app.spectral_cache.ch_db = [t_idx];
-                    end
-
-                    app.spectral_cache.ch_px{t_idx} = pixels;
-
-                case 'Select different slice'
-                    Program.GUIHandling.gui_lock(app, 'unlock', 'processing_tab');
-                    return
-            end
-
-            % If necessary, grab background.
-            if ~isempty(app.spectral_cache.bg_px)
-                bg_pixels = app.spectral_cache.bg_px;
-            else
-                uiconfirm(app.CELL_ID,'Click on the pixel on this slice that best represents background.','Confirmation','Options',{'OK'},'DefaultOption','OK');
-                color_roi = drawpoint(app.proc_xyAxes);
-                pos = round(color_roi.Position);
-                delete(color_roi);
-
-                bg_pixels = [pos(1), pos(2), round(app.proc_zSlider.Value)];
-                app.spectral_cache.bg_px = bg_pixels;
-            end
-
-            loc_pixel = [pixels; bg_pixels];
-
-            if ~isempty(app.spectral_cache.blurred_img)
-                sigma_gauss = 0.0001;
-            else
-                app.spectral_cache.blurred_img = 1;
-            end
-
-            if app.ProcColormapButton.Value
-                vol = app.proc_image.data(:);
-            elseif app.ProcVideoButton.Value
-                vol = app.retrieve_frame(app.proc_tSlider.Value);
-            end
-
+            size_selection = app.DropperradiusSpinner.Value;
+            sigma_gauss = app.SigmagaussEditField.Value;
             rgb = ch_idx(1:3);
-            vol = double(Methods.Preprocess.zscore_frame(vol));
-            vol(vol<0) = 0;
+            t_idx = [];
 
-            og_vol = zeros(length(rgb), size(vol,1),size(vol,2),size(vol,3));
-            
-            % Stack relevant channels and normalize.
-            filtered_vol = zeros(length(rgb), size(vol,1),size(vol,2),size(vol,3));
+            vol = app.proc_image.data;
+
+            % Pick & update ideal channel representations.
+            target = Program.GUIHandling.dropper( ...
+                sprintf('Click on the pixel on this slice that best represents %s.', channel), ...
+                app.proc_xyAxes, vol, app.proc_zSlider.Value);
+
+            app.(sprintf("%s_r", channel)).Value = mean(target.values(ch_idx(1)), 'all');
+            app.(sprintf("%s_g", channel)).Value = mean(target.values(ch_idx(2)), 'all');
+            app.(sprintf("%s_b", channel)).Value = mean(target.values(ch_idx(3)), 'all');
+
+            % Construct filtered volume: stack channels & normalize.
+            vol = double(Methods.Preprocess.zscore_frame(vol));
+            vol(vol < 0) = 0;
+
+            filtered_vol = zeros(length(rgb), size(vol,1), size(vol,2), size(vol,3));
             for i = 1:length(rgb)
                 filtered_vol(i,:,:,:) = imgaussfilt3(vol(:,:,:,rgb(i))./max(vol(:,:,:,rgb(i)),[],'all').*65535, sigma_gauss);
-                og_vol(i,:,:,:) = vol(:,:,:,rgb(i));
             end
 
-            % Construct background array (based on last row of loc_pixels).
-            app.spectral_cache.bg_val = double(mean(filtered_vol(:,loc_pixel(end,2)-size_selection:loc_pixel(end,2)+size_selection,loc_pixel(end,1)-size_selection:loc_pixel(end,1)+size_selection,loc_pixel(end,3)),[2,3]));
-            for ii=1:size(app.spectral_cache.bg_val)
-                filtered_vol(ii,:,:,:) = filtered_vol(ii,:,:,:) - app.spectral_cache.bg_val(ii); 
+            if isempty(target.values)
+                Program.GUIHandling.gui_lock(app, 'unlock', 'processing_tab');
+                return
             end
-            
-            % Compute linear scaling for spectral crosstalk.
-            app.spectral_cache.ch_val = mean(filtered_vol(:,loc_pixel(1,2)-size_selection:loc_pixel(1,2)+size_selection,loc_pixel(1,1)-size_selection:loc_pixel(1,1)+size_selection,loc_pixel(1,3)),[2,3]);
-            app.spectral_cache.ch_val(channels_to_debleed) = app.spectral_cache.ch_val(channels_to_debleed)/app.spectral_cache.ch_val(~channels_to_debleed);
-            app.spectral_cache.ch_val(~channels_to_debleed) = app.spectral_cache.ch_val(~channels_to_debleed)/app.spectral_cache.ch_val(~channels_to_debleed);
 
-            app.flags.debleed = 1;
-            app.drawProcImage();
+            switch channel
+                case {'bg', 'background'}
+                    app.spectral_cache.bg_px = target.pixels;
+                    app.spectral_cache.bg_val = double(mean(filtered_vol(:,target.pixels(2)-size_selection:target.pixels(2)+size_selection,target.pixels(1)-size_selection:target.pixels(1)+size_selection,target.pixels(3)),[2,3]));
+                case {'w', 'gfp', 'dic', 'gut', 'white'}
+                    % TBD
+                otherwise
+                    t_idx = ch_idx(Program.GUIHandling.channel_map(channel));
+            end
+
+            if ~isempty(t_idx)
+                if ~ismember(t_idx, app.spectral_cache.ch_db)
+                    app.spectral_cache.ch_db = [app.spectral_cache.ch_db; t_idx];
+                end
+
+                % If necessary, grab background.
+                if isempty(app.spectral_cache.bg_px) || isempty(app.spectral_cache.bg_val)
+                    Methods.ChunkyMethods.spectral_unmix(app, 'background')
+                end
+    
+                % Subtract background.
+                for ii=1:length(app.spectral_cache.bg_val)
+                    filtered_vol(ii,:,:,:) = filtered_vol(ii,:,:,:) - app.spectral_cache.bg_val(ii); 
+                end
+                
+                % Compute linear scaling for spectral crosstalk.
+                channels_to_debleed = rgb~=app.spectral_cache.ch_db(t_idx, :);
+                app.spectral_cache.ch_val(t_idx, :) = mean(filtered_vol(:,target.pixels(2)-size_selection:target.pixels(2)+size_selection,target.pixels(1)-size_selection:target.pixels(1)+size_selection,target.pixels(3)),[2,3]);
+                app.spectral_cache.ch_val(t_idx, channels_to_debleed) = app.spectral_cache.ch_val(channels_to_debleed)/app.spectral_cache.ch_val(~channels_to_debleed);
+                app.spectral_cache.ch_val(t_idx, ~channels_to_debleed) = app.spectral_cache.ch_val(~channels_to_debleed)/app.spectral_cache.ch_val(~channels_to_debleed);
+    
+                app.flags.debleed = 1;
+            end
         end
 
         function output = debleed(app, vol, mode)
@@ -350,11 +304,23 @@ classdef ChunkyMethods
             output = vol;
 
             % Grab processing tab values.
-            ch_idx = [app.RDropDown.Value, app.GDropDown.Value, app.BDropDown.Value, app.WDropDown.Value];
+            ch_idx = [str2num(app.ProcRDropDown.Value), str2num(app.ProcGDropDown.Value), str2num(app.ProcBDropDown.Value)];
+            size_selection = app.DropperradiusSpinner.Value;
+            sigma_gauss = app.SigmagaussEditField.Value;
             rgb = ch_idx(1:3);
+            channels_to_debleed = rgb~=app.spectral_cache.ch_db;
 
             % Normalize volume.
-            vol = double(Methods.Preprocess.zscore_frame(vol));
+            switch class(vol)
+                case {'single', 'double'}
+                    % TBD
+                case {'matlab.io.MatFile'}
+                    vol = vol.data;
+                    vol = vol/intmax(class(vol));
+                otherwise
+                    vol = vol/intmax(class(vol));
+            end
+
             vol(vol<0) = 0;
             
             % Stack relevant channels and normalize.
@@ -366,16 +332,20 @@ classdef ChunkyMethods
             switch mode
                 case 'val'
                     % Remove background noise.
-                    for ii=1:size(app.spectral_cache.bg_val)
+                    for ii=1:length(app.spectral_cache.bg_val)
                         filtered_vol(ii,:,:,:) = filtered_vol(ii,:,:,:) - app.spectral_cache.bg_val(ii); 
                     end
 
                     % Debleed.
-                    for ii = 1:length(app.spectral_cache.ch_db)
-                        filtered_vol(ii,:,:,:) = filtered_vol(ii,:,:,:) - app.spectral_cache.ch_db(ii)*app.spectral_cache.ch_val(ii)* filtered_vol(~app.spectral_cache.ch_db,:,:,:);
+                    for t_idx = 1:length(app.spectral_cache.ch_db)
+                        c = app.spectral_cache.ch_db(t_idx, :);
+                        t_ch = channels_to_debleed(c, :);
+                        
+                        for db = 1:length(t_ch)
+                            filtered_vol(db,:,:,:) = filtered_vol(db,:,:,:) - t_ch(db).*app.spectral_cache.ch_val(c, db)* filtered_vol(~t_ch,:,:,:);
+                        end
                     end
                 case 'coord'
-
                     % Construct background array
                     bg = double(mean(filtered_vol(:,app.spectral_cache.bg_px(2)-size_selection:app.spectral_cache.bg_px(2)+size_selection,app.spectral_cache.bg_px(1)-size_selection:app.spectral_cache.bg_px(1)+size_selection,app.spectral_cache.bg_px(3)),[2,3]));
                     for ii=1:size(bg)
@@ -390,14 +360,15 @@ classdef ChunkyMethods
                     scale_crosstalk(~app.spectral_cache.ch_db) = scale_crosstalk(~app.spectral_cache.ch_db)/scale_crosstalk(~app.spectral_cache.ch_db);
                     
                     % Debleed.
-                    for ii = 1:length(app.spectral_cache.ch_db)
-                        filtered_vol(ii,:,:,:) = filtered_vol(ii,:,:,:) - app.spectral_cache.ch_db(ii)*scale_crosstalk(ii)* filtered_vol(~app.spectral_cache.ch_db,:,:,:);
+                    for t_idx = 1:length(app.spectral_cache.ch_db)
+                        c = app.spectral_cache.ch_db(t_idx, :);
+                        filtered_vol(c,:,:,:) = filtered_vol(c,:,:,:) - app.spectral_cache.ch_db(c)*scale_crosstalk(c)* filtered_vol(~app.spectral_cache.ch_db,:,:,:);
                     end
             end
 
             % Normalize corrected image again.
             for i = 1:length(ch_idx)
-                filtered_vol(i,:,:,:) = uint16(filtered_vol(i,:,:,:)./max(filtered_vol(i,:,:,:),[],'all').*65535);
+                filtered_vol(i,:,:,:) = cast((filtered_vol(i,:,:,:)./max(filtered_vol(i,:,:,:),[],'all').*65535), 'uint64');
             end
 
             % Permute image to get same format as input.
