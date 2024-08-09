@@ -115,7 +115,7 @@ classdef ChunkyMethods
                     [new_dims, old_dims] = Methods.ChunkyMethods.calc_pp_size(app, action, vol);
 
                     % Initialize cache array.
-                    processed_vol = zeros(new_dims);
+                    processed_vol = zeros(new_dims, class(vol));
     
                     % Iterate over slices.
                     for z=1:old_dims(3)
