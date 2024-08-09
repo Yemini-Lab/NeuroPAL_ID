@@ -197,3 +197,4 @@ External_Dependencies/matnwb/doc/simulinkicon.gif
 +Wrapper/main.spec
 .idea/.name
 *.pkg
+*.pyd
