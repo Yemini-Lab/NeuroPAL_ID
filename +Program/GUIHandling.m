@@ -414,6 +414,142 @@ classdef GUIHandling
 
 
         %% Processing Tab
+        function histogram_handler(app, mode, image)
+            if ~exist("image", 'var')
+                nc = length(Program.GUIHandling.pos_prefixes);
+            else
+                nc = size(image, 4);
+            end
+
+            for c=1:nc
+                prefix = Program.GUIHandling.pos_prefixes{c};
+
+                switch mode
+                    case 'reset'
+                        app.(sprintf("%s_hist_panel", prefix)).Visible = 'off';
+                        cla(app.(sprintf("%s_hist_ax", prefix)))
+                    case 'draw'
+                        if app.HidezerointensitypixelsCheckBox.Value
+                            chan = image(:, :, :, c);
+                            chan_hist = chan(chan>0);
+                        else
+                            chan_hist = image(:, :, :, c);
+                        end
+                        
+                        if any(ismember(app.nameMap.keys(), num2str(c)))
+                            app.(sprintf("%s_hist_panel", Program.GUIHandling.pos_prefixes{c})).Visible = 'on';
+                            app.(sprintf("%s_Label", Program.GUIHandling.pos_prefixes{c})).Text = sprintf("%s Channel", app.nameMap(num2str(c)));
+                            histogram(app.(sprintf("%s_hist_ax", Program.GUIHandling.pos_prefixes{c})), chan_hist, 'FaceColor', app.shortMap(num2str(c)), 'EdgeColor', app.shortMap(num2str(c)));
+        
+                            if c > 4
+                                app.(sprintf("%s_hist_panel", Program.GUIHandling.pos_prefixes{c})).Parent = app.ProcHistogramGrid;
+                            end
+                        end
+
+                end
+            end
+        end
+
+        function set_gui_limits(app, mode, dims)
+            switch mode
+                case 'colormap'
+                    [ny, nx, nz, nc] = size(app.proc_image, 'data');
+
+                case 'video'
+                    nx = app.video_info.nx;
+                    ny = app.video_info.ny;
+                    nz = app.video_info.nz;
+                    nc = app.video_info.nc;
+                    nt = app.video_info.nt;
+
+                case 'dims'
+                    ny = dims(1);
+                    nx = dims(2);
+                    nz = dims(3);
+                    nc = dims(4);
+
+                    if length(dims) > 4
+                        nt = dims(5);
+                    end
+            end
+
+            if exist("nt", 'var')
+                app.proc_tSlider.Limits = [1, nt];
+                app.proc_tSlider.MinorTicks = [];
+                app.proc_tSlider.Value = 1;
+                app.proc_tEditField.Value = app.proc_tSlider.Value;
+            end
+
+            app.proc_xyAxes.XLim = [1, nx];
+            app.proc_xyAxes.YLim = [1, ny];
+
+            if app.ProcPreviewZslowCheckBox.Value
+                app.proc_xzAxes.XLim = [1, nx];
+                app.proc_xzAxes.YLim = [1, nz];
+    
+                app.proc_yzAxes.XLim = [1, nz];
+                app.proc_yzAxes.YLim = [1, ny];
+            end
+
+            app.proc_xSlider.Limits = [1, nx];
+            app.proc_ySlider.Limits = [1, ny];
+
+            if nz > 1
+                app.proc_zSlider.Limits = [1, nz];
+                app.proc_hor_zSlider.Limits = [1, nz];
+                app.proc_vert_zSlider.Limits = [1, nz];
+            end
+
+            app.proc_xSlider.Value = round(app.proc_xSlider.Limits(2)/2);
+            app.proc_ySlider.Value = round(app.proc_ySlider.Limits(2)/2);
+            app.proc_zSlider.Value = round(app.proc_zSlider.Limits(2)/2);
+
+            app.proc_xEditField.Value = app.proc_xSlider.Value;
+            app.proc_yEditField.Value = app.proc_ySlider.Value;
+            app.proc_zEditField.Value = app.proc_zSlider.Value;
+
+            app.proc_hor_zSlider.Value = round(app.proc_hor_zSlider.Limits(2)/2);
+            app.proc_vert_zSlider.Value = round(app.proc_vert_zSlider.Limits(2)/2);
+        end
+
+        function swap_volumes(app, event)
+            switch event.Source.Text
+                case 'Colormap'
+                    app.ProcVideoButton.Value = ~app.ProcColormapButton.Value;
+                    Program.GUIHandling.set_gui_limits(app, 'colormap');
+                    Program.GUIHandling.set_thresholds(app, max(app.proc_image.data, [], "all"));
+    
+                    app.PlaceholderProcTimeline.Parent = app.CELL_ID;
+                    app.PlaceholderProcTimeline.Visible = ~app.PlaceholderProcTimeline.Visible;
+                    app.ProcAxGrid.RowHeight(end) = [];
+
+                case 'Video'
+                    app.ProcColormapButton.Value = ~app.ProcVideoButton.Value;
+                    Program.GUIHandling.set_gui_limits(app, 'video');
+                    Program.GUIHandling.set_thresholds(app, max(app.retrieve_frame(app.proc_tSlider.Value), [], "all"));
+                    
+                    for c=1:app.video_info.nc
+                        app.(sprintf("%s_GammaEditField", Program.GUIHandling.pos_prefixes{c})).Value = 1;
+                    end
+    
+                    app.ProcAxGrid.RowHeight{end+1} = 'fit';
+                    app.PlaceholderProcTimeline.Parent = app.ProcAxGrid;
+                    app.PlaceholderProcTimeline.Layout.Row = max(size(app.ProcAxGrid.RowHeight));
+                    app.PlaceholderProcTimeline.Layout.Column = [1 max(size(app.ProcAxGrid.ColumnWidth))];
+                    app.PlaceholderProcTimeline.Visible = ~app.PlaceholderProcTimeline.Visible;
+            end
+
+            spectral_unmixing_gui = app.SpectralUnmixingGrid.Children;
+            for comp=1:length(spectral_unmixing_gui)
+                component = spectral_unmixing_gui(comp);
+                if ismember(properties(component), 'Enable')
+                    component.Enable = ~component.Enable;
+                end
+            end
+
+            app.ProcessingGridLayout.ColumnWidth = {'1x', 190};
+        end
+
         function set_thresholds(app, max_val)
             new_limits = [1 max_val];
 
