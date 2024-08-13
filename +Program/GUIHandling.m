@@ -425,6 +425,8 @@ classdef GUIHandling
                 if isfield(app.flags, action)
                     app.flags = rmfield(app.flags, action);
                 end
+            else
+                app.flags.(action) = 1;
             end
         end
 
