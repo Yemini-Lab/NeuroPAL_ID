@@ -316,9 +316,9 @@ classdef ChunkyMethods
                     % TBD
                 case {'matlab.io.MatFile'}
                     vol = vol.data;
-                    vol = vol/intmax(class(vol));
+                    vol = double(vol)/double(intmax(class(vol)));
                 otherwise
-                    vol = vol/intmax(class(vol));
+                    vol = double(vol)/double(intmax(class(vol)));
             end
 
             vol(vol<0) = 0;

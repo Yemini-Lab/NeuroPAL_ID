@@ -124,7 +124,7 @@ classdef GUIHandling
             set(app.TrackingButton, 'Visible', 'on');
         end
 
-        function gui_lock(app, action, group)
+        function gui_lock(app, action, group, event)
             switch action
                 case {1, 'unlock', 'enable', 'on'}
                     state = 'on';
@@ -146,15 +146,19 @@ classdef GUIHandling
 
                 case 'processing_tab'
                     gui_components = Program.GUIHandling.proc_components;
-
                     for pos=1:length(Program.GUIHandling.pos_prefixes)
                         app.(sprintf('%s_hist_slider', Program.GUIHandling.pos_prefixes{pos})).Enable = state;
                         app.(sprintf('%s_GammaEditField', Program.GUIHandling.pos_prefixes{pos})).Enable = state;
                     end
+
             end
 
             for comp=1:length(gui_components)
                 app.(gui_components{comp}).Enable = state;
+            end
+
+            if exist('event', 'var')
+                event.Source.Enable = ~state;
             end
         end
 
@@ -414,11 +418,48 @@ classdef GUIHandling
 
 
         %% Processing Tab
+        function mip_flag = proc_mip_switch(app, mip_flag)
+            if ~app.ProcShowMIPCheckBox.Value
+                mip_flag = 1;
+                app.ProcShowMIPCheckBox.Value = 1;
+                app.drawProcImage();
+                drawnow;
+            elseif mip_flag
+                app.ProcShowMIPCheckBox.Value = 0;
+                app.drawProcImage();
+                drawnow;
+            end
+        end
+
+        function proc_save_prompt(app, action)
+            check = uiconfirm(app.CELL_ID, "Do you want to save this operation to the file?", "NeuroPAL_ID", "Options", ["Yes", "No, stick with preview"]);
+            if strcmp(check, "Yes")
+                app.proc_apply_processing(action);
+                if isfield(app.flags, action)
+                    app.flags = rmfield(app.flags, action);
+                end
+            end
+        end
+
         function histogram_handler(app, mode, image)
             if ~exist("image", 'var')
                 nc = length(Program.GUIHandling.pos_prefixes);
             else
                 nc = size(image, 4);
+            end
+
+            if nc < 4
+                app.bl_hist_panel.Parent = app.CELL_ID;
+                app.bm_hist_panel.Parent = app.CELL_ID;
+                app.br_hist_panel.Parent = app.CELL_ID;
+
+                app.bl_hist_panel.Visible = 'off';
+                app.bm_hist_panel.Visible = 'off';
+                app.br_hist_panel.Visible = 'off';
+
+                app.ProcHistogramGrid.RowHeight = {'1x'};
+            else
+                app.ProcHistogramGrid.RowHeight = {'1x', '1x'};
             end
 
             for c=1:nc
@@ -437,79 +478,104 @@ classdef GUIHandling
                         end
                         
                         if any(ismember(app.nameMap.keys(), num2str(c)))
-                            app.(sprintf("%s_hist_panel", Program.GUIHandling.pos_prefixes{c})).Visible = 'on';
-                            app.(sprintf("%s_Label", Program.GUIHandling.pos_prefixes{c})).Text = sprintf("%s Channel", app.nameMap(num2str(c)));
-                            histogram(app.(sprintf("%s_hist_ax", Program.GUIHandling.pos_prefixes{c})), chan_hist, 'FaceColor', app.shortMap(num2str(c)), 'EdgeColor', app.shortMap(num2str(c)));
-        
-                            if c > 4
-                                app.(sprintf("%s_hist_panel", Program.GUIHandling.pos_prefixes{c})).Parent = app.ProcHistogramGrid;
+                            h_panel = sprintf("%s_hist_panel", Program.GUIHandling.pos_prefixes{c});
+                            h_label = sprintf("%s_Label", Program.GUIHandling.pos_prefixes{c});
+                            h_axes = sprintf("%s_hist_ax", Program.GUIHandling.pos_prefixes{c});
+
+                            app.(h_panel).Visible = 'on';
+                            app.(h_label).Text = sprintf("%s Channel", app.nameMap(num2str(c)));
+                            histogram(app.(h_axes), chan_hist, 'FaceColor', app.shortMap(num2str(c)), 'EdgeColor', app.shortMap(num2str(c)));
+                            app.(h_axes).XLim = [app.HidezerointensitypixelsCheckBox.Value, app.(h_axes).XLim(2)];
+       
+                            if c >= 4
+                                app.(h_panel).Parent = app.ProcHistogramGrid;
+                                app.(h_panel).Layout.Row = 2;
+                                app.(h_panel).Layout.Column = c-3;
                             end
                         end
+                end
+            end
+        end
 
+        function package = get_active_volume(app, request)
+            if app.ProcColormapButton.Value
+                package = 'colormap';
+            elseif app.ProcVideoButton.Value
+                package = 'video';
+            else
+                package = 'none';
+            end
+
+            if exist('request', 'var')
+                switch request
+                    case 'state'
+                        return
+                    case 'array'
+                        % TBD
                 end
             end
         end
 
         function set_gui_limits(app, mode, dims)
-            switch mode
-                case 'colormap'
-                    [ny, nx, nz, nc] = size(app.proc_image, 'data');
+            if ~exist('dims', 'var')
+                active_volume = Program.GUIHandling.get_active_volume(app, 'state');
+                switch active_volume
+                    case 'colormap'
+                        [ny, nx, nz, nc] = size(app.proc_image, 'data');
+    
+                    case 'video'
+                        nx = app.video_info.nx;
+                        ny = app.video_info.ny;
+                        nz = app.video_info.nz;
+                        nc = app.video_info.nc;
+                        nt = app.video_info.nt;
+                end
 
-                case 'video'
-                    nx = app.video_info.nx;
-                    ny = app.video_info.ny;
-                    nz = app.video_info.nz;
-                    nc = app.video_info.nc;
-                    nt = app.video_info.nt;
+            else
+                ny = dims(1);
+                nx = dims(2);
+                nz = dims(3);
+                nc = dims(4);
 
-                case 'dims'
-                    ny = dims(1);
-                    nx = dims(2);
-                    nz = dims(3);
-                    nc = dims(4);
-
-                    if length(dims) > 4
-                        nt = dims(5);
-                    end
+                if length(dims) > 4
+                    nt = dims(5);
+                end
             end
 
             if exist("nt", 'var')
                 app.proc_tSlider.Limits = [1, nt];
                 app.proc_tSlider.MinorTicks = [];
-                app.proc_tSlider.Value = 1;
-                app.proc_tEditField.Value = app.proc_tSlider.Value;
             end
 
             app.proc_xyAxes.XLim = [1, nx];
             app.proc_xyAxes.YLim = [1, ny];
-
             if app.ProcPreviewZslowCheckBox.Value
                 app.proc_xzAxes.XLim = [1, nx];
                 app.proc_xzAxes.YLim = [1, nz];
-    
                 app.proc_yzAxes.XLim = [1, nz];
                 app.proc_yzAxes.YLim = [1, ny];
             end
 
-            app.proc_xSlider.Limits = [1, nx];
-            app.proc_ySlider.Limits = [1, ny];
-
-            if nz > 1
+            if strcmp(mode, 'hard')
+                app.proc_xSlider.Limits = [1, nx];
+                app.proc_ySlider.Limits = [1, ny];
                 app.proc_zSlider.Limits = [1, nz];
                 app.proc_hor_zSlider.Limits = [1, nz];
                 app.proc_vert_zSlider.Limits = [1, nz];
+
+                app.proc_xSlider.Value = round(app.proc_xSlider.Limits(2)/2);
+                app.proc_ySlider.Value = round(app.proc_ySlider.Limits(2)/2);
+                app.proc_zSlider.Value = round(app.proc_zSlider.Limits(2)/2);
+                app.proc_tSlider.Value = 1;
+    
+                app.proc_xEditField.Value = app.proc_xSlider.Value;
+                app.proc_yEditField.Value = app.proc_ySlider.Value;
+                app.proc_zEditField.Value = app.proc_zSlider.Value;
+                app.proc_tEditField.Value = app.proc_tSlider.Value;
+    
+                app.proc_hor_zSlider.Value = round(app.proc_hor_zSlider.Limits(2)/2);
+                app.proc_vert_zSlider.Value = round(app.proc_vert_zSlider.Limits(2)/2);
             end
-
-            app.proc_xSlider.Value = round(app.proc_xSlider.Limits(2)/2);
-            app.proc_ySlider.Value = round(app.proc_ySlider.Limits(2)/2);
-            app.proc_zSlider.Value = round(app.proc_zSlider.Limits(2)/2);
-
-            app.proc_xEditField.Value = app.proc_xSlider.Value;
-            app.proc_yEditField.Value = app.proc_ySlider.Value;
-            app.proc_zEditField.Value = app.proc_zSlider.Value;
-
-            app.proc_hor_zSlider.Value = round(app.proc_hor_zSlider.Limits(2)/2);
-            app.proc_vert_zSlider.Value = round(app.proc_vert_zSlider.Limits(2)/2);
         end
 
         function swap_volumes(app, event)
@@ -551,7 +617,7 @@ classdef GUIHandling
         end
 
         function set_thresholds(app, max_val)
-            new_limits = [1 max_val];
+            new_limits = [1 max(2, max_val)];
 
             app.ProcNoiseThresholdKnob.Limits = new_limits;
             app.ProcNoiseThresholdField.Limits = new_limits;
