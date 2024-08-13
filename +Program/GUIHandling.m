@@ -418,19 +418,6 @@ classdef GUIHandling
 
 
         %% Processing Tab
-        function mip_flag = proc_mip_switch(app, mip_flag)
-            if ~app.ProcShowMIPCheckBox.Value
-                mip_flag = 1;
-                app.ProcShowMIPCheckBox.Value = 1;
-                app.drawProcImage();
-                drawnow;
-            elseif mip_flag
-                app.ProcShowMIPCheckBox.Value = 0;
-                app.drawProcImage();
-                drawnow;
-            end
-        end
-
         function proc_save_prompt(app, action)
             check = uiconfirm(app.CELL_ID, "Do you want to save this operation to the file?", "NeuroPAL_ID", "Options", ["Yes", "No, stick with preview"]);
             if strcmp(check, "Yes")
