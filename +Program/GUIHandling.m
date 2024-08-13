@@ -418,6 +418,23 @@ classdef GUIHandling
 
 
         %% Processing Tab
+        function checked_channels = check_channels(app)
+            channels = {
+                'ProcRCheckBox', ...
+                'ProcGCheckBox', ...
+                'ProcBCheckBox', ...
+                'ProcWCheckBox', ...
+                'ProcDICCheckBox', ...
+                'ProcGFPCheckBox'};
+
+            checked_channels = [];
+            for c=1:length(channels)
+                if app.(channels{c}).Value
+                    checked_channels = [checked_channels c];
+                end
+            end
+        end
+
         function proc_save_prompt(app, action)
             check = uiconfirm(app.CELL_ID, "Do you want to save this operation to the file?", "NeuroPAL_ID", "Options", ["Yes", "No, stick with preview"]);
             if strcmp(check, "Yes")
@@ -500,7 +517,14 @@ classdef GUIHandling
                     case 'state'
                         return
                     case 'array'
-                        % TBD
+                        channels = Program.GUIHandling.check_channels(app);
+                        if app.ProcColormapButton.Value
+                            slice = app.proc_image.data(:, :, :, channels);
+                        else
+                            slice = app.retrieve_frame(app.proc_tSlider.Value);
+                            slice = slice(:, :, :, channels);
+                        end
+                        package = struct('state', {package}, 'array', {slice});
                 end
             end
         end
