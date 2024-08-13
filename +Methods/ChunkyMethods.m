@@ -208,7 +208,6 @@ classdef ChunkyMethods
                     progress.Value = t/nt;
                     dialog_progress = progress.Value;
                     time_string = Program.GUIHandling.get_time_string(start_time, t, nt);
-                    progress.Message = sprintf("%s \n-> frame %.f/%.f %s \n-> (%s", dialog_message, t, nt, time_string);
                 end
 
                 processed_frame = app.retrieve_frame(app.proc_tSlider.Value);
