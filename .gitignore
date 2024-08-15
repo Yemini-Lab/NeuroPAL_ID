@@ -4055,3 +4055,7 @@ Thumbs.db
 *.swp
 ._*
 *~
+*.pyc
+*.toc
+*.pkg
+*.pyz
