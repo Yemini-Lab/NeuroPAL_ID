@@ -168,7 +168,7 @@ classdef NeuroPALImage
                 
                 % Update the file version.
                 version = ProgramInfo.version;
-                save(image_file, 'version', 'prefs', 'worm', '-append');
+                save(image_file, 'version', 'prefs', 'worm', '-append', '-v7.3');
             end
             
             % Open the ID file.
@@ -212,7 +212,7 @@ classdef NeuroPALImage
                     % Update the file version.
                     version = ProgramInfo.version;
                     mp_params = mp;
-                    save(id_file, 'version', 'neurons', 'mp_params');
+                    save(id_file, 'version', 'neurons', 'mp_params', '-v7.3');
                 
                 % No version.
                 elseif version < 1
@@ -268,7 +268,7 @@ classdef NeuroPALImage
                     
                     % Update the file version.
                     version = ProgramInfo.version;
-                    save(id_file, 'version', 'neurons', 'mp_params');
+                    save(id_file, 'version', 'neurons', 'mp_params', '-v7.3');
                 end
             end
         end
@@ -364,7 +364,7 @@ classdef NeuroPALImage
             % Save the CZI file to our MAT file format.
             np_file = strrep(czi_file, 'czi', 'mat');
             version = ProgramInfo.version;
-            save(np_file, 'version', 'data', 'info', 'prefs', 'worm');
+            save(np_file, 'version', 'data', 'info', 'prefs', 'worm', '-v7.3');
         end
         
         function np_file = convertND2(nd2_file)
@@ -592,7 +592,7 @@ classdef NeuroPALImage
             % Save the ND2 file to our MAT file format.
             np_file = strrep(nwb_file, '.nwb', '.mat');
             version = ProgramInfo.version;
-            save(np_file, 'version', 'data', 'info', 'prefs', 'worm');
+            save(np_file, 'version', 'data', 'info', 'prefs', 'worm', '-v7.3');
         end
         
         function np_file = convertAny(any_file)
@@ -696,7 +696,7 @@ classdef NeuroPALImage
             end
             np_file = cat(2, any_file(1:(suffix(end) - 1)), '.mat');
             version = ProgramInfo.version;
-            save(np_file, 'version', 'data', 'info', 'prefs', 'worm');
+            save(np_file, 'version', 'data', 'info', 'prefs', 'worm', '-v7.3');
         end
     end
 end

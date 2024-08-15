@@ -1,6 +1,12 @@
 import os
 import sys
+
+import h5py.defs
+import h5py.utils
+import h5py.h5ac
+import h5py._proxy
 import h5py
+
 import re
 from pynwb import load_namespaces, get_class
 from pynwb.file import MultiContainerInterface, NWBContainer

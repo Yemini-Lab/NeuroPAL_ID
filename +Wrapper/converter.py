@@ -54,9 +54,20 @@ def load_annotations(file_path):
     annotations = data['annos']
     return convert_struct_to_dict(annotations)
 
+def db_test(pos, x, y, z):
+    global db_stop
+
+    if db_stop != 1:
+        print(f"Ppos")
+
+        db_stop = 1
+
+    else:
+        return
+
 
 def cellid_to_annotator(video_path, metadata, data):
-    shape = (metadata["ny"], metadata["nx"], metadata["nz"])
+    shape = (metadata["nx"], metadata["ny"], metadata["nz"])
     names = list(data.keys())
 
     A = AnnotationTable()
@@ -79,9 +90,10 @@ def cellid_to_annotator(video_path, metadata, data):
 
     annotation_idx = 0
     no_annotations = 0
+    print(shape, flush=True)
 
     for t in tqdm(frames, desc='Processing frames...', leave=True):
-        for eachWL in tqdm(range(len(names)), desc='Processing annotations...', leave=False):
+        for eachWL in range(len(names)):
             a = Annotation()
             a.id = annotation_idx + 1
             a.t_idx = t
@@ -89,7 +101,10 @@ def cellid_to_annotator(video_path, metadata, data):
                 position = (valid_worldlines[names[eachWL]]['t'][t]['y'], valid_worldlines[names[eachWL]]['t'][t]['x'], valid_worldlines[names[eachWL]]['t'][t]['z'])
             except:
                 no_annotations += 1
+
             (a.y, a.x, a.z) = coords_from_idx(position, shape)
+            db_test(position, a.x, a.y, a.z)
+
             a.worldline_id = eachWL
             a.provenance = valid_worldlines[names[eachWL]]['provenance']
             if a.x.size > 0 and a.y.size > 0 and a.z.size > 0:

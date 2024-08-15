@@ -3,7 +3,13 @@ import sys
 import pandas as pd
 from scipy.io import loadmat
 import numpy as np
+
+import h5py.defs
+import h5py.utils
+import h5py.h5ac
+import h5py._proxy
 import h5py
+
 from typing import Tuple, Optional
 from zephir.annotator import *
 from zephir.__version__ import __version__

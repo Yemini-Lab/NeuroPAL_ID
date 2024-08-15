@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<addOn>
+  <identifier>3d5e3dce-421f-4b1f-b6c9-d60f0cb92648</identifier>
+  <displayType>Collection</displayType>
+  <translatedDisplayType>
+    <en_US>Collection</en_US>
+    <es_ES>Collection</es_ES>
+    <es_MX>Collection</es_MX>
+    <ja_JP>コレクション</ja_JP>
+    <ko_KR>컬렉션</ko_KR>
+    <zh_CN>集合</zh_CN>
+  </translatedDisplayType>
+  <name>NeurodataWithoutBorders/matnwb</name>
+  <author>Lawrence Niu</author>
+  <version>1.0.0.1</version>
+  <downloadUrl>https://www.mathworks.com/matlabcentral/mlc-downloads/downloads/3d5e3dce-421f-4b1f-b6c9-d60f0cb92648/1707458854/packages/zip?src=addons_ml_desktop_install&amp;profile_id=27238171&amp;license=40702059&amp;release_family=R2023b</downloadUrl>
+  <licenseUrl>https://addons.mathworks.com/registry/v1/3d5e3dce-421f-4b1f-b6c9-d60f0cb92648/1.0.0.1/-/license</licenseUrl>
+  <previewImageUrl>https://www.mathworks.com/responsive_image/160/120/0/0/0/cache/matlabcentral/mlc-downloads/downloads/3d5e3dce-421f-4b1f-b6c9-d60f0cb92648/f62fc2e2-49ac-471d-930a-01b7be559cdb/images/screenshot.png</previewImageUrl>
+  <releaseNotesUrl>https://www.mathworks.com/add-ons/3d5e3dce-421f-4b1f-b6c9-d60f0cb92648/f62fc2e2-49ac-471d-930a-01b7be559cdb/releaseNotes</releaseNotesUrl>
+  <installationFolder>Collections</installationFolder>
+</addOn>

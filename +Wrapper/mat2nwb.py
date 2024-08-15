@@ -19,6 +19,12 @@ import os
 import datetime
 from pathlib import Path
 
+
+import h5py.defs
+import h5py.utils
+import h5py.h5ac
+import h5py._proxy
+
 import h5py
 import numpy as np
 import pandas as pd
@@ -27,7 +33,7 @@ import skimage.io as skio
 from dateutil import tz
 from docopt import docopt
 from ndx_multichannel_volume import CElegansSubject, OpticalChannelReferences, OpticalChannelPlus, ImagingVolume, \
-    VolumeSegmentation, PlaneSegmentation, MultiChannelVolume
+    VolumeSegmentation, MultiChannelVolume
 from pynwb import NWBFile, NWBHDF5IO
 from pynwb.behavior import SpatialSeries, Position
 from pynwb.ophys import OnePhotonSeries, OpticalChannel, RoiResponseSeries
@@ -57,27 +63,24 @@ def create_im_vol(device, metadata, grid_spacing=[0.3208, 0.3208, 0.75],
         OptChan = OpticalChannelPlus(
             name=metadata['channels'][eachChannel]['fluorophore'],
             description=metadata['channels'][eachChannel]['filter'],
-            excitation_lambda=float(metadata['channels'][eachChannel]['ex_lambda']),
-            excitation_range=[float(metadata['channels'][eachChannel]['ex_low']),
-                              float(metadata['channels'][eachChannel]['ex_high'])],
-            emission_range=[float(metadata['channels'][eachChannel]['em_low']),
-                            float(metadata['channels'][eachChannel]['em_high'])],
-            emission_lambda=float(metadata['channels'][eachChannel]['em_lambda']),
+            excitation_lambda=metadata['channels'][eachChannel]['ex_lambda'],
+            excitation_range=[metadata['channels'][eachChannel]['ex_low'], metadata['channels'][eachChannel]['ex_high']],
+            emission_range=[metadata['channels'][eachChannel]['em_low'], metadata['channels'][eachChannel]['em_high']],
+            emission_lambda=metadata['channels'][eachChannel]['em_lambda'],
         )
 
         OptChannels.append(OptChan)
-        OptChanRefData.append(
-            f"{metadata['channels'][eachChannel]['ex_lambda']}-{metadata['channels'][eachChannel]['em_lambda']}-{float(metadata['channels'][eachChannel]['em_high']) - float(metadata['channels'][eachChannel]['em_low'])}nm")
+        OptChanRefData.append(f"{metadata['channels'][eachChannel]['ex_lambda']}-{metadata['channels'][eachChannel]['em_lambda']}-{float(metadata['channels'][eachChannel]['em_high']) - float(metadata['channels'][eachChannel]['em_low'])}nm")
 
-    order_optical_channels = OpticalChannelReferences(
-        name='order_optical_channels',
+    OpticalChannelRefs = OpticalChannelReferences(
+        name='OpticalChannelRefs',
         channels=OptChanRefData
     )
 
     imaging_vol = ImagingVolume(
         name='ImagingVolume',
         optical_channel_plus=OptChannels,
-        order_optical_channels=order_optical_channels,
+        order_optical_channels=OpticalChannelRefs,
         description='NeuroPAL image of C elegans brain',
         device=device,
         location=metadata['worm_bodypart'],
@@ -88,17 +91,15 @@ def create_im_vol(device, metadata, grid_spacing=[0.3208, 0.3208, 0.75],
         reference_frame=reference_frame
     )
 
-    return imaging_vol, order_optical_channels, OptChannels
+    return imaging_vol, OpticalChannelRefs, OptChannels
 
 
 def create_vol_seg(imaging_vol, blobs):
-    vs = PlaneSegmentation(
-        name='NeuroPALNeurons',
+    vs = VolumeSegmentation(
+        name='VolumeSegmentation',
         description='Neuron centers for multichannel volumetric image',
-        imaging_plane=imaging_vol,
+        imaging_volume=imaging_vol
     )
-
-    labels = np.array(blobs['ID'].replace(np.nan, '', regex=True))
 
     voxel_mask = []
 
@@ -106,27 +107,22 @@ def create_vol_seg(imaging_vol, blobs):
         x = row['X']
         y = row['Y']
         z = row['Z']
-        weight = 1
-        voxel_mask.append([float(x), float(y), float(z), float(1)])
-        vs.add_roi(voxel_mask=voxel_mask)
+        ID = row['ID']
 
-    vs.add_column(
-        name='ID_labels',
-        description='ROI ID labels',
-        data=labels,
-        index=False,
-    )
+        voxel_mask.append([np.uint(x), np.uint(y), np.uint(z), 1, str(ID)])
+
+    vs.add_roi(voxel_mask=voxel_mask)
 
     return vs
 
 
 def create_image(data, metadata, imaging_volume, opt_chan_refs):
-    #print(np.shape(data))
     image = MultiChannelVolume(
         name='NeuroPALImageRaw',
+        order_optical_channels=opt_chan_refs,
         description=metadata['npal_volume_notes'],
         RGBW_channels=metadata['rgbw'],
-        data=data.transpose(1, 0, 2, 3),
+        data=data,
         imaging_volume=imaging_volume
     )
 
@@ -136,6 +132,109 @@ def create_image(data, metadata, imaging_volume, opt_chan_refs):
 '''
 Create NWB file from tif file of raw image, neuroPAL software created mat file and csv files of blob locations
 '''
+
+
+def create_file_FOCO(folder, reference_frame):
+    worm = folder.split('/')[-1]
+
+    path = folder
+
+    for file in os.listdir(path):
+        if file[-4:] == '.tif':
+            imfile = path + '/' + file
+
+        elif file[-4:] == '.mat' and file[-6:] != 'ID.mat':
+            matfile = path + '/' + file
+
+        elif file == 'blobs.csv':
+            blobs = path + '/' + file
+
+    data = np.transpose(skio.imread(imfile))  # data in XYZC
+    # data = data.astype('uint16')
+    mat = sio.loadmat(matfile)
+
+    scale = np.asarray(mat['info']['scale'][0][0]).flatten()
+    prefs = np.asarray(mat['prefs']['RGBW'][0][0]).flatten() - 1  # subtract 1 to adjust for matlab indexing from 1
+
+    dt = worm.split('-')
+    session_start = datetime(int(dt[0]), int(dt[1]), int(dt[2]), tzinfo=tz.gettz("US/Pacific"))
+
+    nwbfile = gen_file('Worm head', worm, session_start, 'Kato lab', 'UCSF', "")
+
+    nwbfile.subject = CElegansSubject(
+        subject_id=worm,
+        # age = "T2H30M",
+        # growth_stage_time = pd.Timedelta(hours=2, minutes=30).isoformat(),
+        date_of_birth=session_start,
+        # currently just using the session start time to bypass the requirement for date of birth
+        growth_stage='YA',
+        growth_stage_time=pd.Timedelta(hours=2, minutes=30).isoformat(),
+        cultivation_temp=20.,
+        description=dt[3] + '-' + dt[4],
+        species="http://purl.obolibrary.org/obo/NCBITaxon_6239",
+        sex="O",  # currently just using O for other until support added for other gender specifications
+        strain="OH16230"
+    )
+
+    device = nwbfile.create_device(
+        name="Microscope",
+        description="One-photon microscope Weill",
+        manufacturer="Leica"
+    )
+
+    channels = [("mNeptune 2.5", "Chroma ET 700/75", "561-700-75m"), ("Tag RFP-T", "Chroma ET 605/70", "561-605-70m"),
+                ("CyOFP1", "Chroma ET 605/70", "488-605-70m"), ("GFP-GCaMP", "Chroma ET 525/50", "488-525-50m"),
+                ("mTagBFP2", "Chroma ET 460/50", "405-460-50m"),
+                ("mNeptune 2.5-far red", "Chroma ET 700/75", "639-700-75m")]
+
+    ImagingVol, OptChannelRefs, OptChannels = create_im_vol(device, channels, location="head", grid_spacing=scale,
+                                                            reference_frame=reference_frame)
+
+    csv = pd.read_csv(blobs)
+
+    vs = create_vol_seg(ImagingVol, csv)
+
+    image = create_image(data, 'NeuroPALImageRaw', worm, ImagingVol, OptChannelRefs, resolution=scale,
+                         RGBW_channels=[0, 2, 4, 1])
+
+    nwbfile.add_acquisition(image)
+
+    neuroPAL_module = nwbfile.create_processing_module(
+        name='NeuroPAL',
+        description='neuroPAL image data and metadata',
+    )
+
+    processed_im_module = nwbfile.create_processing_module(
+        name='ProcessedImage',
+        description='Pre-processed image. Currently median filtered and histogram matched to original neuroPAL images.'
+    )
+
+    proc_imvol, proc_optchanrefs, proc_optchanplus = create_im_vol(device, [channels[i] for i in [0, 2, 4, 1]],
+                                                                   location="head", grid_spacing=scale,
+                                                                   reference_frame=reference_frame)
+
+    proc_imfile = datapath + '/NP_FOCO_hist_med/' + worm + '/hist_med_image.tif'
+
+    proc_data = np.transpose(skio.imread(proc_imfile), (2, 1, 0, 3))
+    # proc_data = proc_data.astype('uint16')
+
+    proc_image = create_image(proc_data, 'Hist_match_med_filt', worm, proc_imvol, proc_optchanrefs, resolution=scale,
+                              RGBW_channels=[0, 1, 2, 3])
+
+    neuroPAL_module.add(vs)
+    neuroPAL_module.add(ImagingVol)
+    neuroPAL_module.add(OptChannelRefs)
+    neuroPAL_module.add(OptChannels)
+
+    processed_im_module.add(proc_image)
+    processed_im_module.add(proc_optchanrefs)
+    processed_im_module.add(proc_optchanplus)
+    processed_im_module.add(proc_imvol)
+
+    io = NWBHDF5IO(datapath + '/nwb/' + worm + '.nwb', mode='w')
+    io.write(nwbfile)
+    io.close()
+
 
 def extract_data(mat, index):
     try:
@@ -149,7 +248,7 @@ def create_file_yemini(metadata):
     npal_vol = npal_file['data']
     metadata['npal_shape'] = np.shape(npal_file['data'])
     metadata['rgbw'] = npal_file['prefs'][0][0][0][0]
-    metadata['grid_spacing'] = npal_file['info'][0][0][1][0]
+    metadata['grid_spacing'] = npal_file['info'][0][0][1]
 
     reference_frame = f"worm {metadata['worm_bodypart']}"
 
@@ -205,7 +304,7 @@ def create_file_yemini(metadata):
     neuroPAL_module.add(OptChannels)
 
     # Check for CSV file, populate if detected.
-    if os.path.exists(metadata['mat_path'].with_suffix('.csv')):
+    if metadata['has_csv'] and os.path.exists(metadata['mat_path'].with_suffix('.csv')):
         csvfile = metadata['mat_path'].with_suffix('.csv')
         csv = pd.read_csv(csvfile, skiprows=6)
 

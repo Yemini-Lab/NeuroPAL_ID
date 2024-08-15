@@ -44,6 +44,7 @@ from zephir.models.zephir import ZephIR
 from zephir.utils.utils import *
 
 import pandas as pd
+import getters
 import h5py
 
 
@@ -70,7 +71,8 @@ def extract_traces(
     npx_to_keep=16,
     save_as_npy=True,
     save_as_fig=True,
-    verbose=False):
+    verbose=False,
+    filename=None):
 
     # checking for available CUDA GPU
     if cuda in ['True', 'Y', 'y'] and torch.cuda.is_available():
@@ -133,7 +135,10 @@ def extract_traces(
 
     traces = np.empty((shape_c, n_neuron, shape_t)) * np.nan
     for t in tqdm(t_list, desc='Compiling raw traces', unit='frames'):
-        data = get_slice(dataset, t).astype(float)
+        if filename is None:
+            data = getters.get_slice(dataset, t).astype(float)
+        else:
+            data = getters.get_slice(dataset, t, filename=filename).astype(float)
         with torch.no_grad():
             vol = to_tensor(data, n_dim=5, grad=False, dev=dev)
             model.theta.zero_()
@@ -307,6 +312,7 @@ def main():
 
     extract_traces(
         dataset=Path(args['--dataset']).parent,
+        filename=Path(args['--dataset']).name,
         channel=int(args['--channel']) if args['--channel'] else None,
         cuda=args['--cuda'] in ['True', 'Y', 'y'],
         cutoff=float(args['--cutoff']),

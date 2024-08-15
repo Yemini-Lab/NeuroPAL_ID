@@ -7,13 +7,14 @@ Usage:
     zephir -h | --help
     zephir -v | --version
     zephir --dataset=<dataset> [options]
-    zephir --dataset=<dataset> [options]
 
 Options:
     -h --help                           show this message and exit.
     -v --version                        show version information and exit.
     --dataset=<dataset>                 path to data directory to analyze.
-    --load_checkpoint=<load_checkpoint>  resume from last checkpoint. [default: False]
+    --filename=<filename>               name of the video file.
+    --args=<arg_dict>                   dict containing args
+    --load_checkpoint=<load_checkpoint> resume from last checkpoint. [default: False]
     --load_args=<load_args>             load arguments from existing args.json file. [default: False]
     --allow_rotation=<allow_rotation>   enable rho parameter to rotate descriptors. [default: False]
     --channel=<channel>                 data channel to register.
@@ -50,23 +51,35 @@ Options:
     --z_compensator=<z_compensator>     number of additional gradient descent steps for z-axis. [default: -1.0]
 """
 
+import h5py.defs
+import h5py.utils
+import h5py.h5ac
+import h5py._proxy
+
 import shutil
 from docopt import docopt
+from multiprocessing import Pool
+from multiprocessing import Manager, freeze_support
+import sys
 
 from zephir.__version__ import __version__
 from zephir.methods import *
 from zephir.models.container import Container
 from zephir.utils.io import *
+import save_movie
+import build_tree
+import track_all
+import n_io
 
 
-def run_zephir(dataset: Path, args: dict):
+def run_zephir(dataset: Path, args: dict, filename=None):
 
     if not (dataset / 'backup').is_dir():
         Path.mkdir(dataset / 'backup')
 
     if args['--load_checkpoint'] in ['True', 'Y', 'y']:
-        args = get_checkpoint(dataset, 'args', verbose=True)
-        state = get_checkpoint(dataset, 'state')
+        args = n_io.get_checkpoint(dataset, 'args', verbose=True, filename=filename)
+        state = n_io.get_checkpoint(dataset, 'state', filename=filename)
         if args is None or state is None:
             print('*** CHECKPOINT EMPTY! Exiting...')
             exit()
@@ -78,11 +91,12 @@ def run_zephir(dataset: Path, args: dict):
             with open(str(dataset / 'args.json')) as json_file:
                 args = json.load(json_file)
 
-        update_checkpoint(
+        n_io.update_checkpoint(
             dataset,
             {'state': 'init',
              '__version__': __version__,
-             'args': args}
+             'args': args},
+            filename = filename
         )
         state = 'init'
 
@@ -99,6 +113,7 @@ def run_zephir(dataset: Path, args: dict):
     # building/loading variable container
     if state == 'init':
 
+        print("Initializing...")
         container = Container(
             dataset=dataset,
             allow_rotation=args['--allow_rotation'] in ['True', 'Y', 'y'],
@@ -114,15 +129,16 @@ def run_zephir(dataset: Path, args: dict):
             z_compensator=float(args['--z_compensator']),
         )
 
-        update_checkpoint(dataset, {'state': 'load'})
+        n_io.update_checkpoint(dataset, {'state': 'load'}, filename=filename)
         state = 'load'
 
     else:
-        container = get_checkpoint(dataset, 'container')
+        container = n_io.get_checkpoint(dataset, 'container', filename=filename)
 
     # building annotations table and tracking models
     if state == 'load':
 
+        print("Loading...")
         container, results = build_annotations(
             container=container,
             annotation=None,
@@ -131,15 +147,17 @@ def run_zephir(dataset: Path, args: dict):
             n_ref=int(args['--n_ref']) if args['--n_ref'] else None,
         )
 
-        update_checkpoint(dataset, {'state': 'build'})
+        n_io.update_checkpoint(dataset, {'state': 'build'}, filename=filename)
         state = 'build'
 
     else:
-        results = get_checkpoint(dataset, 'results')
+        results = n_io.get_checkpoint(dataset, 'results', filename=filename)
 
     # compiling spring network and frame tree
     if state == 'build':
 
+        print("Building...")
+        print("Building models!")
         container, zephir, zephod = build_models(
             container=container,
             dimmer_ratio=float(args['--dimmer_ratio']),
@@ -150,30 +168,34 @@ def run_zephir(dataset: Path, args: dict):
             n_chunks=int(args['--n_chunks']),
         )
 
+        print("Building springs!")
         container = build_springs(
             container=container,
             load_nn=args['--load_nn'] in ['True', 'Y', 'y'],
             nn_max=int(args['--nn_max']),
         )
 
-        container = build_tree(
+        print("Building trees!")
+        container = build_tree.build_tree(
             container=container,
             sort_mode=str(args['--sort_mode']),
             t_ignore=eval(args['--t_ignore']) if args['--t_ignore'] else None,
             t_track=eval(args['--t_track']) if args['--t_track'] else None,
+            filename=filename
         )
 
-        update_checkpoint(dataset, {'state': 'track', '_t_list': None})
+        n_io.update_checkpoint(dataset, {'state': 'track', '_t_list': None}, filename=filename)
         state = 'track'
 
     else:
-        zephir = get_checkpoint(dataset, 'zephir')
-        zephod = get_checkpoint(dataset, 'zephod')
+        zephir = get_checkpoint(dataset, 'zephir', filename=filename)
+        zephod = get_checkpoint(dataset, 'zephod', filename=filename)
 
     # tracking all frames in _t_list
     if state == 'track':
 
-        container, results = track_all(
+        print("Tracking all!")
+        container, results = track_all.track_all(
             container=container,
             results=results,
             zephir=zephir,
@@ -190,16 +212,17 @@ def run_zephir(dataset: Path, args: dict):
             n_epoch_d=(int(args['--n_epoch_d'])
                        if float(args['--lambda_d']) > 0 else 0),
             _t_list=get_checkpoint(dataset, '_t_list'),
+            filename=filename
         )
 
     else:
-        results = get_checkpoint(dataset, 'results', verbose=True)
+        results = n_io.get_checkpoint(dataset, 'results', verbose=True, filename=filename)
 
     if np.any(np.isnan(results)):
         print(f'*** WARNING: NaN found in: '
               f'{list(np.unique(np.where(np.isnan(results))[0]))}')
         results = np.where(np.isfinite(results), results, 0)
-        update_checkpoint(dataset, {'results': results})
+        n_io.update_checkpoint(dataset, {'results': results}, filename=filename)
 
     save_annotations(
         container=container,
@@ -210,6 +233,7 @@ def run_zephir(dataset: Path, args: dict):
     save_movie(
         container=container,
         results=results,
+        filename=filename
     )
 
     now = datetime.datetime.now()
@@ -227,11 +251,21 @@ def main():
     # print(args, '\n')
 
     dataset = Path(args['--dataset']).parent
-    
+    filename = Path(args['--dataset']).name
+
+    if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+        print('Running deployed...')
+        # freeze_support()
+        # print("Starting multiprocessing manager...")
+        # manager = Manager()
+        # print("Multiprocessing manager working.")
+    else:
+        print('Running in a normal Python process...')
 
     run_zephir(
-        dataset=dataset,
-        args=args
+        dataset=Path(dataset),
+        args=args,
+        filename=Path(filename),
     )
 
 
