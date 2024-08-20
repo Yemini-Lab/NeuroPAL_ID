@@ -661,6 +661,12 @@ classdef GUIHandling
                     app.PlaceholderProcTimeline.Parent = app.CELL_ID;
                     app.PlaceholderProcTimeline.Visible = ~app.PlaceholderProcTimeline.Visible;
                     app.ProcAxGrid.RowHeight(end) = [];
+                    app.ProcSideGrid.RowHeight = {148, 'fit', 175, 'fit', 212, '1x', 93};
+
+                    app.ProcTStartEditField.Enable = 'off';
+                    app.ProcTStopEditField.Enable = 'off';
+                    app.TrimButton.Enable = 'off';
+                    app.ProcDownsamplingGrid.RowHeight = {22, 22, 0, 18};
 
                 case 'video'
                     app.ProcColormapButton.Value = ~app.ProcVideoButton.Value;
@@ -676,6 +682,18 @@ classdef GUIHandling
                     app.PlaceholderProcTimeline.Layout.Row = max(size(app.ProcAxGrid.RowHeight));
                     app.PlaceholderProcTimeline.Layout.Column = [1 max(size(app.ProcAxGrid.ColumnWidth))];
                     app.PlaceholderProcTimeline.Visible = ~app.PlaceholderProcTimeline.Visible;
+
+                    app.ProcSideGrid.RowHeight = {148, 'fit', 175, 'fit', 0, '1x', 93};
+
+                    if app.ProcTStartEditField.Value == 0 || app.ProcTStopEditField.Value == 0
+                        app.ProcTStartEditField.Value = app.proc_tSlider.Limits(1);
+                        app.ProcTStopEditField.Value = app.proc_tSlider.Limits(2);
+                    end
+
+                    app.ProcTStartEditField.Enable = 'on';
+                    app.ProcTStopEditField.Enable = 'on';
+                    app.TrimButton.Enable = 'on';
+                    app.ProcDownsamplingGrid.RowHeight = {22, 22, 22, 18};
             end
 
             spectral_unmixing_gui = app.SpectralUnmixingGrid.Children;
