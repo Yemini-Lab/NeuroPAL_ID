@@ -198,3 +198,4 @@ External_Dependencies/matnwb/doc/simulinkicon.gif
 .idea/.name
 *.pkg
 *.pyd
+frame.mat

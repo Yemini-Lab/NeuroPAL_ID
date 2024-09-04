@@ -502,11 +502,8 @@ classdef GUIHandling
         end
 
         function histogram_handler(app, mode, image)
-            if ~exist("image", 'var')
-                nc = length(Program.GUIHandling.pos_prefixes);
-            else
-                nc = size(image, 4);
-            end
+            raw = Program.GUIHandling.get_active_volume(app, 'request', 'array');
+            nc = size(raw.array, 3);
 
             if nc < 4
                 app.bl_hist_panel.Parent = app.CELL_ID;
@@ -529,12 +526,16 @@ classdef GUIHandling
                     case 'reset'
                         app.(sprintf("%s_hist_panel", prefix)).Visible = 'off';
                         cla(app.(sprintf("%s_hist_ax", prefix)))
+
                     case 'draw'
+                        chan_hist = raw.array(:, :, :, c);
+
                         if app.HidezerointensitypixelsCheckBox.Value
-                            chan = image(:, :, :, c);
-                            chan_hist = chan(chan>0);
-                        else
-                            chan_hist = image(:, :, :, c);
+                            chan_hist = chan_hist(chan_hist>0);
+                        end
+
+                        if max(chan_hist, [], 'all') <= 1
+                            chan_hist = chan_hist * app.ProcNoiseThresholdKnob.Limits(2);
                         end
                         
                         if any(ismember(app.nameMap.keys(), num2str(c)))
@@ -557,35 +558,86 @@ classdef GUIHandling
             end
         end
 
-        function package = get_active_volume(app, request)
-            if app.ProcColormapButton.Value
-                package = 'colormap';
-            elseif app.ProcVideoButton.Value
-                package = 'video';
+        function package = get_active_volume(app, varargin)
+            package = struct('state', {{}}, 'dims', {[]}, 'array', {[]}, 'coords', {[]});
+            
+            p = inputParser;
+            addRequired(p, 'app');
+            addOptional(p, 'request', 'state');
+            addOptional(p, 'coords', []);
+            addOptional(p, 'package', package);
+            parse(p, app, varargin{:});
+
+            package = p.Results.package;
+            cmap = app.ProcColormapButton.Value;
+            vid = app.ProcVideoButton.Value;
+            
+            x = app.proc_xSlider.Value;
+            y = min(max(round(app.proc_xSlider.Value), 1), app.proc_xSlider.Limits(2));
+            z = min(max(round(app.proc_zSlider.Value), 1), app.proc_zSlider.Limits(2));
+            c = Program.GUIHandling.check_channels(app);
+            t = app.proc_tSlider.Value;
+
+            if isempty(p.Results.coords)
+                package.coords = [x y z t];
+            elseif length(p.Results.coords) < 3
+                package.coords = [p.Results.coords t];
             else
-                package = 'none';
+                package.coords = p.Results.coords;
             end
 
-            if exist('request', 'var')
-                switch request
-                    case 'state'
-                        return
-                    case 'array'
-                        channels = Program.GUIHandling.check_channels(app);
+            switch p.Results.request
+                case 'all'
+                    all_keys = {'state', 'dims', 'array', 'coords'};
+                    for k = 1:length(all_keys)
+                        t_pack = Program.GUIHandling.get_active_volume(app, 'request', all_keys{k}, 'coords', package.coords, 'package', package);
+                        package.(all_keys{k}) = t_pack.(all_keys{k});
+                    end
+
+                case 'state'
+                    if cmap
+                        package.state = 'colormap';
+                    elseif vid
+                        package.state = 'video';
+                    else
+                        package.state = 'none';
+                    end
+
+                case 'dims'
+                    if isempty(package.array)
+                        package.array = Program.GUIHandling.get_active_volume(app, 'request', 'array', 'coords', package.coords).array;
+                    end
+
+                    package.dims = size(package.array);
+
+                case 'array'
+                    if app.ProcShowMIPCheckBox.Value
                         if app.ProcColormapButton.Value
-                            slice = app.proc_image.data(:, :, :, channels);
+                            slice = app.proc_image.data(:, :, :, c);
                         else
-                            slice = app.retrieve_frame(app.proc_tSlider.Value);
-                            slice = slice(:, :, :, channels);
+                            slice = app.retrieve_frame(package.coords(4));
+                            slice = slice(:, :, :, c);
                         end
-                        package = struct('state', {package}, 'array', {slice});
-                end
+                    else
+                        if app.ProcColormapButton.Value
+                            slice = app.proc_image.data(:, :, package.coords(3), c);
+                        else
+                            slice = app.retrieve_frame(package.coords(4));
+                            slice = slice(:, :, package.coords(3), c);
+                        end
+                    end
+
+                    package.array = slice;
+
+                case 'coords'
+                    package.coords(1) = min(max(round(package.dims(1)-app.proc_ySlider.Value), 1), app.proc_ySlider.Limits(2));
+
             end
         end
 
         function set_gui_limits(app, mode, dims)
             if ~exist('dims', 'var')
-                active_volume = Program.GUIHandling.get_active_volume(app, 'state');
+                active_volume = Program.GUIHandling.get_active_volume(app, 'request', 'state');
                 switch active_volume
                     case 'colormap'
                         [ny, nx, nz, nc] = size(app.proc_image, 'data');
@@ -647,7 +699,7 @@ classdef GUIHandling
 
         function swap_volumes(app, event)
             if ~exist('event', 'var')
-                mode = Program.GUIHandling.get_active_volume(app);
+                mode = Program.GUIHandling.get_active_volume(app, 'request', 'state');
             else
                 mode = lower(event.Source.Text);
             end
@@ -932,6 +984,34 @@ classdef GUIHandling
                 'colormap', colormap, ...
                 'video', video, ...
                 'neurons', neurons);
+        end
+
+        function package = cache(mode, label, contents)
+            label = string(label);
+
+            if isfile('cache.mat')
+                cache = load('cache.mat');
+            else
+                cache = struct('init', {[]});
+                save('cache.mat', '-struct', 'cache');
+            end
+
+            switch mode
+                case 'save'
+                    cache.(label) = contents;
+                    save('cache.mat', '-struct', 'cache');
+
+                case 'load'
+                    package = cache.(label);
+
+                case 'check'
+                    if isfield(cache, label)
+                        package = 1;
+                    else
+                        package = 0;
+                    end
+
+            end
         end
 
     end
