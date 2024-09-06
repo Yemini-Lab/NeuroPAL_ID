@@ -199,3 +199,4 @@ External_Dependencies/matnwb/doc/simulinkicon.gif
 *.pkg
 *.pyd
 frame.mat
+test.mlapp
