@@ -161,7 +161,7 @@ classdef ChunkyMethods
             if length(actions) < 1
                 return
             end
-            
+
             for a=1:length(actions)
                 if exist('progress', 'var')
                     progress.Message = sprintf("%s \n-> (%s", dialog_message, actions{a});
@@ -487,9 +487,13 @@ classdef ChunkyMethods
 
         function frame = load_proc_image(app)
             frame = struct('xy', {[]}, 'yz', {[]}, 'xz', {[]});
+            rgb = [str2num(app.ProcRDropDown.Value), str2num(app.ProcGDropDown.Value), str2num(app.ProcBDropDown.Value)];
 
             % Grab current volume.
             raw = Program.GUIHandling.get_active_volume(app, 'request', 'all');
+            if raw.dims(4) < 3
+                raw.array = cat(4, raw.array, zeros([raw.dims(1:3) 1]));
+            end
             
             if strcmp(raw.state, 'colormap')
                 t_array = raw.array;
@@ -505,13 +509,17 @@ classdef ChunkyMethods
             
             % For each channel...
             for c=1:raw.dims(4)
-
                 % ...Adjust the gamma & histogram.
                 c_gamma = sprintf("%s_GammaEditField", Program.GUIHandling.pos_prefixes{c});
                 c_hist = sprintf("%s_hist_slider", Program.GUIHandling.pos_prefixes{c});
                 slider_vals = app.(c_hist).Value; hist_limit = app.(c_hist).Limits(2);
                 
                 raw.array(:, :, :, c, :) = imadjustn(raw.array(:, :, :, c, :), [slider_vals(1)/hist_limit slider_vals(2)/hist_limit], [], app.(c_gamma).Value);
+                
+                if ~ismember(c, rgb)
+                    raw.array(:, :, :, rgb) = raw.array(:, :, :, rgb) + repmat(raw.array(:, :, :, c, :), [1, 1, 1, 3]);
+                    raw.array(:, :, :, c, :) = [];
+                end
             end
 
             % Apply processing operations.
