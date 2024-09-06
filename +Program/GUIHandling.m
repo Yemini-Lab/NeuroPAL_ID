@@ -709,6 +709,11 @@ classdef GUIHandling
                     app.ProcVideoButton.Value = ~app.ProcColormapButton.Value;
                     Program.GUIHandling.set_gui_limits(app, 'colormap');
                     Program.GUIHandling.set_thresholds(app, max(app.proc_image.data, [], "all"));
+
+                    chunk_prefs = app.proc_image.prefs;
+                    for c=1:app.video_info.nc
+                        app.(sprintf("%s_GammaEditField", Program.GUIHandling.pos_prefixes{c})).Value = chunk_prefs.gamma(c);
+                    end
     
                     app.PlaceholderProcTimeline.Parent = app.CELL_ID;
                     app.PlaceholderProcTimeline.Visible = ~app.PlaceholderProcTimeline.Visible;
