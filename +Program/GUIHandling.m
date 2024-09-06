@@ -503,7 +503,7 @@ classdef GUIHandling
 
         function histogram_handler(app, mode, image)
             raw = Program.GUIHandling.get_active_volume(app, 'request', 'array');
-            nc = size(raw.array, 3);
+            nc = size(raw.array, 4);
 
             if nc < 4
                 app.bl_hist_panel.Parent = app.CELL_ID;
