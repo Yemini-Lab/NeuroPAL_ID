@@ -638,7 +638,7 @@ classdef GUIHandling
         function set_gui_limits(app, mode, dims)
             if ~exist('dims', 'var')
                 active_volume = Program.GUIHandling.get_active_volume(app, 'request', 'state');
-                switch active_volume
+                switch active_volume.state
                     case 'colormap'
                         [ny, nx, nz, nc] = size(app.proc_image, 'data');
     
