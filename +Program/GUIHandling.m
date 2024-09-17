@@ -583,8 +583,6 @@ classdef GUIHandling
             parse(p, app, varargin{:});
 
             package = p.Results.package;
-            cmap = app.ProcColormapButton.Value;
-            vid = app.ProcVideoButton.Value;
             
             x = app.proc_xSlider.Value;
             y = min(max(round(app.proc_xSlider.Value), 1), app.proc_xSlider.Limits(2));
@@ -609,13 +607,7 @@ classdef GUIHandling
                     end
 
                 case 'state'
-                    if cmap
-                        package.state = 'colormap';
-                    elseif vid
-                        package.state = 'video';
-                    else
-                        package.state = 'none';
-                    end
+                    package.state = lower(app.VolumeDropDown.Value);
 
                 case 'dims'
                     if isempty(package.array)
@@ -626,18 +618,20 @@ classdef GUIHandling
 
                 case 'array'
                     if app.ProcShowMIPCheckBox.Value
-                        if app.ProcColormapButton.Value
-                            slice = app.proc_image.data(:, :, :, c);
-                        else
-                            slice = app.retrieve_frame(package.coords(4));
-                            slice = slice(:, :, :, c);
+                        switch app.VolumeDropDown.Value
+                            case 'Colormap'
+                                slice = app.proc_image.data(:, :, :, c);
+                            case 'Video'
+                                slice = app.retrieve_frame(package.coords(4));
+                                slice = slice(:, :, :, c);
                         end
                     else
-                        if app.ProcColormapButton.Value
-                            slice = app.proc_image.data(:, :, package.coords(3), c);
-                        else
-                            slice = app.retrieve_frame(package.coords(4));
-                            slice = slice(:, :, package.coords(3), c);
+                        switch app.VolumeDropDown.Value
+                            case 'Colormap'
+                                slice = app.proc_image.data(:, :, package.coords(3), c);
+                            case 'Video'
+                                slice = app.retrieve_frame(package.coords(4));
+                                slice = slice(:, :, package.coords(3), c);
                         end
                     end
 
@@ -715,12 +709,11 @@ classdef GUIHandling
             if ~exist('event', 'var')
                 mode = Program.GUIHandling.get_active_volume(app, 'request', 'state');
             else
-                mode = lower(event.Source.Text);
+                mode = lower(event.Value);
             end
 
             switch mode
                 case 'colormap'
-                    app.ProcVideoButton.Value = ~app.ProcColormapButton.Value;
                     Program.GUIHandling.set_gui_limits(app, 'colormap');
                     Program.GUIHandling.set_thresholds(app, max(app.proc_image.data, [], "all"));
 
@@ -740,7 +733,6 @@ classdef GUIHandling
                     app.ProcDownsamplingGrid.RowHeight = {22, 22, 0, 18};
 
                 case 'video'
-                    app.ProcColormapButton.Value = ~app.ProcVideoButton.Value;
                     Program.GUIHandling.set_gui_limits(app, 'video');
                     Program.GUIHandling.set_thresholds(app, max(app.retrieve_frame(app.proc_tSlider.Value), [], "all"));
                     
@@ -776,7 +768,7 @@ classdef GUIHandling
             end
 
             for comp=1:length(Program.GUIHandling.cm_exclusive_gui)
-                app.(Program.GUIHandling.cm_exclusive_gui{comp}).Enable = app.ProcColormapButton.Value;
+                app.(Program.GUIHandling.cm_exclusive_gui{comp}).Enable = strcmp(app.VolumeDropDown.Value, 'Colormap');
             end
             app.ProcessingGridLayout.ColumnWidth = {'1x', 190};
         end

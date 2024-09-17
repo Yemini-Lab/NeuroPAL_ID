@@ -20,10 +20,11 @@ classdef ChunkyMethods
                 case 'crop'
                     new_dims = og_dims;
 
-                    if app.ProcColormapButton.Value
-                        new_dims(1:2) = [app.volume_crop_roi(4)+1 app.volume_crop_roi(3)+1];
-                    elseif app.ProcVideoButton.Value
-                        new_dims(1:2) = [app.video_crop_roi(4)+1 app.video_crop_roi(3)+1];
+                    switch app.VolumeDropDown.Value
+                        case 'Colormap'
+                            new_dims(1:2) = [app.volume_crop_roi(4)+1 app.volume_crop_roi(3)+1];
+                        case 'Video'
+                            new_dims(1:2) = [app.video_crop_roi(4)+1 app.video_crop_roi(3)+1];
                     end
 
                 case 'ds'
@@ -67,10 +68,11 @@ classdef ChunkyMethods
                     slice(:, :, :, RGBW(1:3)) = Methods.run_histmatch(slice, RGBW);
                     output_slice = Methods.Preprocess.zscore_frame(slice);     
                 case 'crop'
-                    if app.ProcColormapButton.Value
-                        crop_roi = app.volume_crop_roi;
-                    elseif app.ProcVideoButton.Value
-                        crop_roi = app.video_crop_roi;
+                    switch app.VolumeDropDown.Value
+                        case 'Colormap'
+                            crop_roi = app.volume_crop_roi;
+                        case 'Video'
+                            crop_roi = app.video_crop_roi;
                     end
 
                     left_crop = round(crop_roi(1));
