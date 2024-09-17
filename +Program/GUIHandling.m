@@ -295,6 +295,7 @@ classdef GUIHandling
             app.mouse_clicked.click = false;
         end
 
+        
         function restore_pointer(app)
             %% Restore the mouse pointer.
             % Hack: Matlab App Designer!!!
@@ -303,6 +304,16 @@ classdef GUIHandling
             hWin = mlapptools.getWebWindow(app.CELL_ID);
             hWin.executeJS(js_code);
         end
+
+
+        function mouse_poll(app, state)
+            app.mouse.pos = get(app.UIFigure, 'CurrentPoint');
+
+            if exist('state', 'var')
+                app.mouse.state = state;
+            end
+        end
+
 
         function drag_manager(app, mode, event)
             % Manages all click & drag events.
@@ -972,50 +983,91 @@ classdef GUIHandling
 
 
         function draw_rotation_gui(app, roi)
+            if ~isa(roi, 'images.roi.Freehand')
+                roi = Program.GUIHandling.rect_to_freehand(roi);
+            end
+
             symbols = {'↺', '⦝', '⦬', '☑'};
             sym_count = length(symbols);
 
-            font_size = 16;
-            vertical_offset = 10;
-            box_padding = [15 15];
-            character_gap = 4;
-            character_gap = character_gap + font_size/2;
-            string_width = (font_size + character_gap) * sym_count;
+            font_size = 20;
+            stroke_size = 4;
+            vertical_offset = 14;
+            box_padding = [5 5];
+            gap = [0, font_size + font_size/3];
+            character_width = font_size + gap(1);
 
-            for n = 1:length(app.rotation_stack)
-                delete(app.rotation_stack{n});
+            if ~exist('flag', 'var')
+                % ...delete previous rotation gui.
+                for n = 1:length(app.rotation_stack)
+                    delete(app.rotation_stack{n});
+                end
+                app.rotation_stack = {roi};
             end
-            app.rotation_stack = {roi};
 
-            xmin = roi.Position(1);
-            ymin = roi.Position(2);
-            width = roi.Position(3);
-
-            tr = [ymin, xmin + width];
+            [~, tr_idx] = max(roi.Position(:,1) + roi.Position(:,2) * 1e-6);
+            tr = roi.Position(tr_idx, :);
             
-            bg_xmin = tr(2) - string_width - box_padding(1);
-            bg_ymin = ymin - font_size - vertical_offset - box_padding(2);
-            bg_width = string_width + box_padding(1);
-            bg_height = font_size + box_padding(2);
+            bg_width = character_width * sym_count + stroke_size + box_padding(1);
+            bg_height = font_size + stroke_size + box_padding(2);
+            bg_xmin = tr(1) - bg_width;
+            bg_ymin = min(roi.Position(:, 2)) - font_size - stroke_size/2 - vertical_offset;
 
-            app.rotation_stack{end+1} = rectangle(roi.Parent, "Position", [bg_xmin bg_ymin bg_width bg_height], "FaceColor", 'black', 'FaceAlpha', 0.7, 'EdgeColor', [0.2 0.2 0.2]);
+            bg_pos = [
+                [bg_xmin+bg_width, bg_ymin];
+                [bg_xmin, bg_ymin];
+                [bg_xmin, bg_ymin+bg_height];
+                [bg_xmin+bg_width, bg_ymin+bg_height]];
+            app.rotation_stack{end+1} = images.roi.Freehand(roi.Parent, 'Position', bg_pos, 'Color', [0.1 0.1 0.1], 'FaceAlpha', 0.7, ...
+                'InteractionsAllowed', 'none', 'MarkerSize', 1e-99, 'LineWidth', 1e-99);
 
             for n = 1:sym_count
                 symbol = symbols{n};
-                symbol_x = (bg_xmin + box_padding(1)/2) + (string_width/sym_count) * (n - 1);
-                symbol_y = (bg_ymin + box_padding(2)/2) + font_size/2;
+                symbol_x = bg_xmin + (character_width + stroke_size/2) * (n - 1) + box_padding(1) / 2;
+                symbol_y = bg_ymin + character_width/2 + box_padding(2);
 
                 app.rotation_stack{end+1} = text(roi.Parent, symbol_x, symbol_y, symbol, ...
                     'Color', 'white', ...
-                    'FontName', 'FixedWidth', 'FontSize', font_size, ...
-                    'ButtonDownFcn', @(src, event) Program.GUIHandling.proc_rot(app, struct('obj', app.rotation_stack{end}, 'symbol', {symbol}, 'roi', {roi})));
+                    'FontName', 'MonoSpace', 'FontSize', font_size, 'FontWeight', 'bold', ...
+                    'ButtonDownFcn', @(src, event) proc_rot(app, struct('obj', Program.GUIHandling.rotation_stack{end}, 'symbol', {symbol}, 'roi', {roi})));
             end
 
-            addlistener(roi, 'MovingROI', @(src, event)Program.GUIHandling.update_rotation_gui(app, event));
+            addlistener(roi, 'MovingROI', @(src, event)Program.GUIHandling.update_rotation_gui(event));
         end
 
 
+        function freehand_roi = rect_to_freehand(roi)
+            xmin = roi.Position(1);
+            ymin = roi.Position(2);
+            width = roi.Position(3);
+            height = roi.Position(4);
+
+            tr = [xmin + width, ymin];
+            tl = [xmin, ymin];
+            bl = [xmin, ymin + height];
+            br = [xmin + width, ymin + height];
+
+            freehand_roi = images.roi.Freehand(roi.Parent, 'Position', [tr; tl; bl; br], ...
+                'FaceAlpha', 0.4, 'Color', [0.1 0.1 0.1], 'StripeColor', 'm', 'InteractionsAllowed', 'translate');
+            delete(roi)
+        end
+
         function update_rotation_gui(app, event)
+            [~, tr_idx] = max(event.PreviousPosition(:,1) + event.PreviousPosition(:,2) * 1e-6);
+            old_tr = event.PreviousPosition(tr_idx, :);
+
+            [~, tr_idx] = max(event.CurrentPosition(:,1) + event.CurrentPosition(:,2) * 1e-6);
+            new_tr = event.CurrentPosition(tr_idx, :);
+
+            xy_diff = old_tr - new_tr;
+
+            for n = 1:length(app.rotation_stack)
+                if ~contains(class(app.rotation_stack{n}), 'roi')
+                    app.rotation_stack{n}.Position(1:2) = app.rotation_stack{n}.Position(1:2) - xy_diff;
+                end
+            end
+            
+            %{
             xy_diff = event.PreviousPosition(1:2) - event.CurrentPosition(1:2);
             sz_diff = event.PreviousPosition(3:4) - event.CurrentPosition(3:4);
 
@@ -1030,32 +1082,114 @@ classdef GUIHandling
                     app.rotation_stack{n}.Position(1:2) = app.rotation_stack{n}.Position(1:2) - xy_diff;
                 end
             end
+            %}
         end
 
 
         function proc_rot(app, event)
-            event.obj.Color = 'cyan';
-            sprintf("Clicked %s", event.symbol)
+            origin = app.mouse.pos(1);
+            delta_debt = 0;
+            cct = 1;
 
-            switch event.symbol
-                case '↺'
-                    %origin = get(0, 'PointerLocation');
-                case '⦝'
-                    %theta = deg2rad(90);
-                case '⦬'
-                    %theta = deg2rad(45);
-                case '☑'
-                    %current_image = getimage(event.roi.Parent.axes);
-                    for n = 1:length(app.rotation_stack)
-                        delete(app.rotation_stack{n});
+            while cct
+                c_diff = app.mouse.pos(1) - origin + delta_debt;
+                %fprintf("mouse pos: [%f %f] \norigin: [%f %f] \ndelta debt: [%f %f] \nc diff: [%f %f] \n\n", app.mouse.pos, origin, delta_debt, c_diff)
+                delta_debt = delta_debt - c_diff;
+
+                if c_diff ~=0 | ~strcmp(event.symbol, '↺')
+                    switch event.symbol
+                        case '↺'
+                            theta = c_diff/4;
+                        case '⦝'
+                            theta = 90;
+                        case '⦬'
+                            theta = 45;
+                        case '☑'
+                            Program.GUIHandling.apply_routine(app, event.roi, event.roi.Parent);
+                            return
                     end
 
-                    return
+
+                    roi_center = mean(event.roi.Position, 1);
+                    images.roi.Point(app.UIAxes, 'Position', roi_center);
+                    R = [cosd(theta), -sind(theta); sind(theta), cosd(theta)];
+                    for n = 1:length(app.rotation_stack)
+                        if size(app.rotation_stack{n}.Position, 2) == 3
+                            translated_position = app.rotation_stack{n}.Position(1:2) - roi_center;
+                            app.rotation_stack{n}.Position(1:2) = (translated_position * R') + roi_center;
+                            set(app.rotation_stack{n}, 'Rotation', theta);
+
+                        else
+                            translated_position = app.rotation_stack{n}.Position - roi_center;
+                            app.rotation_stack{n}.Position = (translated_position * R') + roi_center;
+                        end
+                    end
+                end
+
+                drawnow;
+
+                if strcmp(event.symbol, '↺') & app.mouse.state
+                    cct = 1;
+                else
+                    cct = 0;
+                end
             end
-            
-            event.obj.Color = 'white';
-            Program.GUIHandling.draw_rotation_gui(app, rotated_roi);
-            delete(event.roi);
+        end
+
+
+        function apply_routine(app, roi, ax)
+            % Get the current image from the axes
+            imgHandle = findobj(ax, 'Type', 'image');
+            img = imgHandle.CData;
+            imgXData = imgHandle.XData;
+            imgYData = imgHandle.YData;
+        
+            % Get the ROI corners (top-right, top-left, bottom-right, bottom-left)
+            corners = roi.Position;
+        
+            % Calculate the angle of the top and bottom lines to detect rotation
+            topLine = corners(1, :) - corners(2, :);
+            bottomLine = corners(3, :) - corners(4, :);
+        
+            % Average of the angles of both lines (we assume ROI should be axis-aligned)
+            angleTop = atan2(topLine(2), topLine(1));
+            angleBottom = atan2(bottomLine(2), bottomLine(1));
+            avgAngle = (angleTop + angleBottom) / 2;
+        
+            % Compute the center of the ROI for rotation reference
+            centerX = mean(corners(:, 1));
+            centerY = mean(corners(:, 2));
+            rotationAngle = -avgAngle * 180 / pi; % Convert radians to degrees for imrotate
+        
+            % Rotate the image around the center of the ROI
+            rotatedImg = imrotate(img, rotationAngle, 'bilinear', 'crop');
+        
+            % Rotate the ROI corners
+            rotMatrix = [cos(avgAngle), -sin(avgAngle); sin(avgAngle), cos(avgAngle)];
+            rotatedCorners = (corners - [centerX, centerY]) * rotMatrix' + [centerX, centerY];
+        
+            % Define the bounding box for the rotated ROI (axis-aligned)
+            xMin = max(min(rotatedCorners(:, 1)), imgXData(1));
+            xMax = min(max(rotatedCorners(:, 1)), imgXData(2));
+            yMin = max(min(rotatedCorners(:, 2)), imgYData(1));
+            yMax = min(max(rotatedCorners(:, 2)), imgYData(2));
+        
+            % Crop the rotated image to the bounding box
+            croppedImg = rotatedImg(round(yMin:yMax), round(xMin:xMax), :);
+        
+            % Update the image data on the axes
+            set(imgHandle, 'CData', croppedImg);
+            set(imgHandle, 'XData', [xMin, xMax]);
+            set(imgHandle, 'YData', [yMin, yMax]);
+        
+            % Adjust the axes limits to zoom into the cropped image
+            xlim(ax, [xMin, xMax]);
+            ylim(ax, [yMin, yMax]);
+            set(ax, 'DataAspectRatio', [1, 1, 1]);
+
+            for n = 1:length(app.rotation_stack)
+                delete(app.rotation_stack{n});
+            end
         end
 
 
@@ -1082,6 +1216,7 @@ classdef GUIHandling
                 'video', video, ...
                 'neurons', neurons);
         end
+
 
         function package = cache(mode, label, contents)
             label = string(label);
