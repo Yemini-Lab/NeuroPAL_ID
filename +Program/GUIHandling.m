@@ -295,7 +295,7 @@ classdef GUIHandling
             app.mouse_clicked.click = false;
         end
 
-        
+
         function restore_pointer(app)
             %% Restore the mouse pointer.
             % Hack: Matlab App Designer!!!
@@ -1048,7 +1048,7 @@ classdef GUIHandling
             br = [xmin + width, ymin + height];
 
             freehand_roi = images.roi.Freehand(roi.Parent, 'Position', [tr; tl; bl; br], ...
-                'FaceAlpha', 0.4, 'Color', [0.1 0.1 0.1], 'StripeColor', 'm', 'InteractionsAllowed', 'translate');
+                'FaceAlpha', 0.4, 'Color', [0.1 0.1 0.1], 'StripeColor', 'm', 'InteractionsAllowed', 'translate', 'Tag', 'rot_roi');
             delete(roi)
         end
 
@@ -1062,7 +1062,7 @@ classdef GUIHandling
             xy_diff = old_tr - new_tr;
 
             for n = 1:length(app.rotation_stack)
-                if ~contains(class(app.rotation_stack{n}), 'roi')
+                if ~strcmp(app.rotation_stack{n}.Tag, 'rot_roi')
                     app.rotation_stack{n}.Position(1:2) = app.rotation_stack{n}.Position(1:2) - xy_diff;
                 end
             end
@@ -1111,7 +1111,6 @@ classdef GUIHandling
 
 
                     roi_center = mean(event.roi.Position, 1);
-                    images.roi.Point(app.UIAxes, 'Position', roi_center);
                     R = [cosd(theta), -sind(theta); sind(theta), cosd(theta)];
                     for n = 1:length(app.rotation_stack)
                         if size(app.rotation_stack{n}.Position, 2) == 3
