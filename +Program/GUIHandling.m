@@ -55,12 +55,6 @@ classdef GUIHandling
             'background_r', ...
             'background_g', ...
             'background_b', ...
-            'ProcWCheckBox', ...
-            'ProcWDropDown', ...
-            'ProcDICCheckBox', ...
-            'ProcDICDropDown', ...
-            'ProcGFPCheckBox', ...
-            'ProcGFPDropDown', ...
             };
 
         % NWB components
@@ -139,25 +133,41 @@ classdef GUIHandling
 
             % Set up placeholder buttons
             button_locations = figure_size;
-            
-            if any(button_locations <= 0)
+            if any(button_locations <= 0) % This is a workaround to avoid a MATLAB bug that pops up on slower systems. DO NOT REMOVE.
                 button_locations = figure_size;
             end
-
             button_locations(1:2) = [1 1];
-            
-            app.ProcessingButton.Parent = app.ProcessingGridLayout.Parent;
-            app.ProcessingButton.Position = button_locations;
+
+            Program.GUIHandling.gui_overlap(app.ProcToggleChannelsPanel, app.EditColorChannelsPanel);
+            Program.GUIHandling.gui_overlap(app.ProcessingGridLayout, app.ProcessingButton, 'Position', button_locations);
+            Program.GUIHandling.gui_overlap(app.VideoGridLayout, app.TrackingButton, 'Position', button_locations);
+            Program.GUIHandling.gui_overlap(app.IdGridLayout, app.IdButton, 'Position', button_locations);
             set(app.ProcessingButton, 'Visible', 'on');
-
-            app.IdButton.Parent = app.IdGridLayout.Parent;
-            app.IdButton.Position = button_locations;
-            set(app.IdButton, 'Visible', 'on');
-
-            app.TrackingButton.Parent = app.VideoGridLayout.Parent;
-            app.TrackingButton.Position = button_locations;
             set(app.TrackingButton, 'Visible', 'on');
+            set(app.IdButton, 'Visible', 'on');
         end
+
+        
+        function gui_overlap(default_component, hotswap_component, varargin)
+            p = inputParser;
+            addRequired(p, 'default_component');
+            addRequired(p, 'hotswap_component');
+            addOptional(p, 'Parent', default_component.Parent);
+            addOptional(p, 'Position', default_component.Position);
+            addOptional(p, 'Layout', default_component.Layout);
+            parse(p, default_component, hotswap_component, varargin{:});
+        
+            positional_properties = {'Parent', 'Position', 'Layout'};
+            
+            for k = 1:length(positional_properties)
+                 prop = positional_properties{k};
+        
+                 if isprop(default_component, prop) && isprop(hotswap_component, prop) && ~isempty(p.Results.(prop))
+                     hotswap_component.(prop) = p.Results.(prop);
+                 end
+            end
+        end
+
 
         function gui_lock(app, action, group, event)
             switch action
@@ -486,23 +496,6 @@ classdef GUIHandling
             end
         end
 
-        function checked_channels = check_channels(app)
-            channels = {
-                'ProcRCheckBox', ...
-                'ProcGCheckBox', ...
-                'ProcBCheckBox', ...
-                'ProcWCheckBox', ...
-                'ProcDICCheckBox', ...
-                'ProcGFPCheckBox'};
-
-            checked_channels = [];
-            for c=1:length(channels)
-                if app.(channels{c}).Value
-                    checked_channels = [checked_channels c];
-                end
-            end
-        end
-
         function proc_save_prompt(app, action)
             check = uiconfirm(app.CELL_ID, "Do you want to save this operation to the file?", "NeuroPAL_ID", "Options", ["Yes", "No, stick with preview"]);
             if strcmp(check, "Yes")
@@ -517,9 +510,12 @@ classdef GUIHandling
 
         function histogram_handler(app, mode, image)
             raw = Program.GUIHandling.get_active_volume(app, 'request', 'array');
-            nc = size(raw.array, 4);
+            channels = Program.GUIHandling.get_channels(app);
+            nc = length(channels.all);
 
-            if nc < 4
+            % If all checked channels are in the top row, hide the bottom
+            % row of the histogram grid layout.
+            if all(ismember(channels.ordered(channels.checked), channels.ordered(1:3)))
                 app.bl_hist_panel.Parent = app.CELL_ID;
                 app.bm_hist_panel.Parent = app.CELL_ID;
                 app.br_hist_panel.Parent = app.CELL_ID;
@@ -537,37 +533,45 @@ classdef GUIHandling
                 prefix = Program.GUIHandling.pos_prefixes{c};
 
                 switch mode
+                    case 'draw'
+                        if channels.checked(c)
+                            if channels.checked(1)
+                                chan_hist = raw.array(:, :, :, c);
+                            else
+                                chan_hist = raw.array(:, :, :, c-min(channels.all(channels.checked))+1);
+                            end
+    
+                            if app.HidezerointensitypixelsCheckBox.Value
+                                chan_hist = chan_hist(chan_hist>0);
+                            end
+    
+                            if max(chan_hist, [], 'all') <= 1
+                                chan_hist = chan_hist * app.ProcNoiseThresholdKnob.Limits(2);
+                            end
+                            
+                            if any(ismember(app.nameMap.keys(), num2str(c)))
+                                h_panel = sprintf("%s_hist_panel", Program.GUIHandling.pos_prefixes{c});
+                                h_label = sprintf("%s_Label", Program.GUIHandling.pos_prefixes{c});
+                                h_axes = sprintf("%s_hist_ax", Program.GUIHandling.pos_prefixes{c});
+    
+                                target_dropdown = app.(sprintf("proc_c%.f_dropdown", c));
+    
+                                app.(h_panel).Visible = 'on';
+                                app.(h_label).Text = sprintf("%s Channel", target_dropdown.Value);
+                                histogram(app.(h_axes), chan_hist, 'FaceColor', app.shortMap(target_dropdown.Value), 'EdgeColor', app.shortMap(target_dropdown.Value));
+                                app.(h_axes).XLim = [app.HidezerointensitypixelsCheckBox.Value, app.(h_axes).XLim(2)];
+           
+                                if c >= 4
+                                    app.(h_panel).Parent = app.ProcHistogramGrid;
+                                    app.(h_panel).Layout.Row = 2;
+                                    app.(h_panel).Layout.Column = c-3;
+                                end
+                            end
+                        end
+
                     case 'reset'
                         app.(sprintf("%s_hist_panel", prefix)).Visible = 'off';
                         cla(app.(sprintf("%s_hist_ax", prefix)))
-
-                    case 'draw'
-                        chan_hist = raw.array(:, :, :, c);
-
-                        if app.HidezerointensitypixelsCheckBox.Value
-                            chan_hist = chan_hist(chan_hist>0);
-                        end
-
-                        if max(chan_hist, [], 'all') <= 1
-                            chan_hist = chan_hist * app.ProcNoiseThresholdKnob.Limits(2);
-                        end
-                        
-                        if any(ismember(app.nameMap.keys(), num2str(c)))
-                            h_panel = sprintf("%s_hist_panel", Program.GUIHandling.pos_prefixes{c});
-                            h_label = sprintf("%s_Label", Program.GUIHandling.pos_prefixes{c});
-                            h_axes = sprintf("%s_hist_ax", Program.GUIHandling.pos_prefixes{c});
-
-                            app.(h_panel).Visible = 'on';
-                            app.(h_label).Text = sprintf("%s Channel", app.nameMap(num2str(c)));
-                            histogram(app.(h_axes), chan_hist, 'FaceColor', app.shortMap(num2str(c)), 'EdgeColor', app.shortMap(num2str(c)));
-                            app.(h_axes).XLim = [app.HidezerointensitypixelsCheckBox.Value, app.(h_axes).XLim(2)];
-       
-                            if c >= 4
-                                app.(h_panel).Parent = app.ProcHistogramGrid;
-                                app.(h_panel).Layout.Row = 2;
-                                app.(h_panel).Layout.Column = c-3;
-                            end
-                        end
                 end
             end
         end
@@ -587,7 +591,8 @@ classdef GUIHandling
             x = app.proc_xSlider.Value;
             y = min(max(round(app.proc_xSlider.Value), 1), app.proc_xSlider.Limits(2));
             z = min(max(round(app.proc_zSlider.Value), 1), app.proc_zSlider.Limits(2));
-            c = Program.GUIHandling.check_channels(app);
+            c_idx = Program.GUIHandling.get_channels(app).all;
+            c = Program.GUIHandling.get_channels(app).checked;
             t = app.proc_tSlider.Value;
 
             if isempty(p.Results.coords)
@@ -620,18 +625,26 @@ classdef GUIHandling
                     if app.ProcShowMIPCheckBox.Value
                         switch app.VolumeDropDown.Value
                             case 'Colormap'
-                                slice = app.proc_image.data(:, :, :, c);
+                                if all(diff(c_idx(c)) == 1)
+                                    slice = app.proc_image.data(:, :, :, c_idx(c));
+                                else
+                                    slice = app.proc_image.data(:, :, :, 1:max(c_idx(c)));
+                                end
                             case 'Video'
                                 slice = app.retrieve_frame(package.coords(4));
-                                slice = slice(:, :, :, c);
+                                slice = slice(:, :, :, c_idx(c));
                         end
                     else
                         switch app.VolumeDropDown.Value
                             case 'Colormap'
-                                slice = app.proc_image.data(:, :, package.coords(3), c);
+                                if all(diff(c_idx(c)) == 1)
+                                    slice = app.proc_image.data(:, :, package.coords(3), c_idx(c));
+                                else
+                                    slice = app.proc_image.data(:, :, package.coords(3), 1:max(c_idx(c)));
+                                end
                             case 'Video'
                                 slice = app.retrieve_frame(package.coords(4));
-                                slice = slice(:, :, package.coords(3), c);
+                                slice = slice(:, :, package.coords(3), c_idx(c));
                         end
                     end
 
@@ -703,6 +716,102 @@ classdef GUIHandling
                 app.proc_hor_zSlider.Value = round(app.proc_hor_zSlider.Limits(2)/2);
                 app.proc_vert_zSlider.Value = round(app.proc_vert_zSlider.Limits(2)/2);
             end
+        end
+
+        function channels = get_channels(app, specific_channel)
+            nc = length(app.proc_channel_grid.RowHeight)-2;
+            dd_string = "proc_c%.f_dropdown";
+            cb_string = "proc_c%.f_checkbox";
+            
+            if exist('specific_channel', 'var') % If we want the index of some number of specific channels, grab just that.
+                channels = find(strcmp(cellfun(@(c) app.(sprintf(dd_string, c)).Value, num2cell(1:nc), 'UniformOutput', false), specific_channel));
+                return
+            end
+            
+            channels = struct( ...
+                'rgbw' , {[]}, 'all', {[]}, ...           % Arrays of channel indices
+                'ordered', {[]}, ...                                        % Channel names ordered by indices
+                'checked', {[]}, ...                                        % Logical array of channels to render
+                'gui', {[]}, ...                                            % Channel GUI components
+                'hasGFP', {[]}, 'hasDIC', {[]}, 'hasWhite', {[]});          % Whether volume has a given special channel
+
+            channels.ordered = cellfun(@(c) app.(sprintf(dd_string, c)).Value, num2cell(1:nc), 'UniformOutput', false);
+            channels.checked = cellfun(@(c) app.(sprintf(cb_string, c)).Value, num2cell(1:nc), 'UniformOutput', false);
+            channels.checked = [channels.checked{:}];
+            % channels.checked = find([channels.checked{:}] == 1);
+            channels.gui = cellfun(@(c) app.(sprintf(dd_string, c)), num2cell(1:nc), 'UniformOutput', false);
+
+            red = find(strcmp(channels.ordered, "Red"));
+            green = find(strcmp(channels.ordered, "Green"));
+            blue = find(strcmp(channels.ordered, "Blue"));
+            white = find(strcmp(channels.ordered, "White"));
+            DIC = find(strcmp(channels.ordered, "DIC"));
+            GFP = find(strcmp(channels.ordered, "GFP"));
+
+            channels.rgbw = [red green blue white];
+            channels.all = [red green blue white DIC GFP];
+
+            channels.hasWhite = ~isempty(white);
+            channels.hasDIC = ~isempty(DIC);
+            channels.hasGFP = ~isempty(GFP);
+        end
+
+        function edit_channels(app, event)
+            max_row = length(event.Source.Parent.RowHeight)-2;
+            target_channel = str2double(event.Source.Tag);
+            target_row = event.Source.Layout.Row;
+
+            dd_string = "proc_c%.f_dropdown";
+
+            switch event.Source.Text
+                case '⮝'
+                    if target_row > 1
+                        old_value = app.(sprintf(dd_string, target_channel)).Value;
+                        new_value = app.(sprintf(dd_string, target_channel-1)).Value;
+
+                        app.(sprintf(dd_string, target_channel)).Value = new_value;
+                        app.(sprintf(dd_string, target_channel-1)).Value = old_value;
+                    end
+
+                case '⮟'
+                    if target_row < max_row
+                        old_value = app.(sprintf(dd_string, target_channel)).Value;
+                        new_value = app.(sprintf(dd_string, target_channel+1)).Value;
+                        
+                        app.(sprintf(dd_string, target_channel)).Value = new_value;
+                        app.(sprintf(dd_string, target_channel+1)).Value = old_value;
+                    end
+                    
+                case '🗑'
+                    target_name = app.(sprintf(dd_string, target_channel)).Value;
+                    check = uiconfirm(app.CELL_ID, sprintf("Are you sure you want to delete Channel #%.f (%s) from your file?", target_channel, target_name), "NeuroPAL_ID", "Options",["Yes", "No"]);
+
+                    switch check
+                        case "Yes"
+                            app.(sprintf(dd_string, target_channel)).Value = "N/A";
+                            values = cellfun(@(d) app.(sprintf("proc_c%.f_dropdown", d)).Value, num2cell(1:6), 'UniformOutput', false);
+                            nonEmptyValues = values(~strcmp(values, "N/A"));
+                            emptyValues = values(strcmp(values, "N/A"));
+                            newOrder = [nonEmptyValues, emptyValues];
+                            
+                            for dd=1:6
+                                app.(sprintf(dd_string, dd)).Value = newOrder{dd};
+
+                                if strcmp(newOrder{dd}, "N/A")
+                                    app.(sprintf(dd_string, dd)).Enable = "off";
+                                    app.(sprintf("proc_c%.f_up", dd)).Enable = "off";
+                                    app.(sprintf("proc_c%.f_down", dd)).Enable = "off";
+                                    app.(sprintf("proc_c%.f_delete", dd)).Enable = "off";
+                                end
+                            end
+
+                            app.proc_apply_processing("delete_channel");
+                        case "No"
+                            return
+                    end
+            end
+
+            Program.GUIHandling.histogram_handler(app, 'draw');
         end
 
         function swap_volumes(app, event)

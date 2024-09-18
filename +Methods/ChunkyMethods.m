@@ -59,7 +59,7 @@ classdef ChunkyMethods
 
         function output_slice = apply_slice(app, action, slice)
             % Apply operation to a slice.
-            RGBW = [str2num(app.ProcRDropDown.Value), str2num(app.ProcGDropDown.Value), str2num(app.ProcBDropDown.Value), str2num(app.ProcWDropDown.Value)];
+            RGBW = Program.GUIHandling.get_channels(app).rgbw;
             
             switch action
                 case 'zscore'
@@ -118,6 +118,17 @@ classdef ChunkyMethods
                 case 'debleed'
                     processed_vol = Methods.ChunkyMethods.debleed(app, vol);
 
+                case 'delete_channel'
+                    dd_string = "proc_c%.f_dropdown";
+                    dropdowns = {};
+
+                    for dd=1:6
+                        dropdowns{end+1} = app.(sprintf(dd_string, dd));
+                    end
+
+                    values = cellfun(@(d) d.Value, dropdowns, 'UniformOutput', false);
+                    processed_vol = vol(:, :, :, ~strcmp(values, "N/A"));
+
                 otherwise
                     [new_dims, old_dims] = Methods.ChunkyMethods.calc_pp_size(app, action, vol);
                     nz = old_dims(3);
@@ -173,9 +184,24 @@ classdef ChunkyMethods
                     processed_vol = Methods.ChunkyMethods.apply_vol(app, actions{a}, app.proc_image.data);
                 end
             end
-    
+
             % Save to file.
             app.proc_image.Properties.Writable = true;
+
+            if any(cellfun(@(x) ismember("delete_channel", x), actions))
+                prefs = app.proc_image.prefs;
+                values = cellfun(@(d) app.(sprintf("proc_c%.f_dropdown", d)).Value, num2cell(1:6), 'UniformOutput', false);
+
+                pref_ch_options = {"GFP", "DIC"};
+                for opt=1:2
+                    if ~ismember(values, pref_ch_options{opt})
+                        prefs.(pref_ch_options{opt}) = NaN;
+                    end
+                end
+
+                app.proc_image.prefs = prefs;
+            end
+    
             app.proc_image.data = processed_vol;
             app.proc_image.Properties.Writable = false;
         end
@@ -253,7 +279,7 @@ classdef ChunkyMethods
                 channel = channel.Source.Tag;
             end
 
-            ch_idx = [str2num(app.ProcRDropDown.Value), str2num(app.ProcGDropDown.Value), str2num(app.ProcBDropDown.Value)];
+            ch_idx = Program.GUIHandling.get_channels(app).rgbw;
             size_selection = app.DropperradiusSpinner.Value;
             sigma_gauss = app.SigmagaussEditField.Value;
             rgb = ch_idx(1:3);
@@ -333,7 +359,7 @@ classdef ChunkyMethods
             output = vol;
 
             % Grab processing tab values.
-            ch_idx = [str2num(app.ProcRDropDown.Value), str2num(app.ProcGDropDown.Value), str2num(app.ProcBDropDown.Value)];
+            ch_idx = Program.GUIHandling.get_channels(app).rgb;
             size_selection = app.DropperradiusSpinner.Value;
             sigma_gauss = app.SigmagaussEditField.Value;
             rgb = ch_idx(1:3);
@@ -489,12 +515,13 @@ classdef ChunkyMethods
 
         function frame = load_proc_image(app)
             frame = struct('xy', {[]}, 'yz', {[]}, 'xz', {[]});
-            rgb = [str2num(app.ProcRDropDown.Value), str2num(app.ProcGDropDown.Value), str2num(app.ProcBDropDown.Value)];
+            channels = Program.GUIHandling.get_channels(app);
+            rgb = channels.rgbw(1:3);
 
             % Grab current volume.
             raw = Program.GUIHandling.get_active_volume(app, 'request', 'all');
             if raw.dims(4) < 3
-                raw.array = cat(4, raw.array, zeros([raw.dims(1:3) 1]));
+                raw.array = cat(4, raw.array, zeros([raw.dims(1:3) 3-raw.dims(4)]));
             end
             
             if strcmp(raw.state, 'colormap')
@@ -521,8 +548,12 @@ classdef ChunkyMethods
                 if ~ismember(c, rgb)
                     raw.array(:, :, :, rgb) = raw.array(:, :, :, rgb) + repmat(raw.array(:, :, :, c, :), [1, 1, 1, 3]);
                     raw.array(:, :, :, c, :) = [];
+                elseif ~channels.checked(c)
+                    raw.array(:, :, :, c, :) = 0;
                 end
             end
+
+            %raw.array(:, :, :, ~channels.checked(1:raw.dims(4))) = [];
 
             % Apply processing operations.
             actions = fieldnames(app.flags);
