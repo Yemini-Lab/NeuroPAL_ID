@@ -547,12 +547,13 @@ classdef ChunkyMethods
                 
                 if ~ismember(c, rgb)
                     raw.array(:, :, :, rgb) = raw.array(:, :, :, rgb) + repmat(raw.array(:, :, :, c, :), [1, 1, 1, 3]);
-                    raw.array(:, :, :, c, :) = [];
                 elseif ~channels.checked(c)
                     raw.array(:, :, :, c, :) = 0;
                 end
             end
 
+            nrgb = find(~ismember(channels.all,rgb));
+            raw.array(:, :, :, nrgb(1:raw.dims(4)-3), :) = [];
             %raw.array(:, :, :, ~channels.checked(1:raw.dims(4))) = [];
 
             % Apply processing operations.

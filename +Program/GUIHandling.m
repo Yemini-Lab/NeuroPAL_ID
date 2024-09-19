@@ -4,7 +4,7 @@ classdef GUIHandling
     %% Public variables.
     properties (Constant, Access = public)
         channel_names = {'r', 'g', 'b', 'w', 'dic', 'gfp', ...
-            'red', 'green', 'blue', 'white', 'DIC', 'GFP'};
+            'Red', 'Green', 'Blue', 'White', 'DIC', 'GFP'};
 
         channel_map = containers.Map( ...
             {'r', 'g', 'b', 'w', 'dic', 'gfp', ...
@@ -56,6 +56,12 @@ classdef GUIHandling
             'background_g', ...
             'background_b', ...
             };
+
+        proc_channel_strings = struct( ...
+            'dd', {"proc_c%.f_dropdown"}, ...
+            'up', {"proc_c%.f_up"}, ...
+            'down', {"proc_c%.f_down"}, ...
+            'del', {"proc_c%.f_delete"});
 
         % NWB components
         device_lists = {
@@ -549,23 +555,20 @@ classdef GUIHandling
                                 chan_hist = chan_hist * app.ProcNoiseThresholdKnob.Limits(2);
                             end
                             
-                            if any(ismember(app.nameMap.keys(), num2str(c)))
-                                h_panel = sprintf("%s_hist_panel", Program.GUIHandling.pos_prefixes{c});
-                                h_label = sprintf("%s_Label", Program.GUIHandling.pos_prefixes{c});
-                                h_axes = sprintf("%s_hist_ax", Program.GUIHandling.pos_prefixes{c});
-    
-                                target_dropdown = app.(sprintf("proc_c%.f_dropdown", c));
-    
-                                app.(h_panel).Visible = 'on';
-                                app.(h_label).Text = sprintf("%s Channel", target_dropdown.Value);
-                                histogram(app.(h_axes), chan_hist, 'FaceColor', app.shortMap(target_dropdown.Value), 'EdgeColor', app.shortMap(target_dropdown.Value));
-                                app.(h_axes).XLim = [app.HidezerointensitypixelsCheckBox.Value, app.(h_axes).XLim(2)];
-           
-                                if c >= 4
-                                    app.(h_panel).Parent = app.ProcHistogramGrid;
-                                    app.(h_panel).Layout.Row = 2;
-                                    app.(h_panel).Layout.Column = c-3;
-                                end
+                            h_panel = sprintf("%s_hist_panel", Program.GUIHandling.pos_prefixes{c});
+                            h_label = sprintf("%s_Label", Program.GUIHandling.pos_prefixes{c});
+                            h_axes = sprintf("%s_hist_ax", Program.GUIHandling.pos_prefixes{c});
+                            target_dropdown = app.(sprintf("proc_c%.f_dropdown", c));
+
+                            app.(h_panel).Visible = 'on';
+                            app.(h_label).Text = sprintf("%s Channel", target_dropdown.Value);
+                            histogram(app.(h_axes), chan_hist, 'FaceColor', app.shortMap(target_dropdown.Value), 'EdgeColor', app.shortMap(target_dropdown.Value));
+                            app.(h_axes).XLim = [app.HidezerointensitypixelsCheckBox.Value, app.(h_axes).XLim(2)];
+       
+                            if c >= 4
+                                app.(h_panel).Parent = app.ProcHistogramGrid;
+                                app.(h_panel).Layout.Row = 2;
+                                app.(h_panel).Layout.Column = c-3;
                             end
                         end
 
@@ -729,8 +732,9 @@ classdef GUIHandling
             end
             
             channels = struct( ...
-                'rgbw' , {[]}, 'all', {[]}, ...           % Arrays of channel indices
+                'rgbw' , {[]}, 'all', {[]}, ...                             % Arrays of channel indices
                 'ordered', {[]}, ...                                        % Channel names ordered by indices
+                'render', {[]}, ...                                         % Render order of channels to render
                 'checked', {[]}, ...                                        % Logical array of channels to render
                 'gui', {[]}, ...                                            % Channel GUI components
                 'hasGFP', {[]}, 'hasDIC', {[]}, 'hasWhite', {[]});          % Whether volume has a given special channel
@@ -738,7 +742,6 @@ classdef GUIHandling
             channels.ordered = cellfun(@(c) app.(sprintf(dd_string, c)).Value, num2cell(1:nc), 'UniformOutput', false);
             channels.checked = cellfun(@(c) app.(sprintf(cb_string, c)).Value, num2cell(1:nc), 'UniformOutput', false);
             channels.checked = [channels.checked{:}];
-            % channels.checked = find([channels.checked{:}] == 1);
             channels.gui = cellfun(@(c) app.(sprintf(dd_string, c)), num2cell(1:nc), 'UniformOutput', false);
 
             red = find(strcmp(channels.ordered, "Red"));
@@ -750,64 +753,126 @@ classdef GUIHandling
 
             channels.rgbw = [red green blue white];
             channels.all = [red green blue white DIC GFP];
+            channels.render = tiedrank(channels.all);
 
             channels.hasWhite = ~isempty(white);
             channels.hasDIC = ~isempty(DIC);
             channels.hasGFP = ~isempty(GFP);
         end
 
-        function edit_channels(app, event)
-            max_row = length(event.Source.Parent.RowHeight)-2;
-            target_channel = str2double(event.Source.Tag);
-            target_row = event.Source.Layout.Row;
+        function edit_channels(app, varargin)
+            p = inputParser;
 
-            dd_string = "proc_c%.f_dropdown";
+            addRequired(p, 'app');      % App handle
+            addOptional(p, 'mode', 'gui');  % Called by event or gui?
+            addOptional(p, 'source', []);   % If event, source component
+            addOptional(p, 'target', []);   % Index of target channel
+            addOptional(p, 'action', 'none');   % Action to be taken
 
-            switch event.Source.Text
-                case '⮝'
-                    if target_row > 1
-                        old_value = app.(sprintf(dd_string, target_channel)).Value;
-                        new_value = app.(sprintf(dd_string, target_channel-1)).Value;
+            % Initialization arguments
+            addOptional(p, 'order', []);    % Channel order
+            addOptional(p, 'count', 0);     % # of channels
+            parse(p, app, varargin{:}); action = p.Results.action;
+            gui_strings = Program.GUIHandling.proc_channel_strings;
 
-                        app.(sprintf(dd_string, target_channel)).Value = new_value;
-                        app.(sprintf(dd_string, target_channel-1)).Value = old_value;
+            if ~isempty(p.Results.source)
+                source = p.Results.source;
+                mode = 'event';
+                action = source.Text;
+                target = str2double(source.Tag);
+            else
+                mode = 'gui';
+            end
+
+            if ~isempty(p.Results.target)
+                target = p.Results.target;
+            end
+
+            if exist('target', 'var')
+                target_dd = app.(sprintf(gui_strings.dd, target));
+                grid = target_dd.Parent;
+            else
+                grid = app.(sprintf(gui_strings.dd, 1)).Parent;
+            end
+
+            switch action
+                case {'⮝', 'up'}
+                    if target_dd.Layout.Row > 1
+                        old_value = target_dd.Value;
+                        new_value = app.(sprintf(gui_strings.dd, target-1)).Value;
+
+                        target_dd.Value = new_value;
+                        app.(sprintf(gui_strings.dd, target-1)).Value = old_value;
                     end
 
-                case '⮟'
-                    if target_row < max_row
-                        old_value = app.(sprintf(dd_string, target_channel)).Value;
-                        new_value = app.(sprintf(dd_string, target_channel+1)).Value;
-                        
-                        app.(sprintf(dd_string, target_channel)).Value = new_value;
-                        app.(sprintf(dd_string, target_channel+1)).Value = old_value;
+                case {'⮟', 'down'}
+                    if target_dd.Layout.Row < length(grid.RowHeight)-2
+                        old_value = target_dd.Value;
+                        new_value = app.(sprintf(gui_strings.dd, target+1)).Value;
+
+                        target_dd.Value = new_value;
+                        app.(sprintf(gui_strings.dd, target+1)).Value = old_value;
                     end
                     
-                case '🗑'
-                    target_name = app.(sprintf(dd_string, target_channel)).Value;
-                    check = uiconfirm(app.CELL_ID, sprintf("Are you sure you want to delete Channel #%.f (%s) from your file?", target_channel, target_name), "NeuroPAL_ID", "Options",["Yes", "No"]);
-
-                    switch check
-                        case "Yes"
-                            app.(sprintf(dd_string, target_channel)).Value = "N/A";
-                            values = cellfun(@(d) app.(sprintf("proc_c%.f_dropdown", d)).Value, num2cell(1:6), 'UniformOutput', false);
-                            nonEmptyValues = values(~strcmp(values, "N/A"));
-                            emptyValues = values(strcmp(values, "N/A"));
-                            newOrder = [nonEmptyValues, emptyValues];
-                            
-                            for dd=1:6
-                                app.(sprintf(dd_string, dd)).Value = newOrder{dd};
-
-                                if strcmp(newOrder{dd}, "N/A")
-                                    app.(sprintf(dd_string, dd)).Enable = "off";
-                                    app.(sprintf("proc_c%.f_up", dd)).Enable = "off";
-                                    app.(sprintf("proc_c%.f_down", dd)).Enable = "off";
-                                    app.(sprintf("proc_c%.f_delete", dd)).Enable = "off";
-                                end
+                case {'🗑', 'delete'}
+                    switch mode
+                        case 'gui'
+                            grid.RowHeight(target) = [];
+                            target_dd.Value = "N/A";
+                            target_dd.Enable = "off";
+                            app.(sprintf(gui_strings.up, context.target)).Enable = "off";
+                            app.(sprintf(gui_strings.down, context.target)).Enable = "off";
+                            app.(sprintf(gui_strings.del, context.target)).Enable = "off";
+                        case 'event'
+                            check = uiconfirm(app.CELL_ID, sprintf("Are you sure you want to delete Channel #%.f (%s) from your file?", target, target_dd.Value), "NeuroPAL_ID", "Options",["Yes", "No"]);
+        
+                            switch check
+                                case "Yes"
+                                    target_dd.Value = "N/A";
+                                    values = cellfun(@(d) app.(sprintf(gui_strings.dd, d)).Value, num2cell(1:6), 'UniformOutput', false);
+                                    nonEmptyValues = values(~strcmp(values, "N/A"));
+                                    emptyValues = values(strcmp(values, "N/A"));
+                                    newOrder = [nonEmptyValues, emptyValues];
+                                    
+                                    for dd=1:6
+                                        app.(sprintf(dd_string, dd)).Value = newOrder{dd};
+        
+                                        if strcmp(newOrder{dd}, "N/A")
+                                            Program.GUIHandling.edit_channels(app, 'mode', 'gui', 'action', 'delete', 'target', dd);
+                                        end
+                                    end
+        
+                                    app.proc_apply_processing("delete_channel");
+                                case "No"
+                                    return
                             end
+                    end
 
-                            app.proc_apply_processing("delete_channel");
-                        case "No"
-                            return
+                case 'init'
+                    if ~isempty(order)
+                        channel_names = {Program.GUIHandling.channel_names{end/2+1:end}};
+                        null_pad = 0;
+                        for c=1:length(order)
+                            if order(c) ~= 0 && isnan(order(c))
+                                app.(sprintf(gui_strings.dd, c-null_pad)).Value = channel_names{c};
+                            else
+                                null_pad = null_pad + 1;
+                            end
+                        end
+
+                        for n=1:length(null_pad)
+                            Program.GUIHandling.edit_channels(app, 'mode', 'gui', 'action', 'delete', 'target', length(grid.RowHeight));
+                        end
+                    else
+                        for c=1:count
+                            app.(sprintf(gui_strings.dd, c)).Value = app.(sprintf(gui_strings.dd, c)).Items{c};
+                        end
+                    end
+        
+                    if count < 6
+                        for dd=length(grid.RowHeight)-2:-1:count+1
+                            Program.GUIHandling.edit_channels(app, 'mode', 'gui', 'action', 'delete', 'target', dd);
+                        end
                     end
             end
 
