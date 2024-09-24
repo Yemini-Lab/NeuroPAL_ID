@@ -22,9 +22,6 @@ classdef GUIHandling
             'ProcHistogramMatchingButton', ...
             'ProcMeasureROINoiseButton', ...
             'ProcMeasure90pthNoiseButton', ...
-            'ProcMirrorImageButton', ...
-            'ProcRotateClockwiseButton', ...
-            'ProcRotateCounterclockwiseButton', ...
             'ProcZSlicesEditField', ...
             'ProcXYFactorEditField', ...
             'ProcXYFactorUpdateButton', ...
@@ -181,6 +178,11 @@ classdef GUIHandling
 
                 case 'processing_tab'
                     gui_components = Program.GUIHandling.proc_components;
+
+                    addlistener(app.CELL_ID, 'WindowMousePress', @(~,~) Program.GUIHandling.mouse_poll(app, 1));
+                    set(app.CELL_ID, 'WindowButtonMotionFcn', @(~,~) Program.GUIHandling.mouse_poll(app));
+                    addlistener(app.CELL_ID, 'WindowMouseRelease', @(~,~) Program.GUIHandling.mouse_poll(app, 0));
+
                     for pos=1:length(Program.GUIHandling.pos_prefixes)
                         app.(sprintf('%s_hist_slider', Program.GUIHandling.pos_prefixes{pos})).Enable = state;
                         app.(sprintf('%s_GammaEditField', Program.GUIHandling.pos_prefixes{pos})).Enable = state;
@@ -307,7 +309,7 @@ classdef GUIHandling
 
 
         function mouse_poll(app, state)
-            app.mouse.pos = get(app.UIFigure, 'CurrentPoint');
+            app.mouse.pos = get(app.CELL_ID, 'CurrentPoint');
 
             if exist('state', 'var')
                 app.mouse.state = state;
@@ -974,23 +976,20 @@ classdef GUIHandling
         end
 
 
-        function draw_rotation_gui(app, roi)
+        function draw_rotation_gui(app, roi, flag)
             if ~isa(roi, 'images.roi.Freehand')
                 roi = Program.GUIHandling.rect_to_freehand(roi);
             end
 
-            symbols = {'↺', '⦝', '⦬', '☑'};
-            sym_count = length(symbols);
+            symbols = app.proc_rotation_gui.symbols;
+            sym_count = sum(cellfun(@length, symbols));
 
-            font_size = 20;
-            stroke_size = 4;
-            vertical_offset = 14;
-            box_padding = [5 5];
-            gap = [0, font_size + font_size/3];
-            character_width = font_size + gap(1);
+            font_size = app.proc_rotation_gui.font_size;
+            stroke_size = app.proc_rotation_gui.stroke_size;
+            vertical_offset = app.proc_rotation_gui.vertical_offset;
+            box_padding = app.proc_rotation_gui.box_padding;
 
             if ~exist('flag', 'var')
-                % ...delete previous rotation gui.
                 for n = 1:length(app.rotation_stack)
                     delete(app.rotation_stack{n});
                 end
@@ -1000,10 +999,17 @@ classdef GUIHandling
             [~, tr_idx] = max(roi.Position(:,1) + roi.Position(:,2) * 1e-6);
             tr = roi.Position(tr_idx, :);
             
-            bg_width = character_width * sym_count + stroke_size + box_padding(1);
-            bg_height = font_size + stroke_size + box_padding(2);
-            bg_xmin = tr(1) - bg_width;
-            bg_ymin = min(roi.Position(:, 2)) - font_size - stroke_size/2 - vertical_offset;
+            app.proc_rotation_gui.bg_width = font_size*sym_count + stroke_size*length(symbols) + box_padding(1)/2;
+            bg_width = app.proc_rotation_gui.bg_width;
+
+            app.proc_rotation_gui.bg_height = font_size + stroke_size + box_padding(2);
+            bg_height = app.proc_rotation_gui.bg_height;
+
+            app.proc_rotation_gui.bg_xmin = tr(1) - bg_width;
+            bg_xmin = app.proc_rotation_gui.bg_xmin;
+
+            app.proc_rotation_gui.bg_ymin = min(roi.Position(:, 2)) - font_size - vertical_offset;
+            bg_ymin = app.proc_rotation_gui.bg_ymin;
 
             bg_pos = [
                 [bg_xmin+bg_width, bg_ymin];
@@ -1013,18 +1019,20 @@ classdef GUIHandling
             app.rotation_stack{end+1} = images.roi.Freehand(roi.Parent, 'Position', bg_pos, 'Color', [0.1 0.1 0.1], 'FaceAlpha', 0.7, ...
                 'InteractionsAllowed', 'none', 'MarkerSize', 1e-99, 'LineWidth', 1e-99);
 
-            for n = 1:sym_count
+            multi_string = 0;
+            for n = 1:length(symbols)
                 symbol = symbols{n};
-                symbol_x = bg_xmin + (character_width + stroke_size/2) * (n - 1) + box_padding(1) / 2;
-                symbol_y = bg_ymin + character_width/2 + box_padding(2);
+                symbol_x = bg_xmin + (((font_size)*(n-1))/n + stroke_size)*n + box_padding(1) / 2 + multi_string/2;
+                symbol_y = bg_ymin + bg_height/2;
+                multi_string = multi_string + font_size * (length(symbol)-1);
 
                 app.rotation_stack{end+1} = text(roi.Parent, symbol_x, symbol_y, symbol, ...
                     'Color', 'white', ...
                     'FontName', 'MonoSpace', 'FontSize', font_size, 'FontWeight', 'bold', ...
-                    'ButtonDownFcn', @(src, event) proc_rot(app, struct('obj', Program.GUIHandling.rotation_stack{end}, 'symbol', {symbol}, 'roi', {roi})));
+                    'ButtonDownFcn', @(src, event) Program.GUIHandling.proc_rot(app, struct('obj', {app.rotation_stack{end}}, 'symbol', {symbol}, 'roi', {roi})));
             end
 
-            addlistener(roi, 'MovingROI', @(src, event)Program.GUIHandling.update_rotation_gui(event));
+            addlistener(roi, 'MovingROI', @(src, event) Program.GUIHandling.update_rotation_gui(app, event));
         end
 
 
@@ -1055,7 +1063,11 @@ classdef GUIHandling
 
             for n = 1:length(app.rotation_stack)
                 if ~strcmp(app.rotation_stack{n}.Tag, 'rot_roi')
-                    app.rotation_stack{n}.Position(1:2) = app.rotation_stack{n}.Position(1:2) - xy_diff;
+                    if isa(app.rotation_stack{n}, 'images.roi.Freehand')
+                        app.rotation_stack{n}.Position = app.rotation_stack{n}.Position - (event.PreviousPosition-event.CurrentPosition);
+                    else
+                        app.rotation_stack{n}.Position(1:2) = app.rotation_stack{n}.Position(1:2) - xy_diff;
+                    end
                 end
             end
             
@@ -1096,8 +1108,15 @@ classdef GUIHandling
                             theta = 90;
                         case '⦬'
                             theta = 45;
-                        case '☑'
-                            Program.GUIHandling.apply_routine(app, event.roi, event.roi.Parent);
+                        case 'OK'
+                            app.apply_routine(event.roi, event.roi.Parent);
+                            return
+
+                        case 'X'
+                            for n = 1:length(app.rotation_stack)
+                                delete(app.rotation_stack{n});
+                            end
+                            
                             return
                     end
 
@@ -1108,7 +1127,7 @@ classdef GUIHandling
                         if size(app.rotation_stack{n}.Position, 2) == 3
                             translated_position = app.rotation_stack{n}.Position(1:2) - roi_center;
                             app.rotation_stack{n}.Position(1:2) = (translated_position * R') + roi_center;
-                            set(app.rotation_stack{n}, 'Rotation', theta);
+                            set(app.rotation_stack{n}, 'Rotation', app.rotation_stack{n}.Rotation - theta);
 
                         else
                             translated_position = app.rotation_stack{n}.Position - roi_center;
