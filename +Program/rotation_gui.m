@@ -74,7 +74,7 @@ classdef rotation_gui
                 app.rotation_stack.gui{end+1} = text(axes, symbol_x, symbol_y, symbol, ...
                     'Color', color, ...
                     'FontName', 'MonoSpace', 'FontSize', font_size, 'FontWeight', 'bold', ...
-                    'ButtonDownFcn', @(src, event) Program.rotation_gui.trigger(app, struct('obj', {app.rotation_stack.gui{end}}, 'symbol', {symbol}, 'roi', {app.rotation_stack.roi})));
+                    'ButtonDownFcn', @(src, event) Program.rotation_gui.trigger(app, event));
             end
 
             % Construct scaling symbols
@@ -100,12 +100,12 @@ classdef rotation_gui
                 app.rotation_stack.gui{end+1} = text(axes, x1, y1, scale, ...
                     'Color', 'white', ...
                     'FontName', 'MonoSpace', 'FontSize', Program.rotation_gui.settings.font_size*2, ...
-                    'ButtonDownFcn', @(src, event) Program.rotation_gui.update(app, event, 'scale'));
+                    'ButtonDownFcn', @(src, event) Program.rotation_gui.trigger(app, event));
             
                 app.rotation_stack.gui{end+1} = text(axes, x2, y2, scale, ...
                     'Color', 'white', ...
                     'FontName', 'MonoSpace', 'FontSize', Program.rotation_gui.settings.font_size*2, ...
-                    'ButtonDownFcn', @(src, event) Program.rotation_gui.update(app, event, 'scale'));
+                    'ButtonDownFcn', @(src, event) Program.rotation_gui.trigger(app, event));
             end
 
             app.rotation_stack.listeners{end+1} = addlistener(app.rotation_stack.roi, 'MovingROI', @(src, event) Program.rotation_gui.update(app, event, 'move'));
@@ -132,76 +132,93 @@ classdef rotation_gui
                             app.rotation_stack.gui{n}.Position(1:2) = app.rotation_stack.gui{n}.Position(1:2) - xy_diff;
                         end
                     end
+
                 case 'scale'
                     t_dim = find(strcmp(event.Source.String, Program.rotation_gui.symbols.out_gui));
                     roi_edges = Program.rotation_gui.get_edges(app);
                     nogui_edges = [roi_edges(2) roi_edges(4)];
                         
-                    app.rotation_stack.roi.Position(:, t_dim) = app.rotation_stack.roi.Position(:, t_dim) + scale_val;
+                    app.rotation_stack.roi.Position(:, t_dim) = app.rotation_stack.roi.Position(:, t_dim) + event.delta;
                     if ~ismember(event.Source.Position(t_dim), nogui_edges)
                         for n = 1:length(app.rotation_stack.gui)
                             t_arr = app.rotation_stack.gui{n}.Position(:, t_dim);
-                            t_val = max(t_arr) + scale_val;
+                            t_val = max(t_arr) + event.delta;
                             app.rotation_stack.gui{n}.Position(t_arr == max(t_arr), t_dim) = t_val;
+                        end
+                    end
+
+                case 'rotate'
+                    R = [cosd(event.theta), -sind(event.theta); sind(event.theta), cosd(event.theta)];
+
+                    roi_center = mean(app.rotation_stack.roi.Position, 1);
+                    app.rotation_stack.roi.Position = ((app.rotation_stack.roi.Position - roi_center) * R') + roi_center;
+
+                    for n = 1:length(app.rotation_stack.gui)
+                        if ~isa(app.rotation_stack.gui{n}, 'images.roi.Freehand')
+                            app.rotation_stack.gui{n}.Position(1:2) = ((app.rotation_stack.gui{n}.Position(1:2) - roi_center) * R') + roi_center;
+                            set(app.rotation_stack.gui{n}, 'Rotation', app.rotation_stack.gui{n}.Rotation - event.theta);
+                        else
+                            app.rotation_stack.gui{n}.Position = ((app.rotation_stack.gui{n}.Position - roi_center) * R') + roi_center;
                         end
                     end
             end
         end
 
         function trigger(app, event)
-            origin = app.mouse.pos(1);
-            delta_debt = 0;
-            cct = 1;
+            event = Program.GUIHandling.event2struct(event);
+            event.Source.Color = [0 1 1];
 
-            while cct
-                c_diff = app.mouse.pos(1) - origin + delta_debt;
-                delta_debt = delta_debt - c_diff;
+            switch event.Source.String
+                case '⦝'
+                    event.theta = 90;
+                    Program.rotation_gui.update(app, event, 'rotate')
+    
+                case '⦬'
+                    event.theta = 45;
+                    Program.rotation_gui.update(app, event, 'rotate')
+    
+                case 'OK'
+                    Program.rotation_gui.preview_output(app, app.rotation_stack.roi, app.rotation_stack.roi.Parent);
+    
+                case 'X'
+                    Program.rotation_gui.close(app);
 
-                if c_diff ~=0 | ~strcmp(event.symbol, '↺')
-                    switch event.symbol
+                otherwise
+
+                    switch event.Source.String
                         case '↺'
-                            theta = c_diff/4;
-                        case '⦝'
-                            theta = 90;
-                        case '⦬'
-                            theta = 45;
-
+                            variable = 'theta';
+                            factor = 1/3.5;
+                            mode = 'rotate';
                         case Program.rotation_gui.symbols.out_gui
-                            Program.rotation_gui.update(app, event, 'scale')
-                            return
-
-                        case 'OK'
-                            Program.rotation_gui.preview_output(app, event.roi, event.roi.Parent);
-                            return
-
-                        case 'X'
-                            Program.rotation_gui.close(app);
+                            variable = 'delta';
+                            factor = 1;
+                            mode = 'scale';
+                        otherwise
                             return
                     end
 
-                    R = [cosd(theta), -sind(theta); sind(theta), cosd(theta)];
+                    cct = 1;
+                    d_sync = 0;
+                    set(app.CELL_ID, 'Pointer', 'custom', 'PointerShapeCData', NaN(16,16))
 
-                    roi_center = mean(event.roi.Position, 1);
-                    event.roi.Position = ((event.roi.Position - roi_center) * R') + roi_center;
+                    while cct
+                        if any(app.mouse.drag.delta ~= 0) && any(d_sync ~= app.mouse.drag.debt)
+                            event.(variable) = app.mouse.drag.delta(1)*factor;
+                            Program.rotation_gui.update(app, event, mode)
+                        end
 
-                    for n = 1:length(app.rotation_stack.gui)
-                        if ~isa(app.rotation_stack.gui{n}, 'images.roi.Freehand')
-                            app.rotation_stack.gui{n}.Position(1:2) = ((app.rotation_stack.gui{n}.Position(1:2) - roi_center) * R') + roi_center;
-                            set(app.rotation_stack.gui{n}, 'Rotation', app.rotation_stack.gui{n}.Rotation - theta);
-                        else
-                            app.rotation_stack.gui{n}.Position = ((app.rotation_stack.gui{n}.Position - roi_center) * R') + roi_center;
+                        d_sync = app.mouse.drag.debt;
+                        pause(0.03)
+
+                        if ~app.mouse.state
+                            cct = 0;
                         end
                     end
-                end
-
-                drawnow;
-
-                if strcmp(event.symbol, '↺') & app.mouse.state
-                    cct = 1;
-                else
-                    cct = 0;
-                end
+                    set(app.CELL_ID, 'Pointer', 'arrow')
             end
+
+            event.Source.Color = 'white';
         end
 
         function preview_output(app, roi, ax)
@@ -263,9 +280,15 @@ classdef rotation_gui
             stacks = fieldnames(app.rotation_stack);
 
             for s=1:length(stacks)
-                stack = app.rotation_stack.(stacks{s});
-                for n=1:length(stack)
-                    delete(stack{n})
+                stack_name = stacks{s};
+                stack = app.rotation_stack.(stack_name);
+
+                if length(stack) > 1
+                    for n=1:length(stack)
+                        delete(stack{n})
+                    end
+                else
+                    delete(stack)
                 end
             end
         end

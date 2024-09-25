@@ -303,20 +303,39 @@ classdef GUIHandling
             hWin.executeJS(js_code);
         end
 
-
-        function mouse_poll(app, state)
+        function mouse_poll(app, click_state)
             app.mouse.pos = get(app.CELL_ID, 'CurrentPoint');
+            clicked = exist('click_state', 'var');
 
-            if exist('state', 'var')
-                app.mouse.state = state;
+            if clicked
+                app.mouse.state = click_state;
+                app.mouse.drag = struct( ...
+                    'origin', {app.mouse.pos}, ...
+                    'delta', {[0 0]}, ...
+                    'debt', {[0 0]});
+
+            elseif app.mouse.state
+                app.mouse.drag.delta = app.mouse.pos - app.mouse.drag.origin + app.mouse.drag.debt;
+                app.mouse.drag.debt = app.mouse.drag.debt - app.mouse.drag.delta;
+
+            elseif ~isempty(app.mouse.drag)
+                app.mouse.drag.debt = [0 0];
             end
         end
 
+        function event_struct = event2struct(varargin)
+            fields = properties(varargin{:});
+            
+            for i = 1:length(fields)
+                fieldName = fields{i};
+                event_struct.(fieldName) = varargin{:}.(fieldName);
+            end
+        end
 
         function drag_manager(app, mode, event)
             % Manages all click & drag events.
 
-            if app.DisplayNeuronActivityMenu.Checked == 1
+            if app.DisplayNeuronActivityMenu.Checked == 1W
                 pos = get(app.CELL_ID, 'CurrentPoint');
                 switch mode
                     case 'down'
