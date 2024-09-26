@@ -15,17 +15,13 @@ classdef rotation_gui
     end
     
     methods (Static)
-        function edges = get_edges(app, pos_array)
-            if exist('pos_array', 'var')
-                edges = [min(pos_array) max(pos_array)];
-            else
-                edges = [min(app.rotation_stack.roi.Position) max(app.rotation_stack.roi.Position)];
-            end
-        end
 
         function draw(app, roi)
-            if ~isa(roi, 'images.roi.Freehand')
+            Program.rotation_gui.close(app);
+            
+            if ~isa(roi, 'images.roi.Freehand') || strcmp(roi.Tag, 'redraw') 
                 app.rotation_stack.roi = Program.GUIHandling.rect_to_freehand(roi);
+                app.rotation_stack.cache.(app.VolumeDropDown.Value) = struct('angle', {0});
             end
 
             axes = app.rotation_stack.roi.Parent;
@@ -117,6 +113,13 @@ classdef rotation_gui
         function update(app, event, mode)
             switch mode
                 case 'move'
+                    %{
+                    old_corners = Program.rotation_gui.get_edges(app, event.PreviousPosition);
+                    new_corners = Program.rotation_gui.get_edges(app, event.CurrentPosition);
+        
+                    xy_diff = old_corners(3:-1:2) - new_corners(3:-1:2);
+                    %}
+
                     [~, tr_idx] = max(event.PreviousPosition(:,1) + event.PreviousPosition(:,2) * 1e-6);
                     old_tr = event.PreviousPosition(tr_idx, :);
         
@@ -138,17 +141,18 @@ classdef rotation_gui
                     roi_edges = Program.rotation_gui.get_edges(app);
                     nogui_edges = [roi_edges(2) roi_edges(4)];
                         
-                    app.rotation_stack.roi.Position(:, t_dim) = app.rotation_stack.roi.Position(:, t_dim) + event.delta;
+                    app.rotation_stack.roi.Position(:, t_dim) = app.rotation_stack.roi.Position(:, t_dim) + event.variable;
                     if ~ismember(event.Source.Position(t_dim), nogui_edges)
                         for n = 1:length(app.rotation_stack.gui)
                             t_arr = app.rotation_stack.gui{n}.Position(:, t_dim);
-                            t_val = max(t_arr) + event.delta;
+                            t_val = max(t_arr) + event.variable;
                             app.rotation_stack.gui{n}.Position(t_arr == max(t_arr), t_dim) = t_val;
                         end
                     end
 
                 case 'rotate'
-                    R = [cosd(event.theta), -sind(event.theta); sind(event.theta), cosd(event.theta)];
+                    app.rotation_stack.cache.(app.VolumeDropDown.Value).angle = app.rotation_stack.cache.(app.VolumeDropDown.Value).angle + event.variable;
+                    R = [cosd(event.variable), -sind(event.variable); sind(event.variable), cosd(event.variable)];
 
                     roi_center = mean(app.rotation_stack.roi.Position, 1);
                     app.rotation_stack.roi.Position = ((app.rotation_stack.roi.Position - roi_center) * R') + roi_center;
@@ -156,7 +160,7 @@ classdef rotation_gui
                     for n = 1:length(app.rotation_stack.gui)
                         if ~isa(app.rotation_stack.gui{n}, 'images.roi.Freehand')
                             app.rotation_stack.gui{n}.Position(1:2) = ((app.rotation_stack.gui{n}.Position(1:2) - roi_center) * R') + roi_center;
-                            set(app.rotation_stack.gui{n}, 'Rotation', app.rotation_stack.gui{n}.Rotation - event.theta);
+                            set(app.rotation_stack.gui{n}, 'Rotation', app.rotation_stack.gui{n}.Rotation - event.variable);
                         else
                             app.rotation_stack.gui{n}.Position = ((app.rotation_stack.gui{n}.Position - roi_center) * R') + roi_center;
                         end
@@ -170,28 +174,28 @@ classdef rotation_gui
 
             switch event.Source.String
                 case '⦝'
-                    event.theta = 90;
+                    event.variable = 90;
                     Program.rotation_gui.update(app, event, 'rotate')
     
                 case '⦬'
-                    event.theta = 45;
+                    event.variable = 45;
                     Program.rotation_gui.update(app, event, 'rotate')
     
                 case 'OK'
-                    Program.rotation_gui.preview_output(app, app.rotation_stack.roi, app.rotation_stack.roi.Parent);
+                    Program.rotation_gui.preview_output(app);
+                    return
     
                 case 'X'
                     Program.rotation_gui.close(app);
+                    return
 
                 otherwise
 
                     switch event.Source.String
                         case '↺'
-                            variable = 'theta';
                             factor = 1/3.5;
                             mode = 'rotate';
                         case Program.rotation_gui.symbols.out_gui
-                            variable = 'delta';
                             factor = 1;
                             mode = 'scale';
                         otherwise
@@ -204,7 +208,7 @@ classdef rotation_gui
 
                     while cct
                         if any(app.mouse.drag.delta ~= 0) && any(d_sync ~= app.mouse.drag.debt)
-                            event.(variable) = app.mouse.drag.delta(1)*factor;
+                            event.variable = app.mouse.drag.delta(1)*factor;
                             Program.rotation_gui.update(app, event, mode)
                         end
 
@@ -215,82 +219,72 @@ classdef rotation_gui
                             cct = 0;
                         end
                     end
+                    
                     set(app.CELL_ID, 'Pointer', 'arrow')
             end
 
             event.Source.Color = 'white';
         end
 
-        function preview_output(app, roi, ax)
-            % Get the current image from the axes
-            imgHandle = findobj(ax, 'Type', 'image');
-            img = imgHandle.CData;
-            imgXData = imgHandle.XData;
-            imgYData = imgHandle.YData;
+        function edges = get_edges(app, pos_array)
+            % Retrieve edges based on input position array or ROI position
+            if nargin > 1 && ~isempty(pos_array)
+                edges = [min(pos_array), max(pos_array)];
+            else
+                edges = [min(app.rotation_stack.roi.Position), max(app.rotation_stack.roi.Position)];
+            end
+        end
         
-            % Get the ROI corners (top-right, top-left, bottom-right, bottom-left)
-            corners = roi.Position;
-        
-            % Calculate the angle of the top and bottom lines to detect rotation
-            topLine = corners(1, :) - corners(2, :);
-            bottomLine = corners(3, :) - corners(4, :);
-        
-            % Average of the angles of both lines (we assume ROI should be axis-aligned)
-            angleTop = atan2(topLine(2), topLine(1));
-            angleBottom = atan2(bottomLine(2), bottomLine(1));
-            avgAngle = (angleTop + angleBottom) / 2;
-        
-            % Compute the center of the ROI for rotation reference
-            centerX = mean(corners(:, 1));
-            centerY = mean(corners(:, 2));
-            rotationAngle = -avgAngle * 180 / pi; % Convert radians to degrees for imrotate
-        
-            % Rotate the image around the center of the ROI
-            rotatedImg = imrotate(img, rotationAngle, 'bilinear', 'crop');
-        
-            % Rotate the ROI corners
-            rotMatrix = [cos(avgAngle), -sin(avgAngle); sin(avgAngle), cos(avgAngle)];
-            rotatedCorners = (corners - [centerX, centerY]) * rotMatrix' + [centerX, centerY];
-        
-            % Define the bounding box for the rotated ROI (axis-aligned)
-            xMin = max(min(rotatedCorners(:, 1)), imgXData(1));
-            xMax = min(max(rotatedCorners(:, 1)), imgXData(2));
-            yMin = max(min(rotatedCorners(:, 2)), imgYData(1));
-            yMax = min(max(rotatedCorners(:, 2)), imgYData(2));
-        
-            % Crop the rotated image to the bounding box
-            croppedImg = rotatedImg(round(yMin:yMax), round(xMin:xMax), :);
-        
-            % Update the image data on the axes
-            set(imgHandle, 'CData', croppedImg);
-            set(imgHandle, 'XData', [xMin, xMax]);
-            set(imgHandle, 'YData', [yMin, yMax]);
-        
-            % Adjust the axes limits to zoom into the cropped image
-            xlim(ax, [xMin, xMax]);
-            ylim(ax, [yMin, yMax]);
-            set(ax, 'DataAspectRatio', [1, 1, 1]);
+        function processed_img = apply_mask(app, img)
+            mask = app.rotation_stack.cache.(app.VolumeDropDown.Value).mask;
 
-            for n = 1:length(app.proc_rotation_gui.rotation_stack)
-                delete(app.proc_rotation_gui.rotation_stack{n});
+            rotated_mask = imrotate(mask, app.rotation_stack.cache.(app.VolumeDropDown.Value).angle);
+            nonzero_rows = squeeze(any(any(rotated_mask, 2), 3));
+            nonzero_columns = squeeze(any(any(rotated_mask, 1), 3));
+            
+            top_edge = find(nonzero_rows, 1, 'first');
+            bottom_edge = find(nonzero_rows, 1, 'last');
+            left_edge = find(nonzero_columns, 1, 'first');
+            right_edge = find(nonzero_columns, 1, 'last');
+
+            rotated_img = imrotate(img, app.rotation_stack.cache.(app.VolumeDropDown.Value).angle);
+            processed_img = rotated_img(top_edge:bottom_edge, left_edge:right_edge, :);
+        end
+        
+        function preview_output(app)
+            target_axes = app.rotation_stack.roi.Parent;
+            app.rotation_stack.cache.(app.VolumeDropDown.Value).mask = createMask(app.rotation_stack.roi);
+            preview_img = Program.rotation_gui.apply_mask(app, getimage(target_axes));
+            
+            image(target_axes, preview_img);
+            target_axes.XLim = [1, size(preview_img, 2)];
+            target_axes.YLim = [1, size(preview_img, 1)];
+            
+            user_choice = uiconfirm(app.CELL_ID, "Apply this crop?", "NeuroPAL_ID", "Options", ...
+                                    ["Yes", "Return to cropping", "Cancel cropping"]);
+
+            Program.rotation_gui.close(app);
+            switch user_choice
+                case "Yes"
+                    Program.GUIHandling.proc_save_prompt(app, 'crop');
+                    
+                case "Return to cropping"
+                    Program.GUIHandling.crop_routine(app);
+                    return;
+                    
+                case "Cancel cropping"
+                    return;
             end
         end
 
         function close(app)
-            stacks = fieldnames(app.rotation_stack);
+            delete(app.rotation_stack.roi);
 
-            for s=1:length(stacks)
-                stack_name = stacks{s};
-                stack = app.rotation_stack.(stack_name);
+            cellfun(@delete, app.rotation_stack.gui);
+            app.rotation_stack.gui = {};
 
-                if length(stack) > 1
-                    for n=1:length(stack)
-                        delete(stack{n})
-                    end
-                else
-                    delete(stack)
-                end
-            end
+            cellfun(@delete, app.rotation_stack.listeners);
+            app.rotation_stack.listeners = {};
         end
 
     end

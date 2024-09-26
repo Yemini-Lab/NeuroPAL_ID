@@ -68,25 +68,16 @@ classdef ChunkyMethods
                     slice(:, :, :, RGBW(1:3)) = Methods.run_histmatch(slice, RGBW);
                     output_slice = Methods.Preprocess.zscore_frame(slice);     
                 case 'crop'
-                    switch app.VolumeDropDown.Value
-                        case 'Colormap'
-                            crop_roi = app.volume_crop_roi;
-                        case 'Video'
-                            crop_roi = app.video_crop_roi;
-                    end
-
-                    left_crop = round(crop_roi(1));
-                    right_crop = round(crop_roi(1)+crop_roi(3));
-                    top_crop = round(crop_roi(2));
-                    bottom_crop = round(crop_roi(2)+crop_roi(4));
-
-                    output_slice = slice(top_crop:bottom_crop, left_crop:right_crop, :, :);
+                    output_slice = Program.rotation_gui.apply_mask(app, slice);
 
                 case 'hori'
                     output_slice = slice(:,end:-1:1,end:-1:1,:,:);
 
                 case 'vert'
                     output_slice = slice(end:-1:1,:,end:-1:1,:,:);
+
+                case 'rotate'
+                    output_slice = rotate(slice, app.RotateSlider.Value);
 
                 case 'cc'
                     temp_slice = permute(slice, [2,1,3,4]);

@@ -722,6 +722,35 @@ classdef GUIHandling
             end
         end
 
+        function crop_routine(app)
+            mip_flag = 0;
+
+            if ~app.ProcShowMIPCheckBox.Value
+                app.ProcShowMIPCheckBox.Value = 1;
+            end
+
+            frame = Methods.ChunkyMethods.load_proc_image(app);
+            image(frame.xy, 'Parent', app.proc_xyAxes);
+            
+            if app.ProcPreviewZslowCheckBox.Value
+                image(flipud(rot90(frame.yz)), 'Parent', app.proc_xzAxes);
+                image(frame.xz, 'Parent', app.proc_yzAxes);
+            end
+
+            drawnow;
+
+            Program.GUIHandling.gui_lock(app, 'lock', 'processing_tab');
+            check = uiconfirm(app.CELL_ID, "Draw a bounding box on the volume to crop the image.", "NeuroPAL_ID", "Options", ["OK", "Cancel"]);
+            if ~strcmp(check, "OK")
+                return
+            end
+
+            roi = drawrectangle(app.proc_xyAxes,'Color','black','StripeColor','m');
+            Program.GUIHandling.gui_lock(app, 'unlock', 'processing_tab');
+
+            Program.rotation_gui.draw(app, roi);
+        end
+
         function swap_volumes(app, event)
             if ~exist('event', 'var')
                 mode = Program.GUIHandling.get_active_volume(app, 'request', 'state');
@@ -1052,18 +1081,25 @@ classdef GUIHandling
 
 
         function freehand_roi = rect_to_freehand(roi)
-            xmin = roi.Position(1);
-            ymin = roi.Position(2);
-            width = roi.Position(3);
-            height = roi.Position(4);
+            if ~isa(roi, 'images.roi.Freehand')
+                xmin = roi.Position(1);
+                ymin = roi.Position(2);
+                width = roi.Position(3);
+                height = roi.Position(4);
+                
+                tr = [xmin + width, ymin];
+                tl = [xmin, ymin];
+                bl = [xmin, ymin + height];
+                br = [xmin + width, ymin + height];
+    
+                fh_pos = [tr; tl; bl; br];
+            else
+                fh_pos = roi.Position;
+            end
 
-            tr = [xmin + width, ymin];
-            tl = [xmin, ymin];
-            bl = [xmin, ymin + height];
-            br = [xmin + width, ymin + height];
-
-            freehand_roi = images.roi.Freehand(roi.Parent, 'Position', [tr; tl; bl; br], ...
+            freehand_roi = images.roi.Freehand(roi.Parent, 'Position', fh_pos, ...
                 'FaceAlpha', 0.4, 'Color', [0.1 0.1 0.1], 'StripeColor', 'm', 'InteractionsAllowed', 'translate', 'Tag', 'rot_roi');
+
             delete(roi)
         end
 
