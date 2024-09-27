@@ -70,7 +70,8 @@ classdef rotation_gui
                 app.rotation_stack.gui{end+1} = text(axes, symbol_x, symbol_y, symbol, ...
                     'Color', color, ...
                     'FontName', 'MonoSpace', 'FontSize', font_size, 'FontWeight', 'bold', ...
-                    'ButtonDownFcn', @(src, event) Program.rotation_gui.trigger(app, event));
+                    'ButtonDownFcn', @(src, event) Program.rotation_gui.trigger(app, event), ...
+                    'Tag', 'rot_symbol');
             end
 
             % Construct scaling symbols
@@ -96,12 +97,14 @@ classdef rotation_gui
                 app.rotation_stack.gui{end+1} = text(axes, x1, y1, scale, ...
                     'Color', 'white', ...
                     'FontName', 'MonoSpace', 'FontSize', Program.rotation_gui.settings.font_size*2, ...
-                    'ButtonDownFcn', @(src, event) Program.rotation_gui.trigger(app, event));
+                    'ButtonDownFcn', @(src, event) Program.rotation_gui.trigger(app, event), ...
+                    'Tag', num2str(n));
             
                 app.rotation_stack.gui{end+1} = text(axes, x2, y2, scale, ...
                     'Color', 'white', ...
                     'FontName', 'MonoSpace', 'FontSize', Program.rotation_gui.settings.font_size*2, ...
-                    'ButtonDownFcn', @(src, event) Program.rotation_gui.trigger(app, event));
+                    'ButtonDownFcn', @(src, event) Program.rotation_gui.trigger(app, event), ...
+                    'Tag', num2str(n+2));
             end
 
             app.rotation_stack.listeners{end+1} = addlistener(app.rotation_stack.roi, 'MovingROI', @(src, event) Program.rotation_gui.update(app, event, 'move'));
@@ -113,13 +116,6 @@ classdef rotation_gui
         function update(app, event, mode)
             switch mode
                 case 'move'
-                    %{
-                    old_corners = Program.rotation_gui.get_edges(app, event.PreviousPosition);
-                    new_corners = Program.rotation_gui.get_edges(app, event.CurrentPosition);
-        
-                    xy_diff = old_corners(3:-1:2) - new_corners(3:-1:2);
-                    %}
-
                     [~, tr_idx] = max(event.PreviousPosition(:,1) + event.PreviousPosition(:,2) * 1e-6);
                     old_tr = event.PreviousPosition(tr_idx, :);
         
@@ -138,17 +134,42 @@ classdef rotation_gui
 
                 case 'scale'
                     t_dim = find(strcmp(event.Source.String, Program.rotation_gui.symbols.out_gui));
-                    roi_edges = Program.rotation_gui.get_edges(app);
-                    nogui_edges = [roi_edges(2) roi_edges(4)];
-                        
-                    app.rotation_stack.roi.Position(:, t_dim) = app.rotation_stack.roi.Position(:, t_dim) + event.variable;
-                    if ~ismember(event.Source.Position(t_dim), nogui_edges)
-                        for n = 1:length(app.rotation_stack.gui)
-                            t_arr = app.rotation_stack.gui{n}.Position(:, t_dim);
-                            t_val = max(t_arr) + event.variable;
-                            app.rotation_stack.gui{n}.Position(t_arr == max(t_arr), t_dim) = t_val;
+                    target_edge = str2double(event.Source.Tag);
+                    theta = app.rotation_stack.cache.(app.VolumeDropDown.Value).angle;
+
+                    switch target_edge
+                        case 1
+                            target_corners = 2:3;
+                        case 2
+                            target_corners = 1:2;
+                        case 3
+                            target_corners = [1 4];
+                        case 4
+                            target_corners = 3:4;                          
+                    end
+
+                    roi_center = mean(app.rotation_stack.roi.Position, 1);
+                    roi_rot = Program.GUIHandling.flat_rotate(app.rotation_stack.roi.Position, -theta, roi_center);
+                    roi_rot(target_corners, t_dim) = roi_rot(target_corners, t_dim) + event.variable * (1 - 2 * (t_dim==2));
+                    roi_rot = Program.GUIHandling.flat_rotate(roi_rot, theta, roi_center);
+                    roi_diff = roi_rot - app.rotation_stack.roi.Position;
+
+                    app.rotation_stack.roi.Position = app.rotation_stack.roi.Position + roi_diff;
+
+                    scale_delta = roi_diff(target_corners(t_dim), :);
+                    for n = 1:length(app.rotation_stack.gui)
+                        if isscalar(app.rotation_stack.gui{n}.Tag)
+                            if strcmp(app.rotation_stack.gui{n}.String, event.Source.String)
+                                app.rotation_stack.gui{n}.Position(:, 1:2) = app.rotation_stack.gui{n}.Position(:, 1:2) + scale_delta * (str2double(app.rotation_stack.gui{n}.Tag)==target_edge);
+                            else
+                                app.rotation_stack.gui{n}.Position(:, 1:2) = app.rotation_stack.gui{n}.Position(:, 1:2) + scale_delta/2;
+                            end
+                            continue
+                        elseif any(ismember(target_edge, [2, 3]))
+                            app.rotation_stack.gui{n}.Position(:, 1:2) = app.rotation_stack.gui{n}.Position(:, 1:2) + roi_diff(1, :);
                         end
                     end
+
 
                 case 'rotate'
                     app.rotation_stack.cache.(app.VolumeDropDown.Value).angle = app.rotation_stack.cache.(app.VolumeDropDown.Value).angle + event.variable;
@@ -193,10 +214,12 @@ classdef rotation_gui
 
                     switch event.Source.String
                         case '↺'
+                            drag_direction = 1;
                             factor = 1/3.5;
                             mode = 'rotate';
                         case Program.rotation_gui.symbols.out_gui
-                            factor = 1;
+                            drag_direction = find(ismember(Program.rotation_gui.symbols.out_gui, event.Source.String));
+                            factor = 1.5;
                             mode = 'scale';
                         otherwise
                             return
@@ -208,7 +231,7 @@ classdef rotation_gui
 
                     while cct
                         if any(app.mouse.drag.delta ~= 0) && any(d_sync ~= app.mouse.drag.debt)
-                            event.variable = app.mouse.drag.delta(1)*factor;
+                            event.variable = app.mouse.drag.delta(drag_direction)*factor;
                             Program.rotation_gui.update(app, event, mode)
                         end
 
@@ -232,6 +255,23 @@ classdef rotation_gui
                 edges = [min(pos_array), max(pos_array)];
             else
                 edges = [min(app.rotation_stack.roi.Position), max(app.rotation_stack.roi.Position)];
+            end
+        end
+
+        function corners = get_corners(app, pos_array)
+            if nargin > 1 && ~isempty(pos_array)
+                corners = struct( ...
+                    'tr', pos_array(1, :), ... 
+                    'tl', pos_array(2, :), ...
+                    'bl', pos_array(3, :), ...
+                    'br', pos_array(4, :));
+                
+            else
+                corners = struct( ...
+                    'tr', app.rotation_stack.roi.Position(1, :), ... 
+                    'tl', app.rotation_stack.roi.Position(2, :), ...
+                    'bl', app.rotation_stack.roi.Position(3, :), ...
+                    'br', app.rotation_stack.roi.Position(4, :));
             end
         end
         

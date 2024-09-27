@@ -1278,6 +1278,26 @@ classdef GUIHandling
                 'neurons', neurons);
         end
 
+        function rot_pos = flat_rotate(pos, theta, offset)
+            if ~exist('offset', 'var') || max(offset, [], 'all') == 0
+                offset = zeros(size(pos));
+            end
+
+            R = [cosd(theta), -sind(theta); sind(theta), cosd(theta)];
+
+            if iscell(pos)
+                rot_pos = cellfun(@(x) Program.GUIHandling.flat_rotate(x, theta, offset), pos, 'UniformOutput', false);
+            else
+                c_spec_dim = size(offset, 2);
+                if size(pos, 2) > c_spec_dim
+                    pos(1:2) = ((pos(1:2) - offset) * R') + offset;
+                    rot_pos = pos;
+                else
+                    rot_pos = ((pos - offset) * R') + offset;
+                end
+            end
+        end
+
 
         function package = cache(mode, label, contents)
             label = string(label);
