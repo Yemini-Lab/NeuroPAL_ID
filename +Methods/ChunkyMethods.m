@@ -18,14 +18,17 @@ classdef ChunkyMethods
 
             switch action
                 case 'crop'
-                    new_dims = og_dims;
+                    rotated_mask = imrotate(app.rotation_stack.cache.(app.VolumeDropDown.Value).mask, app.rotation_stack.cache.(app.VolumeDropDown.Value).angle);
+                    nonzero_rows = squeeze(any(any(rotated_mask, 2), 3));
+                    nonzero_columns = squeeze(any(any(rotated_mask, 1), 3));
+                    
+                    top_edge = find(nonzero_rows, 1, 'first');
+                    bottom_edge = find(nonzero_rows, 1, 'last');
+                    left_edge = find(nonzero_columns, 1, 'first');
+                    right_edge = find(nonzero_columns, 1, 'last');
 
-                    switch app.VolumeDropDown.Value
-                        case 'Colormap'
-                            new_dims(1:2) = [app.volume_crop_roi(4)+1 app.volume_crop_roi(3)+1];
-                        case 'Video'
-                            new_dims(1:2) = [app.video_crop_roi(4)+1 app.video_crop_roi(3)+1];
-                    end
+                    new_dims = og_dims;
+                    new_dims(1:2) = [bottom_edge-top_edge+1, right_edge-left_edge+1];
 
                 case 'ds'
                     new_dims = og_dims;
