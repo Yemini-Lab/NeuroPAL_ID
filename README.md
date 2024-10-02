@@ -6,36 +6,21 @@
 
 ![GenImg](https://i.imgur.com/wpz7LKf.png)
 
-[![CC BY-NC-SA 4.0][cc-by-nc-sa-shield]][cc-by-nc-sa]
+![GitHub contributors](https://img.shields.io/github/contributors-anon/Yemini-Lab/NeuroPAL_ID)
+ ![GitHub commit activity](https://img.shields.io/github/commit-activity/m/Yemini-Lab/NeuroPAL_ID) ![GitHub Issues or Pull Requests](https://img.shields.io/github/issues/Yemini-Lab/NeuroPAL_ID)                   
+ ![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/Yemini-Lab/NeuroPAL_ID/total) [![CC BY-NC-SA 4.0][cc-by-nc-sa-shield]][cc-by-nc-sa] 
 
+### Authors
 
----
+<a href="https://github.com/Yemini-Lab/NeuroPAL_ID/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=Yemini-Lab/NeuroPAL_ID" />
+</a>
+                 
+\+ **Venkatachalam Lab:** James Yu, Vivek Venkatachalam,  Maedeh Seyedolmohadesin.       
+\+ **Kimura Lab:** Chentao Wen, Koutarou D Kimura.
 
-
-#### Table of Contents
-
-1. **Background**
-    1. Paper
-    2. Authors
-    3. Related Publications
-3. **Installation**
-    1. User Mode
-    2. Developer Mode
-4. **Usage Guide**
-    1. Main GUI
-    2. Image Manipulation
-    3. Neuron Segmentation
-    4. Working with NWB files
-        1. Loading NWB files
-        2. Loading Activity
-        3. Loading Videos
-        4. Saving NWB files
-    5. Technical Details
-5. **Further Reading**
-    1. Manuals
-    2. References
-    3. Images & Datasets
-6. **Licensing**
+Made with [contrib.rocks](https://contrib.rocks).
+Please review our [contributors page](https://github.com/Yemini-Lab/NeuroPAL_ID/graphs/contributors) for more information.
 
 ---
 
@@ -50,33 +35,6 @@ For further details regarding the experimental set up and the methodology involv
 ```
 @article{PMID:33378642, Title= {NeuroPAL: A Multicolor Atlas for Whole-Brain Neuronal Identification in C.&nbsp;elegans}, Author= {Yemini, Eviatar and Lin, Albert and Nejatbakhsh, Amin and Varol, Erdem and Sun, Ruoxi and Mena, Gonzalo E and Samuel, Aravinthan D T and Paninski, Liam and Venkatachalam, Vivek and Hobert, Oliver}, DOI= {10.1016/j.cell.2020.12.012}, Number= {1}, Volume= {184}, Month= {January}, Year= {2021}, Journal= {Cell}, ISSN= {0092-8674}, Pages= {272—288.e11}, URL= {https://doi.org/10.1016/j.cell.2020.12.012}}
 ```
-
-### Authors
-
-This program is the result of the combined efforts of the following people:
-
-- Eviatar Yemini
-- Amin Nejabakhsh
-- Erdem Varol
-- Kevin Rusch
-- Gonzalo Mena
-- Matt Creamer
-- Albert Lin
-- Ruoxi Sun
-- Aravinthan D. T. Samuel
-- Liam Paninski
-- Oliver Hobert
-
-Venkatachalam Lab:
-- James Yu
-- Vivek Venkatachalam
-- Maedeh Seyedolmohadesin
-
-Kimura Lab:
-- Chentao Wen
-- Koutarou D Kimura
-
-Please review our [contributors page](https://github.com/Yemini-Lab/NeuroPAL_ID/graphs/contributors) for more information.
 
 ### Related Publications
 
