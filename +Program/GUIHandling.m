@@ -589,6 +589,49 @@ classdef GUIHandling
             end
         end
 
+        function target_path = get_dir(target)
+            if isdeployed
+                parent_path = Program.GUIPreferences.instance().image_dir;
+            else
+                parent_path = fullfile(pwd, 'win_visualize', 'for_redistribution_files_only', 'lib');
+            end
+
+            switch target
+                case "addon"
+                    target_path = fullfile(parent_path, "add-ons");
+                case "image"
+                    target_path = Program.GUIPreferences.instance().image_dir;
+                case "working directory"
+                    target_path = ctfroot;
+            end
+        end
+
+        function component = create_component(parent, type, layout)
+            switch type
+                case "Button"
+                    component = uibutton(parent, 'push');
+                    component.BackgroundColor = [1 0 0];
+                    component.FontColor = [1 1 1];
+
+                case "Label"
+                    component = uilabel(parent);
+                    component.HorizontalAlignment = 'center';
+
+                case "TextArea"
+                    component = uitextarea(parent);
+
+                case "NumField"
+                    component = uieditfield(parent, 'numeric');
+                    component.Editable = 'on';
+                    component.HorizontalAlignment = 'center';
+            end
+
+            if isa(parent, "grid") && exist('layout', 'var')
+                component.Layout.Row = layout(1);
+                component.Layout.Column = layout(2);
+            end
+        end
+
         function package = get_active_volume(app, varargin)
             package = struct('state', {{}}, 'dims', {[]}, 'array', {[]}, 'coords', {[]});
             
