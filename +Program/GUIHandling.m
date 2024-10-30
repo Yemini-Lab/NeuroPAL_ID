@@ -589,6 +589,14 @@ classdef GUIHandling
             end
         end
 
+        function [x, y, z, c, t] = get_proc_selection(app)
+            x = app.proc_xSlider.Value;
+            y = min(max(round(app.proc_xSlider.Value), 1), app.proc_xSlider.Limits(2));
+            z = min(max(round(app.proc_zSlider.Value), 1), app.proc_zSlider.Limits(2));
+            c = Program.GUIHandling.check_channels(app);
+            t = app.proc_tSlider.Value;
+        end
+
         function package = get_active_volume(app, varargin)
             package = struct('state', {{}}, 'dims', {[]}, 'array', {[]}, 'coords', {[]});
             
@@ -600,12 +608,9 @@ classdef GUIHandling
             parse(p, app, varargin{:});
 
             package = p.Results.package;
-            
-            x = app.proc_xSlider.Value;
-            y = min(max(round(app.proc_xSlider.Value), 1), app.proc_xSlider.Limits(2));
-            z = min(max(round(app.proc_zSlider.Value), 1), app.proc_zSlider.Limits(2));
-            c = Program.GUIHandling.check_channels(app);
-            t = app.proc_tSlider.Value;
+
+            is_lazy = Program.GUIPreferences.instance().is_lazy;
+            [x, y, z, c, t] = Program.GUIHandling.get_proc_selection(app);
 
             if isempty(p.Results.coords)
                 package.coords = [x y z t];
@@ -637,7 +642,11 @@ classdef GUIHandling
                     if app.ProcShowMIPCheckBox.Value
                         switch app.VolumeDropDown.Value
                             case 'Colormap'
-                                slice = app.proc_image.data(:, :, :, c);
+                                if is_lazy
+                                    slice = DataHandling.Lazy.file.get_channel(c);
+                                else
+                                    slice = app.proc_image.data(:, :, :, c);
+                                end
                             case 'Video'
                                 slice = app.retrieve_frame(package.coords(4));
                                 slice = slice(:, :, :, c);
@@ -645,7 +654,11 @@ classdef GUIHandling
                     else
                         switch app.VolumeDropDown.Value
                             case 'Colormap'
-                                slice = app.proc_image.data(:, :, package.coords(3), c);
+                                if is_lazy
+                                    slice = DataHandling.Lazy.file.get_plane('z', package.coords(3), 'c', c);
+                                else
+                                    slice = app.proc_image.data(:, :, package.coords(3), c);
+                                end
                             case 'Video'
                                 slice = app.retrieve_frame(package.coords(4));
                                 slice = slice(:, :, package.coords(3), c);

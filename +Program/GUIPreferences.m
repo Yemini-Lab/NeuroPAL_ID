@@ -26,6 +26,7 @@ classdef GUIPreferences < handle
         % Display info.
         GFP_color = [1,1,0]; % GFP reporter color for GUI
         neuron_dot; % neuron dot info: (un)selected marker + line sizes
+        is_lazy = 0; % are we presently lazy loading?
         is_show_birth_times = false; % show the neuron birth times?
         is_auto_name = true; % auto-complete neuron names?
         is_autoID_updates = true; % auto-update neuron IDs?
