@@ -597,6 +597,12 @@ classdef GUIHandling
             t = app.proc_tSlider.Value;
         end
 
+        function set(parameter, state)
+            GUI_prefs = Program.GUIPreferences.instance();
+            GUI_prefs.(parameter) = state;
+            GUI_prefs.save();
+        end
+
         function package = get_active_volume(app, varargin)
             package = struct('state', {{}}, 'dims', {[]}, 'array', {[]}, 'coords', {[]});
             
