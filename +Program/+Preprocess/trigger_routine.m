@@ -51,30 +51,26 @@ function [outputArg1,outputArg2] = trigger_routine(path)
             app.VolumeDropDown.Items = {app.VolumeDropDown.Items 'Colormap'};
         end
 
-        mat_file = fullfile(filepath, [name, '.mat']);
-        
-        if ~isfile(mat_file)
-            [app.image_data, app.image_info, app.image_prefs, ~, ~, ~, ~, ~] = DataHandling.NeuroPALImage.open(path);
-            chan_order = ['1',  '2', '3', '4', '5', '6'];
-            gammas = [1 1 1 1 1 1];
-            app.proc_image = matfile(mat_file);
-    
+        if ~strcmp(ext, 'mat')
+            filepath = Program.Preprocess.create_cache_file(filepath);
+        elseif isfile(strrep(path, ext, '.mat'))
+            filepath = strrep(path, ext, '.mat');
+        end
+
+        app.proc_image = fullfile(filepath);
+        app.proc_image = matfile(mat_file);
+        prefs = app.proc_image.prefs;
+
+        if ~isempty(prefs.RGBW)
+            chan_order = string(prefs.RGBW);
         else
-            app.proc_image = matfile(mat_file);
-            prefs = app.proc_image.prefs;
-    
-            if ~isempty(prefs.RGBW)
-                chan_order = string(prefs.RGBW);
-            else
-                chan_order = ['1',  '2', '3', '4', '5', '6'];
-            end
-            
-            if size(prefs.gamma) < 3 
-                gammas = [1 1 1 1 1 1];
-            else
-                gammas = prefs.gamma;
-            end
-    
+            chan_order = ['1',  '2', '3', '4', '5', '6'];
+        end
+        
+        if size(prefs.gamma) < 3 
+            gammas = [1 1 1 1 1 1];
+        else
+            gammas = prefs.gamma;
         end
     
         vol_size = size(app.proc_image, 'data');

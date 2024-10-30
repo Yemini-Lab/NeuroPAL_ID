@@ -25,8 +25,7 @@ function [code, sys, f_size] = check_size(filepath)
     check = uiconfirm(Program.GUIHandling.app, msg, "Warning!", "Options", ["Yes, preprocess.", "No, toggle lazy loading.", "No, cancel."]);
     switch check
         case "Yes, preprocess."
-            cache_file = Program.Preprocess.create_cache_file(filepath);
-            Program.Preprocess.trigger_routine(cache_file);
+            Program.Preprocess.trigger_routine(filepath);
         case "No, toggle lazy loading."
             Program.GUIHandling.set('is_lazy', 1);
         case "No, cancel."
