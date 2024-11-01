@@ -1,15 +1,14 @@
-function [outputArg1,outputArg2] = trigger_routine(path)
+function trigger_routine(path)
+    app = Program.GUIHandling.app();
     d = uiprogressdlg(app.CELL_ID,"Title","NeuroPAL ID","Message","Initializing Processing Tab...",'Indeterminate','off');    
     app.flags = struct();
     app.rotation_stack.cache = struct('Colormap', {{}}, 'Video', {{}});
     
-    [filepath, name, ext] = fileparts(path);
+    [filepath, ~, ext] = fileparts(path);
 
     if app.TabGroup.SelectedTab == app.VideoTrackingTab
+        Program.GUIHandling.enable_volume('Video');
         app.video_path = path;
-        if ~any(ismember(app.VolumeDropDown.Items, 'Video'))
-            app.VolumeDropDown.Items{end+1} = 'Video';
-        end
 
         if strcmp(ext, '.h5')
             app.load_h5(path);
@@ -47,12 +46,12 @@ function [outputArg1,outputArg2] = trigger_routine(path)
         set(app.PlaceholderProcTimeline, 'Visible', 'on');
 
     else
-        if ~any(ismember(app.VolumeDropDown.Items, 'Colormap'))
-            app.VolumeDropDown.Items = {app.VolumeDropDown.Items 'Colormap'};
-        end
+        Program.GUIHandling.enable_volume('Colormap');
 
         if ~strcmp(ext, 'mat')
-            filepath = Program.Preprocess.create_cache_file(filepath);
+            DataHandling.Lazy.file.is_lazy(1);
+            DataHandling.Lazy.file.read(filepath);
+            [filepath, ~] = DataHandling.Lazy.file.create_cache(filepath);
         elseif isfile(strrep(path, ext, '.mat'))
             filepath = strrep(path, ext, '.mat');
         end

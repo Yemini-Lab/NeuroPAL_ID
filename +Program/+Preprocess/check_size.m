@@ -14,7 +14,7 @@ function [code, sys, f_size] = check_size(filepath)
     if f_size > sys.PhysicalMemory.Available
         code = 1;
         msg = "Your volume exceeds remaining free memory. We strongly recommend preprocessing your file to avoid memory issues and slow processing times.\nPreprocess now?";
-    elseif f_size > Program.preprocess.max_size
+    elseif f_size > Program.GUIPreferences.max_size
         code = 2;
         msg = "Your volume exceeds the soft working limit of 100 mb. We strongly recommend preprocessing your file to avoid memory issues and slow processing times.\nPreprocess now?";
     else
@@ -22,7 +22,7 @@ function [code, sys, f_size] = check_size(filepath)
         return
     end
 
-    check = uiconfirm(Program.GUIHandling.app, msg, "Warning!", "Options", ["Yes, preprocess.", "No, toggle lazy loading.", "No, cancel."]);
+    check = uiconfirm(Program.GUIHandling.window_fig, msg, "Warning!", "Options", ["Yes, preprocess.", "No, toggle lazy loading.", "No, cancel."]);
     switch check
         case "Yes, preprocess."
             Program.Preprocess.trigger_routine(filepath);

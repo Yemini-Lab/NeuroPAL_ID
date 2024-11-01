@@ -10,6 +10,7 @@ classdef GUIPreferences < handle
         % Preferences file info.
         prefs_dir = ''; %'NeuroPAL_ID/appdata/';
         prefs_name = '.NeuroPAL_ID_prefs.mat';
+        max_size = 13e7;
     end
     
     % User GUI properties.

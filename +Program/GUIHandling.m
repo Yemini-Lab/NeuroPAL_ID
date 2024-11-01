@@ -589,6 +589,49 @@ classdef GUIHandling
             end
         end
 
+        function is_present = check_traceback(query)
+            call_stack = dbstack;
+
+            if iscell(query)
+                for q=1:length(query)
+                    if check_traceback(query{q})
+                        is_present = 1;
+                        return
+                    end
+                end
+            end
+
+            is_present = contains(call_stack, query);
+        end
+
+        function handle = window_fig()
+            persistent window_handle
+            
+            if isempty(window_handle) || ~isgraphics(window_handle)
+                window_handle = findall(groot, 'Name','NeuroPAL ID');
+            end
+
+            handle = window_handle;
+        end
+
+        function handle = app()
+            persistent app_handle
+
+            if isempty(app_handle) || ~isa(app_handle, "handle") && ~isvalid(app_handle)
+                window_handle = Program.GUIHandling.window_fig();
+                app_handle = window_handle.RunningAppInstance;
+            end
+
+            handle = app_handle;
+        end
+
+        function enable_volume(type)
+            app = Program.GUIHandling.app();
+            if ~any(ismember(app.VolumeDropDown.Items, type))
+                app.VolumeDropDown.Items{end+1} = type;
+            end
+        end
+
         function [x, y, z, c, t] = get_proc_selection(app)
             x = app.proc_xSlider.Value;
             y = min(max(round(app.proc_xSlider.Value), 1), app.proc_xSlider.Limits(2));

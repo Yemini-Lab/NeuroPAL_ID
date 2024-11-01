@@ -1,38 +1,50 @@
 classdef file
-    %FILE_HANDLER Summary of this class goes here
-    %   Detailed explanation goes here
-    
+
     properties
-        current_file;           % Currently loaded file. Reader object if lazy loaded, otherwise array.
-        is_lazy;                % Flag indicating whether the file is being handled in chunks.
-        fmt;                    % File extension without a leading period (i.e. "nwb", not ".nwb").
     end
     
-    methods
-        function code = read(file, lazy_flag)
-            if ~exist('lazy_flag', 'var')
-                [DataHandling.file.is_lazy, ~, ~] = Program.preprocess.check_memory(file);
-            else
-                DataHandling.file.is_lazy = lazy_flag;
-            end
-
-            [~, ~, ext] = fileparts(file); ext = ext(2:end);
-            helper = DataHandling.file.get_helper(ext);
-            [f_obj, f_metadata] = DataHandling.(helper).open(file);
-
-            DataHandling.file.current_file = f_obj;
-            DataHandling.file.metadata(f_metadata);
-            DataHandling.file.fmt = ext;
-        end
-
-        function package = metadata(reset)
+    methods (Static)
+        function package = current_file(new_file)
             persistent instance
 
-            if ~exist('reset', 'var')
-                package = instance;
-            else
-                instance = reset;
+            if exist('new_file', 'var')
+                instance = new_file;
             end
+
+            package = instance;
+        end
+
+        function package = metadata(new_metadata)
+            persistent current_metadata
+
+            if exist('new_metadata', 'var')
+                new_metadata.is_video = new_metadata.nt > 1;
+                current_metadata = new_metadata;
+            end
+
+            package = current_metadata;
+        end
+
+        function flag = is_lazy(state)
+            persistent lazy_state
+
+            if exist('state', 'var')
+                lazy_state = state;
+            elseif isempty(lazy_state)
+                lazy_state = 0;
+            end
+
+            flag = lazy_state;
+        end
+
+        function read(path)
+            [~, ~, ext] = fileparts(path); ext = ext(2:end);
+            helper = DataHandling.Lazy.file.get_helper(ext);
+            [f_obj, f_metadata] = DataHandling.(helper).open(path);
+            f_metadata.fmt = ext;
+
+            DataHandling.Lazy.file.current_file = f_obj;
+            DataHandling.Lazy.file.metadata(f_metadata);
         end
 
         function dims = get_dims(order)
@@ -41,14 +53,15 @@ classdef file
             end
 
             dims = [];
-            for n=1:length(DataHandling.file.metadata().order)
+            for n=1:length(DataHandling.Lazy.file.metadata().order)
                 dims = [dims, dims.(sprintf("n%s", order{n}))];
             end
         end
 
         function helper = get_helper(ext)
             if ~exist('ext', 'var')
-                ext = DataHandling.file.fmt;
+                f_metadata = DataHandling.Lazy.file.metadata();
+                ext = f_metadata.fmt;
             end
 
             helper = sprintf("Helpers.%s", ext);
@@ -58,37 +71,46 @@ classdef file
         end
 
         function arr = get_channel(c)
-            helper = DataHandling.file.get_helper;
+            helper = DataHandling.Lazy.file.get_helper;
             arr = DataHandling.(helper).get_plane('c', c);
         end
 
         function arr = get_slice(z)
-            helper = DataHandling.file.get_helper;
+            helper = DataHandling.Lazy.file.get_helper;
             arr = DataHandling.(helper).get_plane('z', z);
         end
 
         function arr = get_frame(t)
-            helper = DataHandling.file.get_helper;
+            helper = DataHandling.Lazy.file.get_helper;
             arr = DataHandling.(helper).get_plane('t', t);
         end
 
         function arr = get_plane(varargin)
-            helper = DataHandling.file.get_helper;
-            f_metadata = DataHandling.file.metadata();
+            helper = DataHandling.Lazy.file.get_helper;
             arr = DataHandling.(helper).get_plane(varargin);
         end
 
-        function [f_path, f_obj] = create_cache(data_flag)
-            metadata = DataHandling.file.metadata();
+        function [f_path, f_obj] = create_cache(write_data_flag)
+            metadata = DataHandling.Lazy.file.metadata();
+
+            window_fig = Program.GUIHandling.window_fig();
+            d = uiprogressdlg(window_fig, "Message", "Reading metadata...", "Indeterminate", "off");
 
             f_obj = struct( ...
                 'version', Program.ProgramInfo.version, ...
                 'Writable', true);
 
+            %{
             dic = Program.channel_handler.has_dic;
             gfp = Program.channel_handler.has_gfp;
             rgbw = Program.channel_handler.get('rgbw');
             gammas = Program.channel_handler.get('gammas');
+            %}
+
+            dic = metadata.has_dic;
+            gfp = metadata.has_gfp;
+            rgbw = metadata.rgbw;
+            gammas = 1;
 
             f_obj.info = struct( ...
                 'file', metadata.path, ...
@@ -106,37 +128,25 @@ classdef file
                 'gamma', gammas, ...
                 'lazy', 1);
             
-            f_path = strrep(metadata.path, DataHandling.file.fmt, 'mat');
+            f_path = strrep(metadata.path, metadata.fmt, 'mat');
             save(f_path, "f_obj", "-struct", '-v7.0');
-
 
             h_write = matfile(f_path);
             h_write.data = zeros([metadata.ny, metadata.nx, metadata.nz, metadata.nc, metadata.nt], metadata.bit_depth);
 
-            if exist('data_flag', 'var')
-                if is_video
-                    for t=1:metadata.nt
-                        h_write.data(:, :, :, :, t) = DataHandling.file.get_frame(t);
-                    end
-                    
-                else
-                    for z=1:metadata.nz
-                        h_write.data(:, :, z, :) = DataHandling.file.get_slice(z);
-                    end
-
+            d.Message = "Writing cache file...";
+            if metadata.is_video
+                for t=1:metadata.nt
+                    d.Value = t/metadata.nt;
+                    h_write.data(:, :, :, :, t) = DataHandling.Lazy.file.get_frame(t);
                 end
-            end
-
-            DataHandling.file.cache_file = h_write;
-        end
-    end
-    
-    methods (Static)
-        function f_size = check_size         
-            if strcmp(DataHandling.file.fmt, 'nwb')
-                f_size = DataHandling.Helper.nwb.get_size;
+                
             else
-                f_size = dir(DataHandling.file.metadata().path).bytes;
+                for z=1:metadata.nz
+                    d.Value = z/metadata.nz;
+                    h_write.data(:, :, z, :) = DataHandling.Lazy.file.get_slice(z);
+                end
+
             end
         end
     end
