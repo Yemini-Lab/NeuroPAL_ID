@@ -617,7 +617,7 @@ classdef GUIHandling
         function handle = app()
             persistent app_handle
 
-            if isempty(app_handle) || ~isa(app_handle, "handle") && ~isvalid(app_handle)
+            if isempty(app_handle) || isa(app_handle, "handle") && ~isvalid(app_handle)
                 window_handle = Program.GUIHandling.window_fig();
                 app_handle = window_handle.RunningAppInstance;
             end

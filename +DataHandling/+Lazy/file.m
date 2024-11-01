@@ -41,9 +41,10 @@ classdef file
             [~, ~, ext] = fileparts(path); ext = ext(2:end);
             helper = DataHandling.Lazy.file.get_helper(ext);
             [f_obj, f_metadata] = DataHandling.(helper).open(path);
+            [~, f_metadata.ml_bit_depth] = DataHandling.Types.getMATLABDataType(f_metadata.bit_depth);
             f_metadata.fmt = ext;
 
-            DataHandling.Lazy.file.current_file = f_obj;
+            DataHandling.Lazy.file.current_file(f_obj);
             DataHandling.Lazy.file.metadata(f_metadata);
         end
 
@@ -65,7 +66,7 @@ classdef file
             end
 
             helper = sprintf("Helpers.%s", ext);
-            if ~isfile(sprintf("+DataHandling\%s.m", helper))
+            if ~isfile(sprintf("+DataHandling\\+Helpers\\%s.m", ext))
                 error("No helper script available for %s file format.", ext);
             end
         end
@@ -90,7 +91,7 @@ classdef file
             arr = DataHandling.(helper).get_plane(varargin);
         end
 
-        function [f_path, f_obj] = create_cache(write_data_flag)
+        function [f_path, f_obj] = create_cache()
             metadata = DataHandling.Lazy.file.metadata();
 
             window_fig = Program.GUIHandling.window_fig();
@@ -129,10 +130,10 @@ classdef file
                 'lazy', 1);
             
             f_path = strrep(metadata.path, metadata.fmt, 'mat');
-            save(f_path, "f_obj", "-struct", '-v7.0');
+            save(f_path, "-struct", "f_obj", '-v7.3');
 
-            h_write = matfile(f_path);
-            h_write.data = zeros([metadata.ny, metadata.nx, metadata.nz, metadata.nc, metadata.nt], metadata.bit_depth);
+            h_write = matfile(f_path, "Writable", true);
+            h_write.data = zeros(metadata.ny, metadata.nx, metadata.nz, metadata.nc, metadata.nt, sprintf('uint%.f', metadata.ml_bit_depth));
 
             d.Message = "Writing cache file...";
             if metadata.is_video

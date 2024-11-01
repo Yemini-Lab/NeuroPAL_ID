@@ -50,8 +50,8 @@ function trigger_routine(path)
 
         if ~strcmp(ext, 'mat')
             DataHandling.Lazy.file.is_lazy(1);
-            DataHandling.Lazy.file.read(filepath);
-            [filepath, ~] = DataHandling.Lazy.file.create_cache(filepath);
+            DataHandling.Lazy.file.read(path);
+            [filepath, ~] = DataHandling.Lazy.file.create_cache();
         elseif isfile(strrep(path, ext, '.mat'))
             filepath = strrep(path, ext, '.mat');
         end
