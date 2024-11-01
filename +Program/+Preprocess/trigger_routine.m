@@ -48,7 +48,7 @@ function trigger_routine(path)
     else
         Program.GUIHandling.enable_volume('Colormap');
 
-        if ~strcmp(ext, 'mat')
+        if ~strcmp(ext, '.mat')
             DataHandling.Lazy.file.is_lazy(1);
             DataHandling.Lazy.file.read(path);
             [filepath, ~] = DataHandling.Lazy.file.create_cache();
@@ -56,8 +56,7 @@ function trigger_routine(path)
             filepath = strrep(path, ext, '.mat');
         end
 
-        app.proc_image = fullfile(filepath);
-        app.proc_image = matfile(mat_file);
+        app.proc_image = matfile(filepath);
         prefs = app.proc_image.prefs;
 
         if ~isempty(prefs.RGBW)
@@ -218,7 +217,7 @@ function trigger_routine(path)
     
     d.Value = 5 / 5;
     d.Message = sprintf('Drawing image...');
-    app.drawProcImage();
+    Methods.ChunkyMethods.load_proc_image(app);
     
     app.ImageProcessingTab.Tag = 'rendered';
     set(app.ProcessingButton, 'Visible', 'off');
@@ -233,7 +232,7 @@ function trigger_routine(path)
             app.ProcCropImageButtonPushed([]);
             Program.GUIHandling.gui_lock(app, 'unlock', 'processing_tab');
         case "No, skip cropping."
-            app.drawProcImage();
+            Methods.ChunkyMethods.load_proc_image(app);
             Program.GUIHandling.gui_lock(app, 'unlock', 'processing_tab');
     end
     

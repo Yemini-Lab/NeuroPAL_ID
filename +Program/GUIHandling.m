@@ -632,10 +632,24 @@ classdef GUIHandling
             end
         end
 
+        function t = current_frame()
+            [~, ~, ~, ~, t] = Program.GUIHandling.get_proc_selection();
+        end
+
         function [x, y, z, c, t] = get_proc_selection(app)
+            if ~exist('app', 'var')
+                app = Program.GUIHandling.app();
+            end
+
             x = app.proc_xSlider.Value;
             y = min(max(round(app.proc_xSlider.Value), 1), app.proc_xSlider.Limits(2));
-            z = min(max(round(app.proc_zSlider.Value), 1), app.proc_zSlider.Limits(2));
+
+            if app.ProcShowMIPCheckBox.Value
+                z = min(max(round(app.proc_zSlider.Value), 1), app.proc_zSlider.Limits(2));
+            else
+                z = app.proc_zSlider.Limits(1):app.proc_zSlider.Limits(2);
+            end
+
             c = Program.GUIHandling.check_channels(app);
             t = app.proc_tSlider.Value;
         end

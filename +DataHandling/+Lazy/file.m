@@ -135,17 +135,19 @@ classdef file
             h_write = matfile(f_path, "Writable", true);
             h_write.data = zeros(metadata.ny, metadata.nx, metadata.nz, metadata.nc, metadata.nt, sprintf('uint%.f', metadata.ml_bit_depth));
 
-            d.Message = "Writing cache file...";
+            d.Message = "Constructing cache file...";
             if metadata.is_video
                 for t=1:metadata.nt
                     d.Value = t/metadata.nt;
-                    h_write.data(:, :, :, :, t) = DataHandling.Lazy.file.get_frame(t);
+                    write_class = class(h_write.data(1, 1, 1, 1, 1));
+                    h_write.data(:, :, :, :, t) = cast(DataHandling.Lazy.file.get_frame(t), write_class);
                 end
                 
             else
                 for z=1:metadata.nz
                     d.Value = z/metadata.nz;
-                    h_write.data(:, :, z, :) = DataHandling.Lazy.file.get_slice(z);
+                    write_class = class(h_write.data(1, 1, 1, 1));
+                    h_write.data(:, :, z, :) = cast(DataHandling.Lazy.file.get_slice(z), write_class);
                 end
 
             end

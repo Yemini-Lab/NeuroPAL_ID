@@ -37,17 +37,53 @@ classdef nd2
 
         function obj = get_plane(varargin)
             metadata = DataHandling.Lazy.file.metadata;
-
+            t = Program.GUIHandling.current_frame;
+        
             p = inputParser;
             addOptional(p, 'x', 1:metadata.nx);
             addOptional(p, 'y', 1:metadata.ny);
             addOptional(p, 'z', 1:metadata.nz);
             addOptional(p, 'c', 1:metadata.nc);
-            addOptional(p, 't', 1:metadata.nt);
-            parse(p, app, varargin{:});
-
-            file = DataHandling.Lazy.file.current_file;
-            obj = file.getPlane(p.Results.x, p.Results.y, p.Results.z, p.Results.c, p.Results.t);
+            addOptional(p, 't', t);
+            parse(p, varargin{:});
+        
+            file = DataHandling.Lazy.file.current_file;  % Current file's reader object.
+        
+            % Zero-based origins
+            x0 = min(p.Results.x);
+            y0 = min(p.Results.y);
+        
+            % Correct width and height calculations
+            width = max(p.Results.x);
+            height = max(p.Results.y);
+        
+            % Determine the number of planes
+            numZ = numel(p.Results.z);
+            numC = numel(p.Results.c);
+            numT = numel(p.Results.t);
+        
+            % Preallocate obj as a multidimensional array
+            obj = zeros(height, width, numZ, numC, numT, 'like', metadata.ml_bit_depth);
+        
+            % Loop over all combinations of z, c, t
+            for idxZ = 1:numZ
+                for idxC = 1:numC
+                    for idxT = 1:numT
+                        z = p.Results.z(idxZ);
+                        c = p.Results.c(idxC);
+                        t = p.Results.t(idxT);
+        
+                        % Calculate plane index (1-indexed)
+                        planeIndex = file.getIndex(z - 1, c - 1, t - 1) + 1;
+        
+                        % Retrieve the plane
+                        plane = bfGetPlane(file, planeIndex, x0, y0, width, height);
+        
+                        % Store the plane in the multidimensional array
+                        obj(:, :, idxZ, idxC, idxT) = plane;
+                    end
+                end
+            end
         end
     end
 end
