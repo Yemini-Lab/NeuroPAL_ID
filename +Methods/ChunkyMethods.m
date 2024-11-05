@@ -66,7 +66,9 @@ classdef ChunkyMethods
             
             switch action
                 case 'zscore'
+                    og_class = class(slice);
                     output_slice = Methods.Preprocess.zscore_frame(slice); 
+                    output_slice = cast(output_slice, og_class);
                 case 'histmatch'
                     slice(:, :, :, RGBW(1:3)) = Methods.run_histmatch(slice, RGBW);
                     output_slice = Methods.Preprocess.zscore_frame(slice);     

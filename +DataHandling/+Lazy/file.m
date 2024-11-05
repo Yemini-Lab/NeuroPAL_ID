@@ -37,6 +37,18 @@ classdef file
             flag = lazy_state;
         end
 
+        function flag = is_video(state)
+            persistent video_state
+
+            if exist('state', 'var')
+                video_state = state;
+            elseif isempty(video_state)
+                video_state = 0;
+            end
+
+            flag = video_state;
+        end
+
         function read(path)
             [~, ~, ext] = fileparts(path); ext = ext(2:end);
             helper = DataHandling.Lazy.file.get_helper(ext);
@@ -133,20 +145,19 @@ classdef file
             save(f_path, "-struct", "f_obj", '-v7.3');
 
             h_write = matfile(f_path, "Writable", true);
-            h_write.data = zeros(metadata.ny, metadata.nx, metadata.nz, metadata.nc, metadata.nt, sprintf('uint%.f', metadata.ml_bit_depth));
+            write_class = sprintf('uint%.f', metadata.ml_bit_depth);
+            h_write.data = zeros(metadata.ny, metadata.nx, metadata.nz, metadata.nc, metadata.nt, write_class);
 
             d.Message = "Constructing cache file...";
             if metadata.is_video
                 for t=1:metadata.nt
                     d.Value = t/metadata.nt;
-                    write_class = class(h_write.data(1, 1, 1, 1, 1));
                     h_write.data(:, :, :, :, t) = cast(DataHandling.Lazy.file.get_frame(t), write_class);
                 end
                 
             else
                 for z=1:metadata.nz
                     d.Value = z/metadata.nz;
-                    write_class = class(h_write.data(1, 1, 1, 1));
                     h_write.data(:, :, z, :) = cast(DataHandling.Lazy.file.get_slice(z), write_class);
                 end
 

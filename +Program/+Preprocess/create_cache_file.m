@@ -10,7 +10,7 @@ function cache_file = create_cache_file(filepath)
     md = DataHandling.Lazy.file.metadata;
     
     mf = matfile(cache_file, 'Writable', true);
-    mf.data = zeros([md.ny, md.nx, md.nz, md.nc, md.nt], md.bitDepth);
+    mf.data = zeros([md.ny, md.nx, md.nz, md.nc, md.nt], md.ml_bit_depth);
 
     if md.nt >= 2
         for t = 1:md.nt
