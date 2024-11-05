@@ -54,6 +54,7 @@ classdef file
             helper = DataHandling.Lazy.file.get_helper(ext);
             [f_obj, f_metadata] = DataHandling.(helper).open(path);
             [~, f_metadata.ml_bit_depth] = DataHandling.Types.getMATLABDataType(f_metadata.bit_depth);
+            [f_metadata.channels, f_metadata.hash_channels] = DataHandling.(helper).get_channels(f_obj);
             f_metadata.fmt = ext;
 
             DataHandling.Lazy.file.current_file(f_obj);

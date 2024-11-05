@@ -8,7 +8,7 @@ classdef nd2
         name_substr = 'Global Name #'; 
     end
     
-    methods (Static)
+    methods (Static, Access = public)
         function [obj, metadata] = open(file)
             f = bfGetReader(file);
 
@@ -33,6 +33,15 @@ classdef nd2
                 obj = obj{1};
             end
 
+        end
+
+        function [names, hash_names] = get_channels(file)
+            names = {};
+            for c=1:file.getSizeC
+                names{end+1} = file.getMetadataStore.getChannelName(0, c - 1);
+            end
+
+            hash_names = DataHandling.Helpers.nd2.get_keys(file, DataHandling.Helpers.nd2.name_substr);
         end
 
         function obj = get_plane(varargin)
@@ -84,6 +93,39 @@ classdef nd2
                     end
                 end
             end
+        end
+    end
+
+    methods (Static, Access = private)
+        function obj = get_keys(file, query, scope)
+            [globals, series] = DataHandling.Helpers.nd2.parse_keys(file);
+            keys = struct('globals', {fieldnames(globals)}, 'series', {fieldnames(series)});
+            
+            if ~exist('scope', 'var')
+                obj = struct( ...
+                    'globals', {DataHandling.Helpers.nd2.get_keys(file, query, 'globals')}, ...
+                    'series', {DataHandling.Helpers.nd2.get_keys(file, query, 'series')});
+                return
+            end
+
+            target_keys = keys.(scope);
+            idx = contains(target_keys, DataHandling.Helpers.java.to_valid(query));
+            str = string(target_keys(idx));
+            order = string({str{end:-1:1}});
+
+            switch scope
+                case 'globals'
+                    values = string(cellfun(@(x)globals.get(x), order, 'UniformOutput', false));
+                case 'series'
+                    values = string(cellfun(@(x)series.get(x), order, 'UniformOutput', false));
+            end
+
+            obj = values(values~="NA");
+        end
+
+        function [globals, series] = parse_keys(file)
+            globals = DataHandling.Helpers.java.parse_hashtable(file.getGlobalMetadata);
+            series =  DataHandling.Helpers.java.parse_hashtable(file.getSeriesMetadata);
         end
     end
 end
