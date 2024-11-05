@@ -645,9 +645,9 @@ classdef GUIHandling
             y = min(max(round(app.proc_xSlider.Value), 1), app.proc_xSlider.Limits(2));
 
             if app.ProcShowMIPCheckBox.Value
-                z = min(max(round(app.proc_zSlider.Value), 1), app.proc_zSlider.Limits(2));
-            else
                 z = app.proc_zSlider.Limits(1):app.proc_zSlider.Limits(2);
+            else
+                z = min(max(round(app.proc_zSlider.Value), 1), app.proc_zSlider.Limits(2));
             end
 
             c = Program.GUIHandling.check_channels(app);
