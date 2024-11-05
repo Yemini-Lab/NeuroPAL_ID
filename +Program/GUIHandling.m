@@ -3,6 +3,8 @@ classdef GUIHandling
 
     %% Public variables.
     properties (Constant, Access = public)
+        standard_class = 'uint16';
+
         channel_names = {'r', 'g', 'b', 'w', 'dic', 'gfp', ...
             'red', 'green', 'blue', 'white', 'DIC', 'GFP'};
 
@@ -669,12 +671,9 @@ classdef GUIHandling
             addOptional(p, 'coords', []);
             addOptional(p, 'package', package);
             parse(p, app, varargin{:});
-
             package = p.Results.package;
 
-            is_lazy = Program.GUIPreferences.instance().is_lazy;
             [x, y, z, c, t] = Program.GUIHandling.get_proc_selection(app);
-
             if isempty(p.Results.coords)
                 package.coords = [x y z t];
             elseif length(p.Results.coords) < 3
@@ -705,11 +704,7 @@ classdef GUIHandling
                     if app.ProcShowMIPCheckBox.Value
                         switch app.VolumeDropDown.Value
                             case 'Colormap'
-                                if is_lazy
-                                    slice = DataHandling.Lazy.file.get_channel(c);
-                                else
-                                    slice = app.proc_image.data(:, :, :, c);
-                                end
+                                slice = app.proc_image.data(:, :, :, c);
                             case 'Video'
                                 slice = app.retrieve_frame(package.coords(4));
                                 slice = slice(:, :, :, c);
@@ -717,11 +712,7 @@ classdef GUIHandling
                     else
                         switch app.VolumeDropDown.Value
                             case 'Colormap'
-                                if is_lazy
-                                    slice = DataHandling.Lazy.file.get_plane('z', package.coords(3), 'c', c);
-                                else
-                                    slice = app.proc_image.data(:, :, package.coords(3), c);
-                                end
+                                slice = app.proc_image.data(:, :, package.coords(3), c);
                             case 'Video'
                                 slice = app.retrieve_frame(package.coords(4));
                                 slice = slice(:, :, package.coords(3), c);

@@ -217,7 +217,7 @@ function trigger_routine(path)
     
     d.Value = 5 / 5;
     d.Message = sprintf('Drawing image...');
-    Methods.ChunkyMethods.load_proc_image(app);
+    app.drawProcImage();
     
     app.ImageProcessingTab.Tag = 'rendered';
     set(app.ProcessingButton, 'Visible', 'off');
@@ -232,7 +232,7 @@ function trigger_routine(path)
             app.ProcCropImageButtonPushed([]);
             Program.GUIHandling.gui_lock(app, 'unlock', 'processing_tab');
         case "No, skip cropping."
-            Methods.ChunkyMethods.load_proc_image(app);
+            app.drawProcImage();
             Program.GUIHandling.gui_lock(app, 'unlock', 'processing_tab');
     end
     
