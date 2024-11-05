@@ -485,7 +485,7 @@ classdef ChunkyMethods
 
         function frame = load_proc_image(app)
             frame = struct('xy', {[]}, 'yz', {[]}, 'xz', {[]});
-            rgb = [str2num(app.ProcRDropDown.Value), str2num(app.ProcGDropDown.Value), str2num(app.ProcBDropDown.Value)];
+            rgb = Program.GUIHandling.get_rgb();
 
             % Grab current volume.
             raw = Program.GUIHandling.get_active_volume(app, 'request', 'all');

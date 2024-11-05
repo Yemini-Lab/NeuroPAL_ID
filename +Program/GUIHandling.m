@@ -719,11 +719,27 @@ classdef GUIHandling
                         end
                     end
 
+                    rgb = Program.GUIHandling.get_rgb();
+                    slice(:, :, :, 1:3) = slice(:, :, :, rgb);
                     package.array = slice;
 
                 case 'coords'
                     package.coords(1) = min(max(round(package.dims(1)-app.proc_ySlider.Value), 1), app.proc_ySlider.Limits(2));
 
+            end
+        end
+
+        function sync_channels(event)
+            app = Program.GUIHandling.app;
+            previous_value = event.PreviousValue;
+            new_value = event.Value;
+            channels = {app.ProcRDropDown, app.ProcGDropDown, app.ProcBDropDown, app.ProcWDropDown, app.ProcGFPDropDown, app.DICDropDown};
+
+            for c=1:length(channels)
+                channel = channels{c};
+                if channel ~= event.Source && channel.Value == new_value
+                    channel.Value = previous_value;
+                end
             end
         end
 
@@ -816,6 +832,11 @@ classdef GUIHandling
             Program.GUIHandling.gui_lock(app, 'unlock', 'processing_tab');
 
             Program.rotation_gui.draw(app, roi);
+        end
+
+        function rgb = get_rgb()
+            app = Program.GUIHandling.app;
+            rgb = [str2num(app.ProcRDropDown.Value), str2num(app.ProcGDropDown.Value), str2num(app.ProcBDropDown.Value)];
         end
 
         function swap_volumes(app, event)
