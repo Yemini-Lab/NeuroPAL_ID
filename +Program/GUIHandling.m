@@ -839,6 +839,11 @@ classdef GUIHandling
             rgb = [str2num(app.ProcRDropDown.Value), str2num(app.ProcGDropDown.Value), str2num(app.ProcBDropDown.Value)];
         end
 
+        function rgbw = get_rgbw()
+            app = Program.GUIHandling.app;
+            rgbw = [str2num(app.ProcRDropDown.Value), str2num(app.ProcGDropDown.Value), str2num(app.ProcBDropDown.Value), str2num(app.ProcWDropDown.Value)];
+        end
+
         function swap_volumes(app, event)
             if ~exist('event', 'var')
                 mode = Program.GUIHandling.get_active_volume(app, 'request', 'state');

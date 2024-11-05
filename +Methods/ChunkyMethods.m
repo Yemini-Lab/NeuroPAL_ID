@@ -62,16 +62,17 @@ classdef ChunkyMethods
 
         function output_slice = apply_slice(app, action, slice)
             % Apply operation to a slice.
-            RGBW = [str2num(app.ProcRDropDown.Value), str2num(app.ProcGDropDown.Value), str2num(app.ProcBDropDown.Value), str2num(app.ProcWDropDown.Value)];
+            RGBW = Program.GUIHandling.get_rgbw;
             
             switch action
                 case 'zscore'
-                    og_class = class(slice);
                     output_slice = Methods.Preprocess.zscore_frame(slice); 
-                    output_slice = cast(output_slice, og_class);
+                    %output_slice = Methods.ChunkyMethods.bare_zscore(slice); 
+
                 case 'histmatch'
                     slice(:, :, :, RGBW(1:3)) = Methods.run_histmatch(slice, RGBW);
-                    output_slice = Methods.Preprocess.zscore_frame(slice);     
+                    output_slice = Methods.Preprocess.zscore_frame(slice);   
+
                 case 'crop'
                     output_slice = Program.rotation_gui.apply_mask(app, slice);
 
@@ -138,7 +139,7 @@ classdef ChunkyMethods
                         slice = Methods.ChunkyMethods.apply_slice(app, action, slice);
     
                         % Update appropriate slice in cache array.
-                        processed_vol(:, :, z, :) = slice;
+                        processed_vol(:, :, z, :) = DataHandling.Types.to_standard(slice);
                     end
             end            
         end
@@ -483,6 +484,14 @@ classdef ChunkyMethods
             neurons = struct('positions', {positions}, 'labels', {labels});
         end
 
+        function z_arr = bare_zscore(arr)
+            z_arr = zeros(size(arr));
+            for ch = 1: size(arr,4)
+                data = arr(:,:,:,ch,:);
+                z_arr(:,:,:,ch,:) = (data-nanmean(data(:)))/nanstd(data(:));
+            end
+        end
+
         function frame = load_proc_image(app)
             frame = struct('xy', {[]}, 'yz', {[]}, 'xz', {[]});
             rgb = Program.GUIHandling.get_rgb();
@@ -521,14 +530,9 @@ classdef ChunkyMethods
             end
 
             % Apply processing operations.
-            actions = fieldnames(app.flags);
-            for a=1:length(actions)
-                action = actions{a};
-                if app.flags.(action) == 1
-                    raw.array = Methods.ChunkyMethods.apply_vol(app, action, raw.array);
-                end
-            end
+            raw.array = Program.Preprocess.apply_actions(raw.array);
 
+            % Update GUI.
             Program.GUIHandling.set_gui_limits(app, dims=raw.dims);
             Program.GUIHandling.histogram_handler(app, 'draw', raw.array);
             Program.GUIHandling.shorten_knob_labels(app);
