@@ -1,0 +1,13 @@
+function code = load_time_warning()
+    app = Program.GUIHandling.app();
+    window_fig = Program.GUIHandling.window_fig();
+
+    check = uiconfirm(window_fig, ...
+        'Depending on your computer, this may take a while. Are you sure you want to proceed?', ...
+        'Warning!', ...
+        'Options',{'Yes','No'}, ...
+        'DefaultOption','Yes');
+
+    code = strcmp(check, 'Yes');
+end
+
