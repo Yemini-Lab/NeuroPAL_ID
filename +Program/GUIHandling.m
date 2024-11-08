@@ -5,6 +5,12 @@ classdef GUIHandling
     properties (Constant, Access = public)
         standard_class = 'uint16';
 
+        state_keys = {
+            'is_mip', ...
+            'is_lazy', ...
+            'is_video', ...
+            'is_colormap'};
+
         channel_names = {'r', 'g', 'b', 'w', 'dic', 'gfp', ...
             'red', 'green', 'blue', 'white', 'DIC', 'GFP'};
 
@@ -443,6 +449,46 @@ classdef GUIHandling
             end
         end
 
+
+        function [sorted_names, permute_record] = sort_channels(channels)
+            channels = string(channels(:));
+            n_names = numel(channels);
+        
+            f_ch_names_lower = lower(channels);
+        
+            labels_order = keys(DataHandling.Lazy.file.fluorophore_mapping);
+        
+            labels = strings(n_names, 1);
+        
+            for j = 1:numel(labels_order)
+                key = labels_order{j};
+                synonyms = DataHandling.Lazy.file.fluorophore_mapping(key);
+                synonyms_lower = lower(string(synonyms{1}));
+        
+                is_match = ismember(f_ch_names_lower, synonyms_lower);
+                labels(is_match) = key;
+            end
+        
+            sorted_names = strings(0, 1);
+            permute_record = [];
+        
+            for j = 1:numel(labels_order)
+                key = labels_order{j};
+
+                idx = find(labels == key);
+
+                sorted_names = [sorted_names; channels(idx)];
+                permute_record = [permute_record; idx];
+            end
+        
+            unmatched_idx = find(labels == "");
+            if ~isempty(unmatched_idx)
+                sorted_names = [sorted_names; channels(unmatched_idx)];
+                permute_record = [permute_record; unmatched_idx];
+            end
+
+        end
+
         function activity_update_x_ticks(app, framerate)
             % Get the x-axis data
             xData = app.VolTrace.XData;
@@ -662,6 +708,50 @@ classdef GUIHandling
             GUI_prefs.save();
         end
 
+        function channel_states = active_channels()
+            app = Program.GUIHandling.app();
+            channel_states = [ ...
+                app.ProcRCheckBox.Value ...
+                app.ProcGCheckBox.Value ...
+                app.ProcBCheckBox.Value ...
+                app.ProcWCheckBox.Value ...
+                app.ProcGFPCheckBox.Value ...
+                app.ProcDICCheckBox.Value];
+            channel_states = logical(channel_states);
+        end
+
+        function state = is_mip()
+            app = Program.GUIHandling.app();
+            state = app.ProcShowMIPCheckBox.Value;
+        end
+
+        function RGBWGD_idx = ordered_channels()
+            app = Program.GUIHandling.app();
+            RGBWGD_idx = [ ...
+                str2num(strrep(app.ProcRDropDown.Value, '-', '0')) ...
+                str2num(strrep(app.ProcGDropDown.Value, '-', '0')) ...
+                str2num(strrep(app.ProcBDropDown.Value, '-', '0')) ...
+                str2num(strrep(app.ProcWDropDown.Value, '-', '0')) ...
+                str2num(strrep(app.ProcGFPDropDown.Value, '-', '0')) ...
+                str2num(strrep(app.ProcDICDropDown.Value, '-', '0'))];
+            RGBWGD_idx = RGBWGD_idx(RGBWGD_idx~=0);
+        end
+
+        function idx = render_channels()
+            cb_states = Program.GUIHandling.active_channels;
+            dim_order = DataHandling.Lazy.file.metadata.channels.order;
+            idx = dim_order(logical(cb_states(1:length(dim_order))));
+        end
+
+        function state = is_lazy()
+            state = 0;
+        end
+
+        function kind = volume_type()
+            app = Program.GUIHandling.app;
+            kind = app.VolumeDropDown.Value;
+        end
+
         function package = get_active_volume(app, varargin)
             package = struct('state', {{}}, 'dims', {[]}, 'array', {[]}, 'coords', {[]});
             
@@ -673,7 +763,8 @@ classdef GUIHandling
             parse(p, app, varargin{:});
             package = p.Results.package;
 
-            [x, y, z, c, t] = Program.GUIHandling.get_proc_selection(app);
+            [x, y, z, ~, t] = Program.GUIHandling.get_proc_selection(app);
+            c = Program.GUIHandling.render_channels;
             if isempty(p.Results.coords)
                 package.coords = [x y z t];
             elseif length(p.Results.coords) < 3
@@ -704,7 +795,8 @@ classdef GUIHandling
                     if app.ProcShowMIPCheckBox.Value
                         switch app.VolumeDropDown.Value
                             case 'Colormap'
-                                slice = app.proc_image.data(:, :, :, c);
+                                slice = app.proc_image.data(:, :, :, :);
+                                slice = slice(:, :, :, c);
                             case 'Video'
                                 slice = app.retrieve_frame(package.coords(4));
                                 slice = slice(:, :, :, c);
@@ -712,15 +804,14 @@ classdef GUIHandling
                     else
                         switch app.VolumeDropDown.Value
                             case 'Colormap'
-                                slice = app.proc_image.data(:, :, package.coords(3), c);
+                                slice = app.proc_image.data(:, :, package.coords(3), :);
+                                slice = slice(:, :, :, c);
                             case 'Video'
                                 slice = app.retrieve_frame(package.coords(4));
                                 slice = slice(:, :, package.coords(3), c);
                         end
                     end
 
-                    rgb = Program.GUIHandling.get_rgb();
-                    slice(:, :, :, 1:3) = slice(:, :, :, rgb);
                     package.array = slice;
 
                 case 'coords'

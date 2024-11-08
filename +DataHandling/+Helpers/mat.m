@@ -1,55 +1,76 @@
-classdef nd2
-    % ND2 Class for handling and extracting metadata and images from ND2 files.
+classdef mat
     
     properties
         % No properties defined for instances of this class. All properties are static or constant.
     end
     
     properties (Access = public, Constant)
-        % Constant properties for channel identification keys and naming convention.
-        channel_keys = {'ChannelName', 'ChannelOrder', 'ChannelCount', 'ChannelColor'}; % Keys used to identify channel metadata
-        name_substr = 'Global Name #'; % Base substring used to identify channel names globally
     end
     
     methods (Static, Access = public)
         function [obj, metadata] = open(file)
-            % OPEN Open an ND2 file, returning a reader object or image data and metadata.
-            %
-            % Parameters:
-            %   file - Path to the ND2 file.
-            %
-            % Returns:
-            %   obj - Reader object or image data depending on lazy loading status.
-            %   metadata - Struct containing metadata information for the file.
-
-            f = bfGetReader(file); % Initialize Bio-Formats reader with the file path.
+            f = matfile(file);
+            info = f.info;
 
             % Collect metadata details about the ND2 file
+            tdims = size(tfile, 'data');
             metadata = struct( ...
-                'path', {file}, ...
+                'path', {info.file}, ...
                 'order', {char(f.getDimensionOrder)}, ...
-                'nx', {f.getSizeX}, ...
-                'ny', {f.getSizeY}, ...
-                'nz', {f.getSizeZ}, ...
-                'nc', {f.getSizeC}, ...
-                'nt', {f.getSizeT}, ...
-                'has_dic', {1}, ... % Placeholder for differential interference contrast
-                'has_gfp', {1}, ... % Placeholder for GFP channel presence
-                'bit_depth', {f.getMetadataStore.getPixelsSignificantBits(0).getValue()}, ...
-                'rgbw', {[1 2 3 4]}, ...
-                'scale', {[0 0 0]});
+                'nx', {tdims(2)}, ...
+                'ny', {tdims(1)}, ...
+                'nz', {tdims(3)}, ...
+                'nc', {tdims(4)}, ...
+                'has_dic', {info.GFP}, ... % Placeholder for differential interference contrast
+                'has_gfp', {info.DIC}, ... % Placeholder for GFP channel presence
+                'bit_depth', {class(f.data)}, ...
+                'rgbw', {info.RGBW}, ...
+                'scale', {info.scale});
+
+            if length(tdims) > 4
+                metadata.nt = tdims(5);
+            else
+                metadata.nt = 1;
+            end
+
+            metadata.bit_depth = class(tfile.data);
+            metadata.bit_depth = str2num(metadata.bit_depth(5:end));
 
             % Load the file data or return a lazy reader object depending on the file handling mode
             if DataHandling.Lazy.file.is_lazy
                 obj = f; % Return lazy file reader if lazy loading is enabled.
             else
-                obj = bfOpen(file); % Load full file data.
-                obj = obj{1}; % Use the first item if the file contains a list.
+                obj = f.data; % Load full file data.
             end
 
         end
 
-        function [names, hash_names] = get_channels(file)
+        function metadata = load_metadata(file)
+            tdims = size(file, 'data');
+            info = file.info;
+
+            metadata = struct( ...
+                'path', {info.file}, ...
+                'nx', {tdims(2)}, ...
+                'ny', {tdims(1)}, ...
+                'nz', {tdims(3)}, ...
+                'nc', {tdims(4)}, ...
+                'has_dic', {info.GFP}, ... % Placeholder for differential interference contrast
+                'has_gfp', {info.DIC}, ... % Placeholder for GFP channel presence
+                'bit_depth', {class(file.data)}, ...
+                'rgbw', {info.RGBW}, ...
+                'scale', {info.scale});
+
+            if length(tdims) > 4
+                metadata.nt = tdims(5);
+            else
+                metadata.nt = 1;
+            end
+
+            metadata.channels = file.channels;
+        end
+
+        function names = get_channels(file)
             % GET_CHANNELS Retrieve channel names and hashed names from metadata.
             %
             % Parameters:
@@ -57,23 +78,9 @@ classdef nd2
             %
             % Returns:
             %   names - List of channel names.
-            %   hash_names - Hashed names based on specific queries.
 
-            names = {};
-            hash_names = {};
-
-            % Loop through each channel, retrieving the name and associated hashed data
-            for c = 1:file.getSizeC
-                % Retrieve channel name by accessing metadata
-                names{end+1} = string(file.getMetadataStore.getChannelName(0, c - 1));
-                
-                % Retrieve hashed name using a custom key based on channel index
-                hash_names{end+1} = DataHandling.Helpers.nd2.get_keys(file, ...
-                    append(DataHandling.Helpers.nd2.name_substr, num2str(c)));
-            end
-
-            % Convert names to string array format
-            names = string(names);
+            names = file.channels;
+            names = names.names;
         end
 
         function obj = get_plane(varargin)
@@ -98,42 +105,11 @@ classdef nd2
             parse(p, varargin{:});
         
             file = DataHandling.Lazy.file.current_file;  % File reader object for ND2 data.
-        
-            % Determine starting positions for extraction (zero-based)
-            x0 = min(p.Results.x);
-            y0 = min(p.Results.y);
-        
-            % Calculate the extraction dimensions
-            width = max(p.Results.x);
-            height = max(p.Results.y);
-        
-            % Set the number of planes in each dimension
-            numZ = numel(p.Results.z);
-            numC = numel(p.Results.c);
-            numT = numel(p.Results.t);
-        
-            % Preallocate array to hold the extracted image planes
-            obj = zeros(height, width, numZ, numC, numT, 'like', metadata.ml_bit_depth);
-        
-            % Loop through z, c, and t indices to retrieve planes
-            for idxZ = 1:numZ
-                for idxC = 1:numC
-                    for idxT = 1:numT
-                        % Retrieve coordinates in zero-based format
-                        z = p.Results.z(idxZ);
-                        c = p.Results.c(idxC);
-                        t = p.Results.t(idxT);
-        
-                        % Calculate the index for the specific plane in the reader object
-                        planeIndex = file.getIndex(z - 1, c - 1, t - 1) + 1;
-        
-                        % Retrieve the plane data for the specified index
-                        plane = bfGetPlane(file, planeIndex, x0, y0, width, height);
-        
-                        % Store the retrieved plane in the multidimensional array
-                        obj(:, :, idxZ, idxC, idxT) = plane;
-                    end
-                end
+            switch class(file)
+                case 'matlab.io.MatFile'
+                    obj = file.data(p.Results.y, p.Results.x, p.Results.z, p.Results.c, p.Results.t);
+                otherwise
+                    obj = file(p.Results.y, p.Results.x, p.Results.z, p.Results.c, p.Results.t);
             end
         end
     end

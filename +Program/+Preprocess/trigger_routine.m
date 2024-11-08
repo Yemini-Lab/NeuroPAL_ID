@@ -48,12 +48,13 @@ function trigger_routine(path)
     else
         Program.GUIHandling.enable_volume('Colormap');
 
+        DataHandling.Lazy.file.is_lazy(1);
+
         if ~strcmp(ext, '.mat')
-            DataHandling.Lazy.file.is_lazy(1);
             DataHandling.Lazy.file.read(path);
             [filepath, ~] = DataHandling.Lazy.file.create_cache();
         elseif isfile(strrep(path, ext, '.mat'))
-            filepath = strrep(path, ext, '.mat');
+            DataHandling.Lazy.file.reload(path);
         end
 
         app.proc_image = matfile(filepath);

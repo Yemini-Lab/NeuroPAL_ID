@@ -494,18 +494,16 @@ classdef ChunkyMethods
 
         function frame = load_proc_image(app)
             frame = struct('xy', {[]}, 'yz', {[]}, 'xz', {[]});
-            rgb = Program.GUIHandling.get_rgb();
+            rgb = 1:3;
 
             % Grab current volume.
-            raw = Program.GUIHandling.get_active_volume(app, 'request', 'all');
-            if raw.dims(4) < 3
-                raw.array = cat(4, raw.array, zeros([raw.dims(1:3) 1]));
-            end
+            raw = Program.Preprocess.active_volume;
             
             if strcmp(raw.state, 'colormap')
                 t_array = raw.array;
                 raw.array = uint16(double(intmax('uint16')) * double(raw.array)/double(max(raw.array(:))));
                 raw.array = double(raw.array)/double(max(raw.array(:)));
+                %threshold_value = DataHandling.Types.relative_value(max(raw.array, [], 'all'), app.ProcNoiseThresholdKnob.Value);
                 threshold_value = (app.ProcNoiseThresholdKnob.Value/double(max(t_array, [], 'all')))*double(max(raw.array, [], 'all'));
             else
                 threshold_value = app.ProcNoiseThresholdKnob.Value;
