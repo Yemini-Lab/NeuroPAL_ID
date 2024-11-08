@@ -195,6 +195,40 @@ classdef GUIHandling
             end
         end
 
+        function handle = window_fig()
+            persistent window_handle
+
+            if isempty(window_handle) || ~isgraphics(window_handle)
+                window_handle = findall(groot, 'Name','NeuroPAL ID');
+            end
+            
+            handle = window_handle;
+        end
+
+        function handle = app()
+            persistent app_handle
+
+            if isempty(app_handle) || isa(app_handle, "handle") && ~isvalid(app_handle)
+                window_handle = Program.GUIHandling.window_fig();
+                app_handle = window_handle.RunningAppInstance;
+            end
+
+            handle = app_handle;
+        end
+
+        function sync_channels(event)
+            app = Program.GUIHandling.app;
+            previous_value = event.PreviousValue;
+            new_value = event.Value;
+            channels = {app.ProcRDropDown, app.ProcGDropDown, app.ProcBDropDown, app.ProcWDropDown, app.ProcGFPDropDown, app.DICDropDown};
+            for c=1:length(channels)
+                channel = channels{c};
+                if channel ~= event.Source && channel.Value == new_value
+                    channel.Value = previous_value;
+                end
+            end
+        end
+
         function package = global_grab(window, var)
             % Fulfills requests for local variables across AppDesigner apps.
 
