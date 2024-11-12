@@ -198,7 +198,7 @@ classdef GUIHandling
         function handle = window_fig()
             persistent window_handle
 
-            if isempty(window_handle) || ~isgraphics(window_handle)
+            if any(isempty(window_handle)) || any(~isgraphics(window_handle))
                 window_handle = findall(groot, 'Name','NeuroPAL ID');
             end
             
@@ -208,7 +208,7 @@ classdef GUIHandling
         function handle = app()
             persistent app_handle
 
-            if isempty(app_handle) || isa(app_handle, "handle") && ~isvalid(app_handle)
+            if any(isempty(app_handle)) || any(isa(app_handle, "handle")) && any(~isvalid(app_handle))
                 window_handle = Program.GUIHandling.window_fig();
                 app_handle = window_handle.RunningAppInstance;
             end
