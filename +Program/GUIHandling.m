@@ -581,7 +581,7 @@ classdef GUIHandling
         end
 
         function histogram_handler(app, mode, image)
-            raw = Program.GUIHandling.get_active_volume(app, 'request', 'array');
+            raw = Program.Preprocess.active_volume.all;
             nc = size(raw.array, 4);
 
             if nc < 4

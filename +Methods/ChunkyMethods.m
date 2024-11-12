@@ -497,9 +497,9 @@ classdef ChunkyMethods
             rgb = 1:3;
 
             % Grab current volume.
-            raw = Program.Preprocess.active_volume;
+            raw = Program.Preprocess.active_volume.all;
             
-            if strcmp(raw.state, 'colormap')
+            if strcmp(raw.type, 'colormap')
                 t_array = raw.array;
                 raw.array = uint16(double(intmax('uint16')) * double(raw.array)/double(max(raw.array(:))));
                 raw.array = double(raw.array)/double(max(raw.array(:)));

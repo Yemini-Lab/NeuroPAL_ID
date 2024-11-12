@@ -6,28 +6,20 @@ classdef active_volume
     end
     
     methods (Static)
-        function obj = active_volume(spec)
-            if ~exist('spec', 'var')
-                kind = Program.Preprocess.active_volume('kind');
-                dimensions = Program.Preprocess.active_volume('dimensions');
-                array = Program.Preprocess.active_volume('array');
+        function obj = all()
+            volume_type = Program.Preprocess.active_volume.type;
+            volume_array = Program.Preprocess.active_volume.array;
+            volume_dims = Program.Preprocess.active_volume.dims;
 
-                obj = struct( ...
-                    'kind', {kind}, ...
-                    'dimensions', {dimensions}, ...
-                    'array', {array});
-
-                return
+            arr_dims = size(volume_array);
+            if volume_dims(1:length(arr_dims)) ~= arr_dims
+                volume_dims = arr_dims;
             end
 
-            switch spec
-                case 'type'
-                    obj = Program.Preprocess.active_volume.kind();
-                case 'array'
-                    obj = Program.Preprocess.active_volume.array();
-                case 'dims'
-                    obj = Program.Preprocess.active_volume.dimensions();
-            end
+            obj = struct( ...
+                'type', {volume_type}, ...
+                'dims', {volume_dims}, ...
+                'array', {volume_array});
         end
 
         function volume_array = array()
@@ -69,11 +61,11 @@ classdef active_volume
             end
         end
         
-        function volume_type = kind()
+        function volume_type = type()
             volume_type = lower(Program.GUIHandling.volume_type);
         end
 
-        function volume_dims = dimensions()
+        function volume_dims = dims()
             volume_dims = [ ...
                 DataHandling.Lazy.file.metadata.nx ...
                 DataHandling.Lazy.file.metadata.ny ...
