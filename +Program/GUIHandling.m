@@ -566,6 +566,16 @@ classdef GUIHandling
             end
         end
 
+        function histogram_handler(app, mode)
+            switch mode
+                case 'reset'
+                    Program.Handlers.histogram.(mode)
+                case 'draw'
+                    Program.Handlers.histogram.update;
+            end
+        end
+
+        %{
         function histogram_handler(app, mode, image)
             raw = Program.GUIHandling.get_active_volume(app, 'request', 'array');
             nc = size(raw.array, 4);
@@ -621,6 +631,29 @@ classdef GUIHandling
                         end
                 end
             end
+        end
+        %}
+
+        function render_indices = get_channel_data()
+            app = Program.GUIHandling.app;
+
+            indices = [ ...
+                str2num(app.ProcRDropDown.Value) ...
+                str2num(app.ProcGDropDown.Value) ...
+                str2num(app.ProcBDropDown.Value) ...
+                str2num(app.ProcWDropDown.Value) ...
+                str2num(app.ProcDICDropDown.Value) ...
+                str2num(app.ProcGFPDropDown.Value)];
+
+            active =  logical([ ...
+                app.ProcRCheckBox.Value ...
+                app.ProcGCheckBox.Value ...
+                app.ProcBCheckBox.Value ...
+                app.ProcWCheckBox.Value ...
+                app.ProcDICCheckBox.Value ...
+                app.ProcGFPCheckBox.Value]);
+
+            render_indices = Program.Helpers.indices_to_render(indices(active));
         end
 
         function package = get_active_volume(app, varargin)

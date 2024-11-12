@@ -482,11 +482,19 @@ classdef ChunkyMethods
         end
 
         function frame = load_proc_image(app)
+            frame = Program.Preprocess.render;
+        end
+
+        %{
+        function frame = load_proc_image(app)
             frame = struct('xy', {[]}, 'yz', {[]}, 'xz', {[]});
             rgb = [str2num(app.ProcRDropDown.Value), str2num(app.ProcGDropDown.Value), str2num(app.ProcBDropDown.Value)];
 
             % Grab current volume.
             raw = Program.GUIHandling.get_active_volume(app, 'request', 'all');
+            channels = Program.GUIHandling.get_channel_data;
+            raw.array = raw.array(:, :, :, channels);
+
             if raw.dims(4) < 3
                 raw.array = cat(4, raw.array, zeros([raw.dims(1:3) 1]));
             end
@@ -519,13 +527,7 @@ classdef ChunkyMethods
             end
 
             % Apply processing operations.
-            actions = fieldnames(app.flags);
-            for a=1:length(actions)
-                action = actions{a};
-                if app.flags.(action) == 1
-                    raw.array = Methods.ChunkyMethods.apply_vol(app, action, raw.array);
-                end
-            end
+            raw.array = Program.Preprocess.apply_actions(raw.array);
 
             Program.GUIHandling.set_gui_limits(app, dims=raw.dims);
             Program.GUIHandling.histogram_handler(app, 'draw', raw.array);
@@ -542,5 +544,6 @@ classdef ChunkyMethods
                 frame.yz = squeeze(raw.array(x,:,:,:,:));
             end
         end
+        %}
     end
 end
