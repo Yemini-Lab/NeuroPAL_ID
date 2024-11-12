@@ -227,7 +227,7 @@ classdef rotation_gui
 
                     cct = 1;
                     d_sync = 0;
-                    set(app.CELL_ID, 'Pointer', 'custom', 'PointerShapeCData', NaN(16,16))
+                    %set(app.CELL_ID, 'Pointer', 'custom', 'PointerShapeCData', NaN(16,16))
 
                     while cct
                         if any(app.mouse.drag.delta ~= 0) && any(d_sync ~= app.mouse.drag.debt)
@@ -243,7 +243,7 @@ classdef rotation_gui
                         end
                     end
                     
-                    set(app.CELL_ID, 'Pointer', 'arrow')
+                    %set(app.CELL_ID, 'Pointer', 'arrow')
             end
 
             event.Source.Color = 'white';
