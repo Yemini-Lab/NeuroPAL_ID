@@ -487,9 +487,7 @@ classdef ChunkyMethods
 
             % Grab current volume.
             raw = Program.GUIHandling.get_active_volume(app, 'request', 'all');
-            if raw.dims(4) < 3
-                raw.array = cat(4, raw.array, zeros([raw.dims(1:3) 1]));
-            end
+            [raw.array, raw.dims] = Program.Validation.pad_rgb(raw.array);
             
             if strcmp(raw.state, 'colormap')
                 t_array = raw.array;
