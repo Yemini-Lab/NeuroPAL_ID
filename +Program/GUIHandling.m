@@ -802,15 +802,14 @@ classdef GUIHandling
                         app.(sprintf("%s_GammaEditField", Program.GUIHandling.pos_prefixes{c})).Value = chunk_prefs.gamma(c);
                     end
     
-                    app.PlaceholderProcTimeline.Parent = app.CELL_ID;
-                    app.PlaceholderProcTimeline.Visible = ~app.PlaceholderProcTimeline.Visible;
-                    app.ProcAxGrid.RowHeight(end) = [];
+                    Program.Routines.toggle_timeline(mode);
                     app.ProcSideGrid.RowHeight = {148, 'fit', 175, 'fit', 212, '1x', 93};
 
                     app.ProcTStartEditField.Enable = 'off';
                     app.ProcTStopEditField.Enable = 'off';
                     app.TrimButton.Enable = 'off';
-                    app.ProcDownsamplingGrid.RowHeight = {22, 22, 0, 18};
+                    Program.Routines.toggle_spectral(mode);
+                    Program.Routines.toggle_downsampling(mode);
 
                 case 'video'
                     Program.GUIHandling.set_gui_limits(app, 'video');
@@ -820,11 +819,7 @@ classdef GUIHandling
                         app.(sprintf("%s_GammaEditField", Program.GUIHandling.pos_prefixes{c})).Value = 1;
                     end
                     
-                    app.ProcAxGrid.RowHeight{end+1} = 'fit';
-                    app.PlaceholderProcTimeline.Parent = app.ProcAxGrid;
-                    app.PlaceholderProcTimeline.Layout.Row = max(size(app.ProcAxGrid.RowHeight));
-                    app.PlaceholderProcTimeline.Layout.Column = [1 max(size(app.ProcAxGrid.ColumnWidth))];
-                    app.PlaceholderProcTimeline.Visible = ~app.PlaceholderProcTimeline.Visible;
+                    Program.Routines.toggle_timeline(mode);
 
                     app.ProcSideGrid.RowHeight = {148, 'fit', 175, 'fit', 0, '1x', 93};
 
@@ -836,7 +831,8 @@ classdef GUIHandling
                     app.ProcTStartEditField.Enable = 'on';
                     app.ProcTStopEditField.Enable = 'on';
                     app.TrimButton.Enable = 'on';
-                    app.ProcDownsamplingGrid.RowHeight = {22, 22, 22, 18};
+                    Program.Routines.toggle_spectral(mode);
+                    Program.Routines.toggle_downsampling(mode);
             end
 
             spectral_unmixing_gui = app.SpectralUnmixingGrid.Children;
