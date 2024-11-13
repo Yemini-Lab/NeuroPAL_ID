@@ -671,27 +671,40 @@ classdef GUIHandling
                     if app.ProcShowMIPCheckBox.Value
                         switch app.VolumeDropDown.Value
                             case 'Colormap'
-                                slice = app.proc_image.data(:, :, :, c);
+                                safe_c = Program.Validation.noskip_index(c);
+                                slice = app.proc_image.data(:, :, :, safe_c);
                             case 'Video'
                                 slice = app.retrieve_frame(package.coords(4));
-                                slice = slice(:, :, :, c);
                         end
                     else
                         switch app.VolumeDropDown.Value
                             case 'Colormap'
-                                slice = app.proc_image.data(:, :, package.coords(3), c);
+                                safe_c = Program.Validation.noskip_index(c);
+                                slice = app.proc_image.data(:, :, package.coords(3), safe_c);
                             case 'Video'
                                 slice = app.retrieve_frame(package.coords(4));
-                                slice = slice(:, :, package.coords(3), c);
+                                slice = slice(:, :, package.coords(3), :);
                         end
                     end
 
+                    rgb = Program.GUIHandling.get_rgb;
+                    missing_rgb = rgb(~ismember(rgb, c));
+                    slice(:, :, :, missing_rgb) = 0;
+                    slice = slice(:, :, :, [rgb c(~ismember(c, rgb))]);
                     package.array = slice;
 
                 case 'coords'
                     package.coords(1) = min(max(round(package.dims(1)-app.proc_ySlider.Value), 1), app.proc_ySlider.Limits(2));
 
             end
+        end
+
+        function rgb = get_rgb()
+            app = Program.GUIHandling.app;
+            rgb = [ ...
+                str2num(app.ProcRDropDown.Value) ...
+                str2num(app.ProcGDropDown.Value) ...
+                str2num(app.ProcBDropDown.Value)];
         end
 
         function set_gui_limits(app, mode, dims)
