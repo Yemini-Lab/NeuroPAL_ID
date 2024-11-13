@@ -806,7 +806,7 @@ classdef GUIHandling
                     end
 
                 case 'video'
-                    Program.GUIHandling.set_thresholds(app, max(app.retrieve_frame(app.proc_tSlider.Value), [], "all"));
+                    Program.GUIHandling.set_thresholds(app, intmax(class(app.retrieve_frame(1))));
                     
                     for c=1:app.video_info.nc
                         app.(sprintf("%s_GammaEditField", Program.GUIHandling.pos_prefixes{c})).Value = 1;

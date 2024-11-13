@@ -223,7 +223,7 @@ classdef ChunkyMethods
             t_delta = t_end - t_start + 1;
 
             % Create the cache file we'll be writing to chunk-by-chunk.
-            h5create(temp_path, '/data', [new_dims(1:end) t_delta], "Chunksize", [new_dims(1:end) 1]);
+            h5create(temp_path, '/data', [new_dims(1:end) t_delta], "Chunksize", [new_dims(1:end) 1], "Datatype", class(app.retrieve_frame(1)));
 
             for t=t_start:t_end
                 if exist('progress', 'var')
@@ -258,8 +258,7 @@ classdef ChunkyMethods
             end
 
             movefile(temp_path, processed_path);
-            app.video_info.file = processed_path;
-            app.proc_swap_video();
+            app.proc_load('video', processed_path);
         end
 
         function spectral_unmix(app, channel)
