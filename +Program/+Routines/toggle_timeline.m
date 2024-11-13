@@ -14,5 +14,10 @@ function toggle_timeline(mode)
             app.PlaceholderProcTimeline.Layout.Column = [1 max(size(app.ProcAxGrid.ColumnWidth))];
             app.PlaceholderProcTimeline.Visible = ~app.PlaceholderProcTimeline.Visible;
 
+            if app.ProcTStartEditField.Value == 0 || app.ProcTStopEditField.Value == 0
+                app.ProcTStartEditField.Value = app.proc_tSlider.Limits(1);
+                app.ProcTStopEditField.Value = app.proc_tSlider.Limits(2);
+            end
+
     end
 end

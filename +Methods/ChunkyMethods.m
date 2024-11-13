@@ -33,7 +33,7 @@ classdef ChunkyMethods
                 case 'ds'
                     new_dims = og_dims;
                     new_dims(1:2) = new_dims(1:2)*app.ProcXYFactorEditField.Value;
-                    new_dims(3) = app.ProcZSlicesEditField.Value;
+                    new_dims(3) = length(Methods.ChunkyMethods.proc_target_slices(og_dims(3), app.ProcZSlicesEditField.Value));
 
                 case {'hori', 'vert', 'cc', 'acc'}
                     temp_arr = zeros(og_dims);
@@ -41,11 +41,14 @@ classdef ChunkyMethods
                     switch action
                         case 'hori'
                             temp_arr = temp_arr(:,end:-1:1,end:-1:1,:,:);
+
                         case 'vert'
                             temp_arr = temp_arr(end:-1:1,:,end:-1:1,:,:);
+
                         case 'cc'
                             temp_arr = permute(temp_arr, [2,1,3,4]);
                             temp_arr = temp_arr(:,end:-1:1,:,:,:);
+
                         case 'acc'
                             temp_arr = permute(temp_arr, [2,1,3,4]);
                             temp_arr = temp_arr(end:-1:1,:,:,:,:);
@@ -67,9 +70,11 @@ classdef ChunkyMethods
             switch action
                 case 'zscore'
                     output_slice = Methods.Preprocess.zscore_frame(slice); 
+
                 case 'histmatch'
                     slice(:, :, :, RGBW(1:3)) = Methods.run_histmatch(slice, RGBW);
                     output_slice = Methods.Preprocess.zscore_frame(slice);     
+                    
                 case 'crop'
                     output_slice = Program.rotation_gui.apply_mask(app, slice);
 
@@ -91,9 +96,7 @@ classdef ChunkyMethods
                     output_slice = temp_slice(end:-1:1,:,:,:,:);
 
                 case 'ds'
-                    temp_slice = imresize(slice,[size(slice, 1)*app.ProcXYFactorEditField.Value size(slice, 2)*app.ProcXYFactorEditField.Value]);
-                    target_slices = Methods.ChunkyMethods.proc_target_slices(size(temp_slice, 3), app.ProcZSlicesEditField.Value);
-                    output_slice = temp_slice(:, :, target_slices, :);
+                    output_slice = imresize(slice, [size(slice, 1)*app.ProcXYFactorEditField.Value size(slice, 2)*app.ProcXYFactorEditField.Value]);
 
                 case 'debleed'
                     % TBD
@@ -116,11 +119,21 @@ classdef ChunkyMethods
                     [new_dims, old_dims] = Methods.ChunkyMethods.calc_pp_size(app, action, vol);
                     nz = old_dims(3);
 
+                    if new_dims(3) ~= nz
+                        target_slices = Methods.ChunkyMethods.proc_target_slices(nz, app.ProcZSlicesEditField.Value);
+                    else
+                        target_slices = 1:nz;
+                    end
+
                     % Initialize cache array.
                     processed_vol = zeros(new_dims, class(vol));
     
                     % Iterate over slices.
                     for z=1:nz
+                        if ~ismember(z, target_slices)
+                            continue
+                        end
+
                         if exist('progress', 'var')
                             progress.Message = sprintf("%s, slice %.f/%.f)", dialog_message, z, nz);
                         end
@@ -192,30 +205,39 @@ classdef ChunkyMethods
                 delete(temp_path);
             end
 
-            % Calculate new video dimensions
-            nt = app.video_info.nt;
+            % Calculate new video dimensions            
             new_dims = size(app.retrieve_frame(1));
             for a=1:length(actions)
                 action = actions{a};
                 new_dims = Methods.ChunkyMethods.calc_pp_size(app, action, zeros(new_dims));
             end
 
-            % Create the cache file we'll be writing to chunk-by-chunk.
-            h5create(temp_path, '/data', [new_dims(1:end) nt], "Chunksize", [new_dims(1:end) 1]);
+            if Program.Handlers.preprocess.trimming_frames(actions)
+                t_start = app.StartFrameEditField.Value;
+                t_end = app.EndFrameEditField.Value;
+            else
+                t_start = 1;
+                t_end = app.video_info.nt;
+            end
+            
+            t_delta = t_end - t_start + 1;
 
-            for t=1:nt
+            % Create the cache file we'll be writing to chunk-by-chunk.
+            h5create(temp_path, '/data', [new_dims(1:end) t_delta], "Chunksize", [new_dims(1:end) 1]);
+
+            for t=t_start:t_end
                 if exist('progress', 'var')
-                    progress.Value = t/nt;
+                    progress.Value = t/t_end;
                     dialog_progress = progress.Value;
-                    time_string = Program.GUIHandling.get_time_string(start_time, t, nt);
+                    time_string = Program.GUIHandling.get_time_string(start_time, t, t_end);
                 end
 
-                processed_frame = app.retrieve_frame(app.proc_tSlider.Value);
+                processed_frame = app.retrieve_frame(t);
 
                 for a=1:length(actions)
                     if exist('progress', 'var')
-                        progress.Message = sprintf("%s \n-> frame %.f/%.f %s \n-> (%s", dialog_message, t, nt, time_string, actions{a});
-                        progress.Value = dialog_progress + (dialog_progress/t)*(a/length(actions));
+                        progress.Message = sprintf("%s \n-> frame %.f/%.f %s \n-> (%s", dialog_message, t, t_end, time_string, actions{a});
+                        progress.Value = min(dialog_progress + (dialog_progress/t)*(a/length(actions)), 1);
                         processed_frame = Methods.ChunkyMethods.apply_vol(app, actions{a}, processed_frame, progress);
                     else
                         processed_frame = Methods.ChunkyMethods.apply_vol(app, actions{a}, processed_frame);
@@ -227,7 +249,8 @@ classdef ChunkyMethods
                 processed_frame = reshape(processed_frame, write_size);
 
                 % Write cache frame to cache file.
-                h5write(temp_path, '/data', processed_frame, [1 1 1 1 t], write_size);
+                t_write = t - t_start + 1;
+                h5write(temp_path, '/data', processed_frame, [1 1 1 1 t_write], write_size);
             end
 
             if exist(processed_path, 'file')==2
@@ -409,8 +432,11 @@ classdef ChunkyMethods
             % Calculate the indices of slices to retain for a new volume with nnz slices while preserving isotropy.
         
             % Validate inputs
-            if nnz >= nz
+            if nnz > nz
                 error('nnz must be less than nz');
+            elseif nnz == nz
+                sliceIndices = 1:nnz;
+                return
             end
         
             % Calculate the indices to retain

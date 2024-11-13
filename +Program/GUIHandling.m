@@ -25,7 +25,6 @@ classdef GUIHandling
             'ProcZSlicesEditField', ...
             'ProcXYFactorEditField', ...
             'ProcXYFactorUpdateButton', ...
-            'ProcZFactorUpdateButton', ...
             'ProcPreviewZslowCheckBox', ...
             'proc_zSlider', ...
             'proc_xSlider', ...
@@ -792,60 +791,33 @@ classdef GUIHandling
                 mode = lower(event.Value);
             end
 
+            Program.GUIHandling.set_gui_limits(app, mode);
+            Program.Routines.toggle_timeline(mode);
+            Program.Routines.toggle_spectral(mode);
+            Program.Routines.toggle_downsampling(mode);
+            
             switch mode
                 case 'colormap'
-                    Program.GUIHandling.set_gui_limits(app, 'colormap');
                     Program.GUIHandling.set_thresholds(app, max(app.proc_image.data, [], "all"));
 
                     chunk_prefs = app.proc_image.prefs;
                     for c=1:app.video_info.nc
                         app.(sprintf("%s_GammaEditField", Program.GUIHandling.pos_prefixes{c})).Value = chunk_prefs.gamma(c);
                     end
-    
-                    Program.Routines.toggle_timeline(mode);
-                    app.ProcSideGrid.RowHeight = {148, 'fit', 175, 'fit', 212, '1x', 93};
-
-                    app.ProcTStartEditField.Enable = 'off';
-                    app.ProcTStopEditField.Enable = 'off';
-                    app.TrimButton.Enable = 'off';
-                    Program.Routines.toggle_spectral(mode);
-                    Program.Routines.toggle_downsampling(mode);
 
                 case 'video'
-                    Program.GUIHandling.set_gui_limits(app, 'video');
                     Program.GUIHandling.set_thresholds(app, max(app.retrieve_frame(app.proc_tSlider.Value), [], "all"));
                     
                     for c=1:app.video_info.nc
                         app.(sprintf("%s_GammaEditField", Program.GUIHandling.pos_prefixes{c})).Value = 1;
                     end
                     
-                    Program.Routines.toggle_timeline(mode);
-
-                    app.ProcSideGrid.RowHeight = {148, 'fit', 175, 'fit', 0, '1x', 93};
-
-                    if app.ProcTStartEditField.Value == 0 || app.ProcTStopEditField.Value == 0
-                        app.ProcTStartEditField.Value = app.proc_tSlider.Limits(1);
-                        app.ProcTStopEditField.Value = app.proc_tSlider.Limits(2);
-                    end
-
-                    app.ProcTStartEditField.Enable = 'on';
-                    app.ProcTStopEditField.Enable = 'on';
-                    app.TrimButton.Enable = 'on';
-                    Program.Routines.toggle_spectral(mode);
-                    Program.Routines.toggle_downsampling(mode);
-            end
-
-            spectral_unmixing_gui = app.SpectralUnmixingGrid.Children;
-            for comp=1:length(spectral_unmixing_gui)
-                component = spectral_unmixing_gui(comp);
-                if ismember(properties(component), 'Enable')
-                    component.Enable = ~component.Enable;
-                end
             end
 
             for comp=1:length(Program.GUIHandling.cm_exclusive_gui)
                 app.(Program.GUIHandling.cm_exclusive_gui{comp}).Enable = strcmp(app.VolumeDropDown.Value, 'Colormap');
             end
+            
             app.ProcessingGridLayout.ColumnWidth = {'1x', 190};
         end
 
