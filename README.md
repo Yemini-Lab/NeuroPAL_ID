@@ -194,6 +194,14 @@ You can also take a look at some of the published work done using NeuroPAL [here
 
 ---
 
+### Contributing
+
+We welcome contributions! Please see our [Contributing Guide](CONTRIBUTIONS.md) for details on how to get started and make your first contribution.
+
+### Code of Conduct
+
+To maintain a respectful and inclusive community, all contributors are expected to adhere to our [Code of Conduct](CONDUCT.md).
+
 ### Licensing
 
 This work is licensed under a [Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License][cc-by-nc-sa].
