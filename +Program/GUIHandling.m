@@ -196,24 +196,11 @@ classdef GUIHandling
         end
 
         function handle = window_fig()
-            persistent window_handle
-
-            if any(isempty(window_handle)) || any(~isgraphics(window_handle))
-                window_handle = findall(groot, 'Name','NeuroPAL ID');
-            end
-            
-            handle = window_handle;
+            handle = Program.GUI.window;
         end
 
         function handle = app()
-            persistent app_handle
-
-            if any(isempty(app_handle)) || any(isa(app_handle, "handle")) && any(~isvalid(app_handle))
-                window_handle = Program.GUIHandling.window_fig();
-                app_handle = window_handle.RunningAppInstance;
-            end
-
-            handle = app_handle;
+            handle = Program.GUI.app;
         end
 
         function sync_channels(event)
@@ -230,16 +217,7 @@ classdef GUIHandling
         end
 
         function package = global_grab(window, var)
-            % Fulfills requests for local variables across AppDesigner apps.
-
-            global_figures = findall(groot, 'Type','figure');
-            scope = Program.GUIHandling.get_parent_app(global_figures(strcmp({global_figures.Name}, window)));
-
-            if ~isempty(scope)
-                package = scope.(var);
-            else
-                package = [];
-            end
+            package = Program.Helpers.global_grab(window, var);
         end
 
         function loaded_files = loaded_file_check(app, tree)
@@ -320,21 +298,12 @@ classdef GUIHandling
 
         %% Mouse & Click Handlers
         function init_click_states(app)
-            % Initialize the mouse click states (a hack to detect double clicks).
-            % Note: initialization is performed by startupFcn due construction issues.
-
-            app.mouse_clicked.double_click_delay = 0.3;
-            app.mouse_clicked.click = false;
+            Program.Handlers.mouse.initialize();
         end
 
 
         function restore_pointer(app)
-            %% Restore the mouse pointer.
-            % Hack: Matlab App Designer!!!
-            js_code = ['var elementToChange = document.getElementsByTagName("body")[0];' ...
-                'elementToChange.style.cursor = "url(''cursor:default''), auto";'];
-            hWin = mlapptools.getWebWindow(app.CELL_ID);
-            hWin.executeJS(js_code);
+            Program.Handlers.mouse.restore_cursor();
         end
 
         function mouse_poll(app, click_state)
@@ -358,12 +327,7 @@ classdef GUIHandling
         end
 
         function event_struct = event2struct(varargin)
-            fields = properties(varargin{:});
-            
-            for i = 1:length(fields)
-                fieldName = fields{i};
-                event_struct.(fieldName) = varargin{:}.(fieldName);
-            end
+            event_struct = Program.Helpers.event_to_struct(varargin);
         end
 
         function drag_manager(app, mode, event)
@@ -516,25 +480,7 @@ classdef GUIHandling
 
         %% Processing Tab
         function time_string = get_time_string(start_time, count, total)
-            time_diff = convertTo(datetime("now"), 'epochtime', 'Epoch', start_time);
-            second_diff = double(time_diff) / count;
-            
-            if second_diff < 0.1
-                time_diff = (time_diff*60)/count;
-                time_unit = 'ms';
-                c_exp = 2;
-            else
-                time_diff = second_diff;
-                time_unit = 'sec';
-                c_exp = 1;
-            end
-
-            if ~exist('total', 'var')
-                time_string = sprintf("(%.2f %s/ea)", time_diff, time_unit);
-            else
-                time_left = (time_diff/(60^c_exp)) * (total-count);
-                time_string = sprintf("(%.2f %s/ea, ~%.f min left)", time_diff, time_unit, time_left);
-            end
+            time_string = Program.Helpers.get_time_string(start_time, count, total);
         end
 
         function checked_channels = check_channels(app)
