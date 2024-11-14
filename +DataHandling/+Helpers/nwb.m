@@ -19,7 +19,7 @@ classdef nwb
         end
 
         function [obj, metadata] = open(file)
-            if DataHandling.file.is_video
+            if Program.states.instance().is_video
                 DataHandling.Helpers.nwb.volume_path('/acquisition/CalciumImageSeries');
             else
                 DataHandling.Helpers.nwb.volume_path('/acquisition/NeuroPALImageRaw');
