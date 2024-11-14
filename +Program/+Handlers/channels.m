@@ -249,7 +249,7 @@ classdef channels
             handle.BackgroundColor = [0.902 0.902 0.902];
             handle.HorizontalAlignment = 'center';
             handle.FontWeight = 'bold';
-            handle.Text = num2str(handles.cb.Layout.Row);
+            handle.Text = num2str(handle.Layout.Row);
         end
 
         function handle = create_button(label)
@@ -270,7 +270,7 @@ classdef channels
 
             non_rgb = keys(Program.Handlers.channels.fluorophore_mapping);
             non_rgb = non_rgb(4:end);
-            
+
             for c=1:length(non_rgb)
                 component = app.(sprintf(Program.Handlers.channels.rep_string, c+3));
 
