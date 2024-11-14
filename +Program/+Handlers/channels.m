@@ -29,8 +29,8 @@ classdef channels
     methods (Static, Access = public)
         function initialize(input)
             app = Program.GUI.app;
-            [ch_grid, ~] = Program.Handlers.channels.get_gui(app);
-            n_rows = length(ch_grid.RowHeight);
+            [grid, ~] = Program.Handlers.channels.get_gui(app);
+            n_rows = length(grid.RowHeight);
 
             if isfile(input) || ischar(input) || isstring(input)
                 [nc, names] = Program.Handlers.channels.channels_from_file(input);
@@ -43,12 +43,12 @@ classdef channels
 
             % Create any missing grid rows.
             for row=n_rows:nc
-                Program.Handlers.channels.create_channel(app, ch_grid);
+                Program.Handlers.channels.create_channel();
             end
 
             % Delete any excess grid rows.
             for row=n_rows:-1:nc+1
-                Program.Handlers.channels.delete_channel(app, row, 1, 0);
+                Program.Handlers.channels.delete_channel(row, 1, 0);
             end
 
             % Populate gui components.
@@ -87,8 +87,8 @@ classdef channels
         end
 
         function handles = create_channel()
-            [ch_grid, ~] = Program.Handlers.channels.get_gui();
-            ch_grid.RowHeight(end+1) = ch_grid.RowHeight(end);
+            [grid, ~] = Program.Handlers.channels.get_gui();
+            grid.RowHeight(end+1) = grid.RowHeight(end);
 
             handles = struct( ...
                 'cb', {Program.GUI.channel.create_checkbox}, ...
@@ -145,10 +145,11 @@ classdef channels
                     'idx', target, ...
                     'gui', {components}, ...
                     'cached_values', {struct('dd', {components.dd.Value}, 'cb', {components.cb.Value})});
+
             else
-                [ch_grid, ~] = Program.Handlers.channels.get_gui(app);
-                for n=1:length(ch_grid.Children)
-                    child = ch_grid.Children(n);
+                [grid, ~] = Program.Handlers.channels.get_gui;
+                for n=1:length(grid.Children)
+                    child = grid.Children(n);
                     if child.Layout.Row==target && isa(child, 'matlab.ui.control.CheckBox')
                         components.cb = child;
                     elseif child.Layout.Row==target && isa(child, 'matlab.ui.control.DropDown')
@@ -177,7 +178,7 @@ classdef channels
                 neighbor.gui.cb.Value = target.cached_values.cb;
             end
 
-            %Program.GUIHandling.histogram_handler(app, 'draw');
+            Program.Handlers.histograms.update;
         end
 
         function delete_channel(app, channel, permanence_flag, from_file)
@@ -212,15 +213,23 @@ classdef channels
                 Methods.ChunkyMethods.delete_channel(channel);
             end
 
-            %Program.GUIHandling.histogram_handler(app, 'draw');
+            Program.Handlers.histograms.update;
         end
     end
 
     methods (Static, Access = private)
         function [grid, edit_button] = get_gui()
-            app = Program.GUIHandling.app;
-            grid = app.(Program.Handlers.channels.grid_string);
-            edit_button = app.(Program.Handlers.channels.button_string);
+            persistent handles
+
+            if isempty(handles) || any(~isgraphics(handles))
+                app = Program.GUIHandling.app;
+                handles = struct( ...
+                    'grid', {app.(Program.Handlers.channels.grid_string)}, ...
+                    'button', {app.(Program.Handlers.channels.button_string)});
+            end
+
+            grid = handles.grid;
+            edit_button = handles.button;
         end
 
         function has_space = can_move(channel, direction)
@@ -233,21 +242,27 @@ classdef channels
         end
 
         function handle = create_checkbox()
-            handle = uicheckbox(ch_grid);
+            [grid, ~] = Program.Handlers.channels.get_gui;
+
+            handle = uicheckbox(grid);
             handle.Text = '';
-            handle.Layout.Row = length(ch_grid.RowHeight);
+            handle.Layout.Row = length(grid.RowHeight);
             handle.Layout.Column = 1;
         end
 
         function handle = create_dropdown()
-            handle = uidropdown(ch_grid);
+            [grid, ~] = Program.Handlers.channels.get_gui;
+
+            handle = uidropdown(grid);
             handle.Items = Program.GUI.channel.channel_options;
             handle.Value = 'Red';
             handle.Layout.Column = [3 4];
         end
 
         function handle = create_label()
-            handle = uilabel(ch_grid);
+            [grid, ~] = Program.Handlers.channels.get_gui;
+            
+            handle = uilabel(grid);
             handle.BackgroundColor = [0.902 0.902 0.902];
             handle.HorizontalAlignment = 'center';
             handle.FontWeight = 'bold';
@@ -255,7 +270,9 @@ classdef channels
         end
 
         function handle = create_button(label)
-            handle = uibutton(ch_grid, 'push');
+            [grid, ~] = Program.Handlers.channels.get_gui;
+
+            handle = uibutton(grid, 'push');
             handle.ButtonPushedFcn = @app.proc_c1_move_upPushed2;
             handle.Text = label;
 
