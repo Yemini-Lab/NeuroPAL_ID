@@ -13,10 +13,13 @@ classdef histograms
             obj.Property1 = inputArg1 + inputArg2;
         end
         
-        function outputArg = method1(obj,inputArg)
-            %METHOD1 Summary of this method goes here
-            %   Detailed explanation goes here
-            outputArg = obj.Property1 + inputArg;
+        function [value, limit, pct] = get(histogram)
+            component_name = sprintf("%s_hist_slider", ...
+                Program.Handlers.handles.ch_pfx{histogram});
+
+            value = app.(component_name).Value;
+            limit = app.(component_name).Limits(2);
+            pct = [value(1)/limit value(2)/limit];
         end
     end
 end
