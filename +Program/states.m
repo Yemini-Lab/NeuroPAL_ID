@@ -1,6 +1,8 @@
 classdef states < dynamicprops
     
     properties % Mutable properties
+        is_zpreview = 0;            % Whether we're optionally drawing xz/yz projections.
+        is_loading = 0;             % Whether program is currently loading.
         is_video = 0;               % Whether the active file is a video.
         is_lazy = 0;                % Whether we're in lazy load mode.
         is_mip = 0;                 % Whether we're rendering a maximum intensity projection.
