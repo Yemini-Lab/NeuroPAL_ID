@@ -92,7 +92,7 @@ classdef mat
             % Returns:
             %   obj - Multidimensional array containing image planes.
 
-            metadata = DataHandling.Lazy.file.metadata; % Retrieve file metadata.
+            metadata = DataHandling.file.metadata; % Retrieve file metadata.
             t = Program.GUIHandling.current_frame; % Retrieve the current time frame from GUI.
 
             % Set up input parser to handle variable input arguments
@@ -104,7 +104,7 @@ classdef mat
             addOptional(p, 't', t);
             parse(p, varargin{:});
         
-            file = DataHandling.Lazy.file.current_file;  % File reader object for ND2 data.
+            file = DataHandling.file.current_file;  % File reader object for ND2 data.
             switch class(file)
                 case 'matlab.io.MatFile'
                     obj = file.data(p.Results.y, p.Results.x, p.Results.z, p.Results.c, p.Results.t);

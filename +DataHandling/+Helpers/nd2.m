@@ -85,7 +85,7 @@ classdef nd2
             % Returns:
             %   obj - Multidimensional array containing image planes.
 
-            metadata = DataHandling.Lazy.file.metadata; % Retrieve file metadata.
+            metadata = DataHandling.file.metadata; % Retrieve file metadata.
             t = Program.GUIHandling.current_frame; % Retrieve the current time frame from GUI.
 
             % Set up input parser to handle variable input arguments
@@ -97,7 +97,7 @@ classdef nd2
             addOptional(p, 't', t);
             parse(p, varargin{:});
         
-            file = DataHandling.Lazy.file.current_file;  % File reader object for ND2 data.
+            file = DataHandling.file.current_file;  % File reader object for ND2 data.
         
             % Determine starting positions for extraction (zero-based)
             x0 = min(p.Results.x);

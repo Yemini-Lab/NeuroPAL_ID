@@ -19,7 +19,7 @@ classdef nwb
         end
 
         function [obj, metadata] = open(file)
-            if DataHandling.Lazy.file.is_video
+            if DataHandling.file.is_video
                 DataHandling.Helpers.nwb.volume_path('/acquisition/CalciumImageSeries');
             else
                 DataHandling.Helpers.nwb.volume_path('/acquisition/NeuroPALImageRaw');
@@ -57,7 +57,7 @@ classdef nwb
 
         function obj = get_plane(varargin)
             target_module = DataHandling.Helpers.nwb.volume_path;
-            metadata = DataHandling.Lazy.file.metadata;
+            metadata = DataHandling.file.metadata;
             t = Program.GUIHandling.current_frame;
         
             p = inputParser;
@@ -68,8 +68,8 @@ classdef nwb
             addOptional(p, 't', t);
             parse(p, varargin{:});
         
-            file = target_module.deref(DataHandling.Lazy.file.current_file).data;
-            if DataHandling.Lazy.file.is_video
+            file = target_module.deref(DataHandling.file.current_file).data;
+            if DataHandling.file.is_video
                 obj = file(p.Results.y, p.Results.x, p.Results.z, p.Results.c, p.Results.t);
             else
                 obj = file(p.Results.y, p.Results.x, p.Results.z, p.Results.c);
