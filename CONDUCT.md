@@ -2,7 +2,7 @@
 
 ## Our Commitment
 
-In the NeuroPal_ID project, we are committed to maintaining a respectful, inclusive, and harassment-free environment for everyone, regardless of age, gender identity, race, ethnicity, religion, disability, or any other aspect of identity. We believe that creating an open and welcoming space benefits the entire community.
+In the NeuroPAL_ID project, we are committed to maintaining a respectful, inclusive, and harassment-free environment for everyone, regardless of age, gender identity, race, ethnicity, religion, disability, or any other aspect of identity. We believe that creating an open and welcoming space benefits the entire community.
 
 ## Expected Behavior
 
