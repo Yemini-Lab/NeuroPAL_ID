@@ -3,6 +3,8 @@ classdef channels
     %   Detailed explanation goes here
     
     properties (Constant)
+        max_nc = 6;
+        
         channel_options = {'Red', 'Green', 'Blue', 'White', 'DIC', 'GFP', 'N/A'};
 
         up_signs = {"-1", "up", "⮝"};
@@ -67,6 +69,38 @@ classdef channels
             
             % Style non-rgb gui components.
             Program.Handlers.channels.load_styles();
+        end
+
+        function idx_struct = indices(reset_flag)
+            persistent channel_indices
+
+            if isempty(channel_indices) || nargin > 0
+                metadata = DataHandling.Lazy.file.metadata;
+
+                RGBWDG_active = Program.GUIHandling.active_channels;
+                RGBWDG_idx = Program.GUIHandling.ordered_channels;
+
+                channels_in_file = metadata.channels.order(metadata.channels.order~=metadata.channels.null_channels);
+                full_load = Program.Debugging.Validation.render_indices(channels_in_file);
+
+                lazy_load = channels_in_file(RGBWDG_active);
+                lazy_load_permutation = ismember(lazy_load, RGBWDG_idx(RGBWDG_active));
+
+                [~, render_permutation] = ismember(channels_in_file, RGBWDG_idx);
+                render_permutation(render_permutation==0) = find(render_permutation==0);
+
+                unrendered_RGB = find(~RGBWDG_active(1:3));
+
+                channel_indices = struct( ...
+                    'in_file', channels_in_file, ...
+                    'full_load', full_load, ...
+                    'lazy_load', channels_in_file(Program.GUIHandling.active_channels), ...
+                    'lazy_load_permutation', lazy_load_permutation, ...
+                    'render_permutation', render_permutation, ...
+                    'unrendered_RGB', unrendered_RGB);
+            end
+            
+            idx_struct = channel_indices;
         end
 
         function handles = create_channel()
@@ -197,6 +231,41 @@ classdef channels
             end
 
             Program.Handlers.histograms.update;
+        end
+
+        function g_value = gamma(channel)
+            component_name = sprintf("%s_GammaEditField", ...
+                Program.Handlers.handles.ch_pfx{channel});
+            g_value = app.(component_name).Value;
+        end
+
+        function idx = rgb()
+            app = Program.GUI.app;
+            idx = [ ...
+                str2num(app.ProcRDropDown.Value),  ...
+                str2num(app.ProcGDropDown.Value),  ...
+                str2num(app.ProcBDropDown.Value)];
+        end
+
+        function set_idx(order)
+            if nargin > 0
+                order = [1 2 3 4 5 6];
+            end
+
+            Program.GUI.indices('red', order(1));
+            Program.GUI.indices('green', order(2));
+            Program.GUI.indices('blue', order(3));
+            Program.GUI.indices('white', order(4));
+            Program.GUI.indices('dic', order(5));
+            Program.GUI.indices('gfp', order(6));
+        end
+
+        function set_gammas(gammas)
+            if nargin > 0
+                gammas = [1 1 1 1 1 1];
+            end
+
+            Program.GUI.gammas(gammas);
         end
     end
 
