@@ -30,7 +30,6 @@ classdef channels
         function initialize(input)
             app = Program.GUI.app;
             [grid, ~] = Program.Handlers.channels.get_gui(app);
-            n_rows = length(grid.RowHeight);
 
             if isfile(input) || ischar(input) || isstring(input)
                 [nc, names] = Program.Handlers.channels.channels_from_file(input);
@@ -40,6 +39,8 @@ classdef channels
             end
 
             [names, ~] = Program.Handlers.channels.autosort(names);
+
+            n_rows = length(grid.RowHeight);
 
             % Create any missing grid rows.
             for row=n_rows:nc
@@ -65,25 +66,7 @@ classdef channels
             end
             
             % Style non-rgb gui components.
-            non_rgb = keys(Program.Handlers.channels.fluorophore_mapping);
-            non_rgb = non_rgb(4:end);
-            for c=1:length(non_rgb)
-                component = app.(sprintf(Program.Handlers.channels.rep_string, c+3));
-
-                if ~isgraphics(component)
-                    continue
-                end
-
-                for item=1:length(component.Items)
-                    style_idx = item+3;
-                    rep_style = uistyle( ...
-                        "FontColor", Program.Handlers.channels.label_colors{style_idx}, ...
-                        "FontWeight", "bold", ...
-                        "BackgroundColor", Program.Handlers.channels.channel_colors{style_idx});
-                    addStyle(component, rep_style, "item", item);
-
-                end
-            end
+            Program.Handlers.channels.load_styles();
         end
 
         function handles = create_channel()
@@ -279,6 +262,31 @@ classdef channels
             if strcmp(label, '🗑')
                 handle.BackgroundColor = [1 0.2784 0.2784];
                 handle.FontWeight = 'bold';
+            end
+        end
+
+        function load_styles()
+            app = Program.GUI.app;
+
+            non_rgb = keys(Program.Handlers.channels.fluorophore_mapping);
+            non_rgb = non_rgb(4:end);
+            
+            for c=1:length(non_rgb)
+                component = app.(sprintf(Program.Handlers.channels.rep_string, c+3));
+
+                if ~isgraphics(component)
+                    continue
+                end
+
+                for item=1:length(component.Items)
+                    style_idx = item+3;
+                    rep_style = uistyle( ...
+                        "FontColor", Program.Handlers.channels.label_colors{style_idx}, ...
+                        "FontWeight", "bold", ...
+                        "BackgroundColor", Program.Handlers.channels.channel_colors{style_idx});
+                    addStyle(component, rep_style, "item", item);
+
+                end
             end
         end
     end
