@@ -65,7 +65,7 @@ classdef file
             %       as_rendered: Indices of all valid channels as rendered from processing array.
 
             [~, ~, ext] = fileparts(path); ext = ext(2:end);                                            % Get file extension.
-            helper = DataHandling.Lazy.file.get_helper(ext);                                            % Identify & define helper script.
+            helper = DataHandling.file.get_helper(ext);                                            % Identify & define helper script.
 
             [f_obj, f_metadata] = DataHandling.(helper).open(path);                                     % Read file metadata.
             [~, f_metadata.ml_bit_depth] = DataHandling.Types.getMATLABDataType(f_metadata.bit_depth);  % If necessary, convert data type to one MATLAB can work with.
@@ -74,37 +74,37 @@ classdef file
             f_metadata.nc = length(f_metadata.channels.as_rendered);                                    % Update number of channels according to validated key.
             f_metadata.fmt = ext;                                                                       % Add file extension to metadata.
 
-            DataHandling.Lazy.file.current_file(f_obj);                                                 % Set file object as current file.
-            DataHandling.Lazy.file.metadata(f_metadata);                                                % Set metadata struct as current file.
+            DataHandling.file.current_file(f_obj);                                                 % Set file object as current file.
+            DataHandling.file.metadata(f_metadata);                                                % Set metadata struct as current file.
         end
 
         function [as_loaded, as_loaded_hash] = get_channels(file)
             if ~exist('file', 'var')
-                file = DataHandling.Lazy.file.current_file;
+                file = DataHandling.file.current_file;
             end
 
-            helper = DataHandling.Lazy.file.get_helper;
+            helper = DataHandling.file.get_helper;
             [as_loaded, as_loaded_hash] = DataHandling.(helper).get_channels(file);
         end
 
         function arr = get_channel(c)
-            helper = DataHandling.Lazy.file.get_helper;
+            helper = DataHandling.file.get_helper;
             arr = DataHandling.(helper).get_plane('c', c);
         end
 
         function arr = get_slice(z)
-            helper = DataHandling.Lazy.file.get_helper;
+            helper = DataHandling.file.get_helper;
             arr = DataHandling.(helper).get_plane('z', z);
         end
 
         function arr = get_frame(t)
-            helper = DataHandling.Lazy.file.get_helper;
+            helper = DataHandling.file.get_helper;
             arr = DataHandling.(helper).get_plane('t', t);
         end
 
         function arr = get_plane(varargin)
-            helper = DataHandling.Lazy.file.get_helper;
-            metadata = DataHandling.Lazy.file.metadata;
+            helper = DataHandling.file.get_helper;
+            metadata = DataHandling.file.metadata;
 
             p = inputParser;
             addOptional(p, 'x', 1:metadata.nx);
@@ -123,7 +123,7 @@ classdef file
         end
 
         function [f_path, f_obj] = create_cache()
-            metadata = DataHandling.Lazy.file.metadata();
+            metadata = DataHandling.file.metadata();
 
             window_fig = Program.GUIHandling.window_fig();
             d = uiprogressdlg(window_fig, "Message", "Reading metadata...", "Indeterminate", "off");
@@ -181,14 +181,14 @@ classdef file
             if metadata.is_video
                 for t=1:metadata.nt
                     d.Value = t/metadata.nt;
-                    this_frame = DataHandling.Lazy.file.get_frame(t);
+                    this_frame = DataHandling.file.get_frame(t);
                     h_write.data(:, :, :, :, t) = DataHandling.Types.to_standard(this_frame(:, :, :, data_chans, :));
                 end
                 
             else
                 for z=1:metadata.nz
                     d.Value = z/metadata.nz;
-                    this_slice = DataHandling.Lazy.file.get_slice(z);
+                    this_slice = DataHandling.file.get_slice(z);
                     h_write.data(:, :, z, :) = DataHandling.Types.to_standard(this_slice(:, :, :, data_chans));
                 end
 
