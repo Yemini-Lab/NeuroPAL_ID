@@ -35,20 +35,27 @@ classdef ChunkyMethods
                     new_dims(1:2) = new_dims(1:2)*app.ProcXYFactorEditField.Value;
                     new_dims(3) = app.ProcZSlicesEditField.Value;
 
-                case {'hori', 'vert', 'cc', 'acc'}
+                case {'hori', 'vert', 'cc', 'acc', 'rotate'}
                     temp_arr = zeros(og_dims);
 
                     switch action
                         case 'hori'
                             temp_arr = temp_arr(:,end:-1:1,end:-1:1,:,:);
+
                         case 'vert'
                             temp_arr = temp_arr(end:-1:1,:,end:-1:1,:,:);
+
                         case 'cc'
                             temp_arr = permute(temp_arr, [2,1,3,4]);
                             temp_arr = temp_arr(:,end:-1:1,:,:,:);
+
                         case 'acc'
                             temp_arr = permute(temp_arr, [2,1,3,4]);
                             temp_arr = temp_arr(end:-1:1,:,:,:,:);
+
+                        case 'rotate'
+                            temp_arr = imrotate(temp_arr, app.RotateSlider.Value);
+                            
                     end
 
                     new_dims = og_dims;
@@ -66,9 +73,11 @@ classdef ChunkyMethods
             switch action
                 case 'zscore'
                     output_slice = Methods.Preprocess.zscore_frame(slice); 
+
                 case 'histmatch'
                     slice(:, :, :, RGBW(1:3)) = Methods.run_histmatch(slice, RGBW);
                     output_slice = Methods.Preprocess.zscore_frame(slice);     
+
                 case 'crop'
                     output_slice = Program.rotation_gui.apply_mask(app, slice);
 
@@ -79,7 +88,7 @@ classdef ChunkyMethods
                     output_slice = slice(end:-1:1,:,end:-1:1,:,:);
 
                 case 'rotate'
-                    output_slice = rotate(slice, app.RotateSlider.Value);
+                    output_slice = imrotate(slice, app.RotateSlider.Value);
 
                 case 'cc'
                     temp_slice = permute(slice, [2,1,3,4]);
