@@ -37,7 +37,7 @@ classdef mat
             metadata.bit_depth = str2num(metadata.bit_depth(5:end));
 
             % Load the file data or return a lazy reader object depending on the file handling mode
-            if DataHandling.Lazy.file.is_lazy
+            if Program.states.instance().is_lazy
                 obj = f; % Return lazy file reader if lazy loading is enabled.
             else
                 obj = f.data; % Load full file data.

@@ -47,7 +47,7 @@ classdef nwb
                 metadata.nt = 1;
             end
 
-            if DataHandling.Lazy.file.is_lazy
+            if Program.states.instance().is_lazy
                 obj = f;
             else
                 obj = target_module.deref(f).data.load();

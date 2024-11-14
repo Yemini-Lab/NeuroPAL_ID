@@ -40,7 +40,7 @@ classdef nd2
                 'scale', {[0 0 0]});
 
             % Load the file data or return a lazy reader object depending on the file handling mode
-            if DataHandling.Lazy.file.is_lazy
+            if Program.states.instance().is_lazy
                 obj = f; % Return lazy file reader if lazy loading is enabled.
             else
                 obj = bfOpen(file); % Load full file data.
