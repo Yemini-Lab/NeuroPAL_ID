@@ -53,7 +53,6 @@ classdef ChunkyMethods
 
                     new_dims = og_dims;
                     new_dims(1:2) = [size(temp_arr, 1) size(temp_arr, 2)];
-                    delete(temp_arr);
 
                 otherwise
                     new_dims = og_dims;
