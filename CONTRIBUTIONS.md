@@ -1,10 +1,10 @@
-# Contributing to NeuroPal_ID
+# Contributing to NeuroPAL_ID
 
-🎉 Thank you for your interest in contributing to NeuroPal_ID! Whether you're here to fix a bug, add a feature, or improve documentation, your contributions are highly appreciated. This guide will help you get started with setting up the project and submitting your contributions.
+🎉 Thank you for your interest in contributing to NeuroPAL_ID! Whether you're here to fix a bug, add a feature, or improve documentation, your contributions are highly appreciated. This guide will help you get started with setting up the project and submitting your contributions.
 Getting Started
 User Mode
 
-### To use NeuroPal_ID as a standalone tool:
+### To use NeuroPAL_ID as a standalone tool:
 
 Download the Latest Release
 Grab the latest compiled release [here](https://github.com/Yemini-Lab/NeuroPAL_ID/releases).
@@ -14,7 +14,7 @@ Unzip the downloaded file and place it in a directory of your choice.
 
 ### Developer Mode
 
-If you want to actively develop or extend NeuroPal_ID, please follow these steps:
+If you want to actively develop or extend NeuroPAL_ID, please follow these steps:
 
 ### Prerequisites
 Ensure you have:
@@ -44,7 +44,7 @@ Open visualize_light.mlapp in MATLAB’s AppDesigner to begin development.
 # How to Contribute
 
 1. Fork the Repository
-Fork the NeuroPal_ID repository to your GitHub account.
+Fork the NeuroPAL_ID repository to your GitHub account.
 
 2. Create a Branch
 Create a new branch for your changes:
@@ -60,4 +60,4 @@ Push your changes to GitHub and open a pull request (PR) with a detailed descrip
 5. Feedback and Review
 Maintainers will review your PR and may provide feedback. Thank you for your patience during this process!
 
-Thank you for helping make NeuroPal_ID a better tool! 👏
+Thank you for helping make NeuroPAL_ID a better tool! 👏
