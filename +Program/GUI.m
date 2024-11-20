@@ -91,6 +91,17 @@ classdef GUI
             app.(component_name).Value = gamma;
         end
 
+        function toggle_channel_gui()
+            app = Program.GUI.app;
+
+            if ~Program.states.instance().has_channel_names
+                Program.Helpers.set_grid_width(app.proc_channel_grid, 3, 0);
+            else
+                Program.Helpers.set_grid_width(app.proc_channel_grid, 3, '1x');
+            end
+
+        end
+
         function toggle_loading(handle)
             if nargin > 0
                 handle = Program.GUI.window;
