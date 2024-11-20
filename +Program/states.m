@@ -6,6 +6,8 @@ classdef states < dynamicprops
         is_video = 0;               % Whether the active file is a video.
         is_lazy = 0;                % Whether we're in lazy load mode.
         is_mip = 0;                 % Whether we're rendering a maximum intensity projection.
+
+        has_channel_names = 0;      % Whether we have channel names.
     end
     
     methods (Static)
