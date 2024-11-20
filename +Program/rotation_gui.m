@@ -23,7 +23,7 @@ classdef rotation_gui
                 app.rotation_stack.roi = Program.GUIHandling.rect_to_freehand(roi);
                 app.rotation_stack.cache.(app.VolumeDropDown.Value) = struct('angle', {0});
             end
-
+            
             axes = app.rotation_stack.roi.Parent;
             symbols = Program.rotation_gui.symbols.in_gui;
             sym_count = sum(cellfun(@length, symbols));
