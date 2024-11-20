@@ -43,7 +43,7 @@ classdef file
             %       as_rendered: Indices of all valid channels as rendered from processing array.
 
             [~, ~, ext] = fileparts(path); ext = ext(2:end);                                            % Get file extension.
-            helper = DataHandling.file.get_helper(ext);                                            % Identify & define helper script.
+            helper = DataHandling.file.get_helper(ext);                                                 % Identify & define helper script.
 
             [f_obj, f_metadata] = DataHandling.(helper).open(path);                                     % Read file metadata.
             [~, f_metadata.ml_bit_depth] = DataHandling.Types.getMATLABDataType(f_metadata.bit_depth);  % If necessary, convert data type to one MATLAB can work with.
@@ -52,8 +52,8 @@ classdef file
             f_metadata.nc = length(f_metadata.channels.as_rendered);                                    % Update number of channels according to validated key.
             f_metadata.fmt = ext;                                                                       % Add file extension to metadata.
 
-            DataHandling.file.current_file(f_obj);                                                 % Set file object as current file.
-            DataHandling.file.metadata(f_metadata);                                                % Set metadata struct as current file.
+            DataHandling.file.current_file(f_obj);                                                      % Set file object as current file.
+            DataHandling.file.metadata(f_metadata);                                                     % Set metadata struct as current file.
         end
 
         function [as_loaded, as_loaded_hash] = get_channels(file)
