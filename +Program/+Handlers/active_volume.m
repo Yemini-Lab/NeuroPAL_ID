@@ -22,7 +22,7 @@ classdef active_volume
         end
 
         function volume_array = array()
-            if Program.GUIHandling.is_lazy
+            if Program.states.instance().is_lazy
                 z = DataHandling.file.metadata.nz;
                 c = DataHandling.channels.indices.lazy_load;
                 t = DataHandling.file.metadata.nt;
