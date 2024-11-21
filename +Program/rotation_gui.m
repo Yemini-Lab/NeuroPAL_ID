@@ -313,6 +313,7 @@ classdef rotation_gui
                     return;
                     
                 case "Cancel cropping"
+                    Program.Routines.Processing.reset();
                     return;
             end
         end
