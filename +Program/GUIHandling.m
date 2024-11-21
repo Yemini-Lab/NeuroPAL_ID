@@ -804,52 +804,26 @@ classdef GUIHandling
                 mode = lower(event.Value);
             end
 
+            Program.GUIHandling.set_gui_limits(app, mode);
+
             switch mode
                 case 'colormap'
-                    Program.GUIHandling.set_gui_limits(app, 'colormap');
                     Program.GUIHandling.set_thresholds(app, max(app.proc_image.data, [], "all"));
 
                     chunk_prefs = app.proc_image.prefs;
                     for c=1:app.video_info.nc
                         app.(sprintf("%s_GammaEditField", Program.GUIHandling.pos_prefixes{c})).Value = chunk_prefs.gamma(c);
                     end
-    
-                    app.PlaceholderProcTimeline.Parent = app.CELL_ID;
-                    app.PlaceholderProcTimeline.Visible = ~app.PlaceholderProcTimeline.Visible;
-                    app.ProcAxGrid.RowHeight(end) = [];
-                    app.ProcSideGrid.RowHeight = {148, 'fit', 175, 'fit', 212, '1x', 93};
-
-                    app.ProcTStartEditField.Enable = 'off';
-                    app.ProcTStopEditField.Enable = 'off';
-                    app.TrimButton.Enable = 'off';
-                    app.ProcDownsamplingGrid.RowHeight = {22, 22, 0, 18};
 
                 case 'video'
-                    Program.GUIHandling.set_gui_limits(app, 'video');
                     Program.GUIHandling.set_thresholds(app, max(app.retrieve_frame(app.proc_tSlider.Value), [], "all"));
                     
                     for c=1:app.video_info.nc
                         app.(sprintf("%s_GammaEditField", Program.GUIHandling.pos_prefixes{c})).Value = 1;
                     end
-                    
-                    app.ProcAxGrid.RowHeight{end+1} = 'fit';
-                    app.PlaceholderProcTimeline.Parent = app.ProcAxGrid;
-                    app.PlaceholderProcTimeline.Layout.Row = max(size(app.ProcAxGrid.RowHeight));
-                    app.PlaceholderProcTimeline.Layout.Column = [1 max(size(app.ProcAxGrid.ColumnWidth))];
-                    app.PlaceholderProcTimeline.Visible = ~app.PlaceholderProcTimeline.Visible;
-
-                    app.ProcSideGrid.RowHeight = {148, 'fit', 175, 'fit', 0, '1x', 93};
-
-                    if app.ProcTStartEditField.Value == 0 || app.ProcTStopEditField.Value == 0
-                        app.ProcTStartEditField.Value = app.proc_tSlider.Limits(1);
-                        app.ProcTStopEditField.Value = app.proc_tSlider.Limits(2);
-                    end
-
-                    app.ProcTStartEditField.Enable = 'on';
-                    app.ProcTStopEditField.Enable = 'on';
-                    app.TrimButton.Enable = 'on';
-                    app.ProcDownsamplingGrid.RowHeight = {22, 22, 22, 18};
             end
+
+            Program.Routines.GUI.(sprintf("toggle_%s", mode));
 
             spectral_unmixing_gui = app.SpectralUnmixingGrid.Children;
             for comp=1:length(spectral_unmixing_gui)
