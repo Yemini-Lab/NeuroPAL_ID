@@ -60,7 +60,7 @@ classdef nd2
             bits = f.getMetadataStore.getPixelsSignificantBits(0).getValue();   % Get bit depth.
             bit_depth = sprintf("uint%.f", bits);                               % Convert bit depth to class string.
 
-            data = zeros(nx, ny, nz, nc, nt, bit_depth);                        % Initialize data as proportionate zero array.
+            data = [];                                                          % Initialize data as proportionate zero array.
 
             info = struct('file', {file});                                      % Initialize info struct.
             info.scale = DataHandling.Helpers.nd2.parse_scale(file);            % Set image scale
@@ -70,6 +70,7 @@ classdef nd2
             info.RGBW = channels(1:4);                                          % Set RGBW indices.
             info.DIC = channels(5);                                             % Set DIC if present, else set to 0.
             info.GFP = channels(6);                                             % Set GFP is present, else set to 0.
+            info.bit_depth = bit_depth;
             
             % Determine the gamma.
             info.gamma = NeuroPALImage.gamma_default;                           % Set gamma to default since we can't get it from ND2 hashtable.
@@ -208,9 +209,8 @@ classdef nd2
             addOptional(p, 'z', 1:metadata.nz);
             addOptional(p, 'c', 1:metadata.nc);
             addOptional(p, 't', t);
+            addOptional(p, 'file', DataHandling.file.current_file)
             parse(p, varargin{:});
-        
-            file = DataHandling.file.current_file;  % File reader object for ND2 data.
         
             % Determine starting positions for extraction (zero-based)
             x0 = min(p.Results.x);
@@ -253,6 +253,35 @@ classdef nd2
 
     methods (Static, Access = private)
         function write_data(np_file, nd2_file)
+            np_write = matfile(np_file, "Writable", true);
+            nd2_file = bfGetReader(nd2_file);
+
+            nx = nd2_file.getSizeX;
+            ny = nd2_file.getSizeY;
+            nz = nd2_file.getSizeZ;
+            nc = nd2_file.getSizeC;
+            nt = nd2_file.getSizeT;
+
+            np_write.data = zeros( ...
+                ny, nx, ...
+                nz, nc, nt, ...
+                Program.GUIHandling.standard_class);
+
+            if nt > 1
+                for t=1:nt
+                    this_frame = DataHandling.Helpers.nd2.get_plane( ...
+                        'x', 1:nx, 'y', 1:ny, 'z', 1:nz, ...
+                        'c', 1:nc, 't', t, 'file', nd2_file);
+                    np_write.data(:, :, :, :, t) = DataHandling.Types.to_standard(this_frame);
+                end
+                
+            else
+                for z=1:nz
+                    this_slice = DataHandling.Helpers.nd2.get_plane( ...
+                        'x', 1:nx, 'y', 1:ny, 'z', z, 'c', 1:nc, 'file', nd2_file);
+                    np_write.data(:, :, z, :) = DataHandling.Types.to_standard(this_slice);
+                end
+            end
         end
 
         function scale = parse_scale(file, pfx)
