@@ -6,7 +6,7 @@ function open()
     app.is_opening_file = true;
     
     % Unselect any neurons.
-    UnselectNeuron(app);
+    Program.Handlers.neurons.unselect_neuron();
     if ~isempty(app.id_file) && exist(app.id_file, 'file')
         app.SaveIDToFile();
     end
@@ -124,36 +124,15 @@ function open()
     % Did we detect neurons?
     app.id_file = id_file;
     app.mp_params = mp;
-    read_nwb_neurons = 0;
-    if ~isempty(neurons)
-        app.image_neurons = neurons;
-        Program.GUIHandling.gui_lock(app, 'enable', 'neuron_gui');
-    elseif contains(filename,'.nwb')
-        
-        nwb_data = nwbRead(filename);
-
-        if any(ismember(nwb_data.processing.keys, 'NeuroPAL')) & (any(ismember(nwb_data.processing.get('NeuroPAL').nwbdatainterface.keys, 'NeuroPALSegmentation')) | any(ismember(nwb_data.processing.get('NeuroPAL').nwbdatainterface.keys, 'ImageSegmentation')) | any(ismember(nwb_data.processing.get('NeuroPAL').dynamictable.keys, 'VolumeSegmentation')) | any(ismember(nwb_data.processing.get('NeuroPAL').dynamictable.keys, 'NeuroPALNeurons')))
-            read_nwb_neurons = 1;
-        end             
-
-        app.image_neurons = Neurons.Image([], worm.body, 'scale', app.image_um_scale');
-    else
-        app.image_neurons = Neurons.Image([], worm.body, 'scale', app.image_um_scale');
-    end
+    Program.Handlers.neurons.initialize(neurons);
 
     % Restrict the slider to the z stack.
     Program.Routines.GUI.reset_zstack(app.image_data);
 
     Program.Routines.GUI.reset_id_render(app.image_data);
 
-    % Select no neurons.
-    app.selected_neuron = [];
-
     % Draw everything.
-    app.UnselectNeuron();
-    app.UserNeuronIDsListBox.Items = {};
-    app.UserNeuronIDsListBox.ItemsData = [];
-    app.UserNeuronIDsListBox.Value = {};
+    Program.Handlers.neurons.reset();
 
     if ismember('is_matched', fieldnames(app.image_prefs))
         if app.image_prefs.is_matched == 1
