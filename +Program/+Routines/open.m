@@ -1,4 +1,6 @@
 function open()
+    app = Program.app;
+
     % Are we already opening a file?
     if app.is_opening_file
         return;
