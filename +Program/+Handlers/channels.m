@@ -19,7 +19,7 @@ classdef channels
             'dic', {{'dic', 'dia', 'nomarski', 'phase'}}, ...
             'gfp', {{'gfp', 'gcamp'}});
 
-        channel_names = dictionary( ...
+        names = dictionary( ...
             'short', {{'r', 'g', 'b', 'w', 'dic', 'gfp'}}, ...
             'color', {{'red', 'green', 'blue'}}, ...
             'long', {{'Red', 'Green', 'Blue', 'White', 'DIC', 'GFP'}});
@@ -62,6 +62,38 @@ classdef channels
                 % to do
             end
         end
+
+        function order = parse_info(channel_names)
+            order = zeros(1, Program.Handlers.channels.config(max_channels), 'double');
+
+            for c=1:length(channel_names)
+                ch_name = channel_names{c};
+                [~, ch_idx] = Program.Handlers.channels.identify_color(ch_name);
+                order(c) = ch_idx;
+            end
+        end
+    end
+
+    methods (Static, Access = private)
+        
+        function [color, idx] = identify_color(name)
+            fluorophore_keys = keys(Program.Handlers.channels.fluorophore_map);
+            idx = 0;
+
+            for c=1:length(fluorophore_keys)
+                color = fluorophore_keys{c};
+
+                fluorophores = Program.Handlers.channels.fluorophore_map(color);
+                if any(ismember(lower(name), fluorophores))
+                    idx = c;
+                    return
+                end
+
+            end
+
+            color = 'none';
+        end
+
     end
 end
 
