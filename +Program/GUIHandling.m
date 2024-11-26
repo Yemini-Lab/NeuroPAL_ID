@@ -336,6 +336,15 @@ classdef GUIHandling
             hWin.executeJS(js_code);
         end
 
+        function t = current_frame()
+            app = Program.app;
+            if app.TabGroup.SelectedTab == app.VideoTrackingTab
+                t = app.tEditField.Value;
+            else
+                t = app.proc_tEditField.Value;
+            end
+        end
+
         function mouse_poll(app, click_state)
             app.mouse.pos = get(app.CELL_ID, 'CurrentPoint');
             clicked = exist('click_state', 'var');
