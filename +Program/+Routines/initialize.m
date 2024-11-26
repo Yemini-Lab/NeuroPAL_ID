@@ -17,6 +17,7 @@ function initialize()
 
     Program.Helpers.resize_window();
     Program.Routines.GUI.toggle_buttons();
+    Program.Handlers.dialogue.active([]);
 
     % Load the application preferences.
     is_loaded = Program.GUIPreferences.load();
