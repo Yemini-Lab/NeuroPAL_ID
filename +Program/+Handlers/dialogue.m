@@ -65,7 +65,10 @@ classdef dialogue
         function handle = add_task(task)
             handle = Program.Handlers.dialogue.active();
             if ~isempty(handle)
-                handle.Message = sprintf("%s\n-> %s", handle.Message, task);
+                arr_task = Program.Validation.clear_nlines(handle.Message);
+                n_tasks = max(1, count(arr_task, "->")+1);
+                lvl_task = join(string(repelem("-", [n_tasks])), '');
+                handle.Message = sprintf("%s\n%s> %s", handle.Message, lvl_task, task);
 
             else
                 handle = Program.Handlers.dialogue.create('progress', 'Message', task);
@@ -73,21 +76,30 @@ classdef dialogue
             end
         end
 
+        function set_value(new_value)
+            handle = Program.Handlers.dialogue.active();
+            if ~isempty(handle)
+
+                if strcmp(handle.Indeterminate, 'on')
+                    handle.Indeterminate = 'off';
+                end
+
+                handle.Value = new_value;
+            end
+        end
+
         function resolve()
             handle = Program.Handlers.dialogue.active();
 
             if isa(handle, "matlab.ui.dialog.ProgressDialog")
-                task_arr = splitlines(handle.Message);
+                task_arr = splitlines(Program.Validation.clear_nlines(handle.Message));
     
-                if length(task_arr) < 2 || (length(task_arr) == 2 && isempty(task_arr{end}))
+                if length(task_arr) < 2
                     delete(handle)
                 
                 else
-                    if isempty(task_arr{end})
-                        task_arr = task_arr(1:end-1);
-                    end
-
-                    handle.Message = sprintf("%s\n", task_arr{1:end-1});
+                    new_message = join(task_arr(1:end-1), '\n');
+                    handle.Message = sprintf(new_message{1});
     
                 end
 
@@ -104,7 +116,7 @@ classdef dialogue
         function handle = create(mode, varargin)            
             p = inputParser;
             addOptional(p, 'Message', '');
-            addOptional(p, 'Title', '');
+            addOptional(p, 'Title', Program.window().Name);
             addOptional(p, 'Indeterminate', 'on');
             addOptional(p, 'Options', ["OK", "Cancel"])
             addOptional(p, 'Cancelable', 'off');
