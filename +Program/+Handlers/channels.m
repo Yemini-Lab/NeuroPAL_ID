@@ -25,6 +25,7 @@ classdef channels
             'long', {{'Red', 'Green', 'Blue', 'White', 'DIC', 'GFP'}});
 
         config = dictionary( ...
+            'default_gamma', {0.8}, ...
             'max_channels', {6}, ...
             'label_colors', {{'#000', '#000', '#fff', '#000', '#fff', '#000'}}, ...
             'channel_colors', {{'#ff0000', '#00d100', '#0000ff', '#fff', '#6b6b6b', '#ffff00'}});
@@ -64,7 +65,8 @@ classdef channels
         end
 
         function order = parse_info(channel_names)
-            order = zeros(1, Program.Handlers.channels.config(max_channels), 'double');
+            max_nc = Program.Handlers.channels.config{'max_channels'};
+            order = zeros(1, max_nc, 'double');
 
             for c=1:length(channel_names)
                 ch_name = channel_names{c};
@@ -83,7 +85,7 @@ classdef channels
             for c=1:length(fluorophore_keys)
                 color = fluorophore_keys{c};
 
-                fluorophores = Program.Handlers.channels.fluorophore_map(color);
+                fluorophores = Program.Handlers.channels.fluorophore_map{color};
                 if any(ismember(lower(name), fluorophores))
                     idx = c;
                     return
