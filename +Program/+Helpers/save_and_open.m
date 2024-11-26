@@ -1,6 +1,12 @@
 function path = save_and_open(filename, input)
 
-    [path, ~, ~] = fileparts(filename);
+    [path, ~, ~] = fileparts(which(filename));
+
+    if isempty(path)
+        filename = fullfile(Program.GUIPreferences.instance().image_dir, filename);
+        [path, ~, ~] = fileparts(filename);
+    end
+
     if ~isfolder(path)
         mkdir(path);
     end
@@ -12,8 +18,6 @@ function path = save_and_open(filename, input)
         save(filename, 'input');
 
     end
-
-    [path, ~, ~] = fileparts(which(filename));
 
     if ispc
         winopen(path);
