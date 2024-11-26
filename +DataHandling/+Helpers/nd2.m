@@ -152,6 +152,7 @@ classdef nd2
         end
 
         function [sorted_names, permute_record] = autosort(channels)
+            Program.Handlers.dialogue.add_task('Interpreting channel names...');
             channels = string(channels(:));
             n_names = numel(channels);
         
@@ -188,6 +189,7 @@ classdef nd2
                 permute_record = [permute_record; unmatched_idx];
             end
 
+            Program.Handlers.dialogue.resolve();
         end
 
         function obj = get_plane(file, varargin)
@@ -256,6 +258,7 @@ classdef nd2
 
     methods (Static, Access = private)
         function write_data(np_file, nd2_reader)
+            Program.Handlers.dialogue.add_task('Writing data...');
             np_write = matfile(np_file, "Writable", true);
 
             nx = nd2_reader.getSizeX;
@@ -271,6 +274,7 @@ classdef nd2
 
             if nt > 1
                 for t=1:nt
+                    Program.Handlers.dialogue.set_value(t/nt);
                     this_frame = DataHandling.Helpers.nd2.get_plane( ...
                         nd2_reader, ...
                         'x', 1:nx, 'y', 1:ny, 'z', 1:nz, ...
@@ -280,11 +284,14 @@ classdef nd2
                 
             else
                 for z=1:nz
+                    Program.Handlers.dialogue.set_value(z/nz);
                     this_slice = DataHandling.Helpers.nd2.get_plane( ...
                         nd2_reader, 'x', 1:nx, 'y', 1:ny, 'z', z, 'c', 1:nc);
                     np_write.data(:, :, z, :) = DataHandling.Types.to_standard(this_slice);
                 end
             end
+
+            Program.Handlers.dialogue.resolve();
         end
 
         function scale = parse_scale(reader, pfx)
@@ -326,6 +333,7 @@ classdef nd2
             %
             % Returns:
             %   obj - Metadata values corresponding to the queried keys.
+            Program.Handlers.dialogue.add_task('Retrieving keys from hashtable...');
 
             if iscell(query)
                 query = query{1};
@@ -359,6 +367,8 @@ classdef nd2
 
             % Filter out any "NA" values
             obj = values(values ~= "NA");
+
+            Program.Handlers.dialogue.resolve();
         end
 
         function [globals, series] = parse_keys(reader)
@@ -374,6 +384,8 @@ classdef nd2
             persistent g_table % Persistent global metadata table
             persistent s_table % Persistent series metadata table
 
+            Program.Handlers.dialogue.add_task('Parsing hash keys...');
+
             % Parse global metadata only if not already done
             if isempty(g_table)
                 g_table = DataHandling.Helpers.java.parse_hashtable(reader.getGlobalMetadata);
@@ -386,6 +398,8 @@ classdef nd2
 
             globals = g_table;
             series = s_table;
+
+            Program.Handlers.dialogue.resolve();
         end
     end
 end
