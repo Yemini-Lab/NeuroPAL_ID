@@ -817,7 +817,7 @@ classdef GUIHandling
 
             switch mode
                 case 'colormap'
-                    Program.GUIHandling.set_thresholds(app, max(app.proc_image.data, [], "all"));
+                    max_val = max(app.proc_image.data, [], "all");
 
                     chunk_prefs = app.proc_image.prefs;
                     for c=1:app.video_info.nc
@@ -825,13 +825,14 @@ classdef GUIHandling
                     end
 
                 case 'video'
-                    Program.GUIHandling.set_thresholds(app, max(app.retrieve_frame(app.proc_tSlider.Value), [], "all"));
+                    max_val = max(app.retrieve_frame(app.proc_tSlider.Value), [], "all");
                     
                     for c=1:app.video_info.nc
                         app.(sprintf("%s_GammaEditField", Program.GUIHandling.pos_prefixes{c})).Value = 1;
                     end
             end
 
+            Program.GUIHandling.set_thresholds(app, max(max_val, 255));
             Program.Routines.GUI.(sprintf("toggle_%s", mode));
 
             spectral_unmixing_gui = app.SpectralUnmixingGrid.Children;
@@ -849,10 +850,14 @@ classdef GUIHandling
         end
 
         function set_thresholds(app, max_val)
+            max_val = cast(max_val, 'double');
             new_limits = [1 max(2, max_val)];
 
             app.ProcNoiseThresholdKnob.Limits = new_limits;
             app.ProcNoiseThresholdField.Limits = new_limits;
+            app.ProcNoiseThresholdKnob.MajorTicks = [1:round(max_val/5):max_val, max_val];
+            app.ProcNoiseThresholdKnob.MajorTickLabels = string(app.ProcNoiseThresholdKnob.MajorTicks);
+            Program.GUIHandling.shorten_knob_labels(app);
 
             for pos=1:length(Program.GUIHandling.pos_prefixes)
                 app.(sprintf('%s_hist_slider', Program.GUIHandling.pos_prefixes{pos})).Limits = new_limits;

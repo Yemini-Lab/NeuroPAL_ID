@@ -5,7 +5,10 @@ function toggle_colormap()
     Program.Helpers.set_grid_height(app.ProcSideGrid, 4, 114);
     Program.Helpers.set_grid_height(app.ProcSideGrid, 5, 212);
 
-    app.ProcAxGrid.RowHeight(end) = [];
+    if isstring(app.ProcAxGrid.RowHeight{end})
+        app.ProcAxGrid.RowHeight(end) = [];
+    end
+
     app.PlaceholderProcTimeline.Parent = app.CELL_ID;
 
     app.PlaceholderProcTimeline.Visible = 'off';
