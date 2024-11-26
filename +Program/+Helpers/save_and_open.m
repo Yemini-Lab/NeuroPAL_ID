@@ -1,5 +1,10 @@
 function path = save_and_open(filename, input)
 
+    [path, ~, ~] = fileparts(filename);
+    if ~isfolder(path)
+        mkdir(path);
+    end
+
     if isstruct(input)
         save(filename, '-struct', 'input');
     

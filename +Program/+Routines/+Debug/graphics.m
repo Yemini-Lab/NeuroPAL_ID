@@ -14,9 +14,6 @@ function debug_struct = graphics(save_flag)
     end
 
     if nargin > 0
-        if ~isfolder('debug')
-            mkdir('debug');
-        end
         Program.Helpers.save_and_open(fullfile('debug', 'graphics_debug.mat'), debug_struct);
     end
 end
