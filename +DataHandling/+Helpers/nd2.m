@@ -63,9 +63,9 @@ classdef nd2
             data = [];                                                          % Initialize data as proportionate zero array.
 
             info = struct('file', {file});                                      % Initialize info struct.
-            info.scale = DataHandling.Helpers.nd2.parse_scale(file);            % Set image scale
+            info.scale = DataHandling.Helpers.nd2.parse_scale(f);               % Set image scale
 
-            channels = DataHandling.Helpers.nd2.get_channel_names(file);        % Get channel names.
+            channels = DataHandling.Helpers.nd2.get_channel_names(f);           % Get channel names.
             channels = Program.Handlers.channels.parse_info(channels);          % Get channel indices from names.
             info.RGBW = channels(1:4);                                          % Set RGBW indices.
             info.DIC = channels(5);                                             % Set DIC if present, else set to 0.
@@ -73,7 +73,7 @@ classdef nd2
             info.bit_depth = bit_depth;
             
             % Determine the gamma.
-            info.gamma = NeuroPALImage.gamma_default;                           % Set gamma to default since we can't get it from ND2 hashtable.
+            info.gamma = Program.Handlers.channels.config{'default_gamma'};     % Set gamma to default since we can't get it from ND2 hashtable.
             
             % Initialize the user preferences.
             prefs.RGBW = info.RGBW;
@@ -94,11 +94,11 @@ classdef nd2
             worm.notes = '';
             
             % Save the ND2 file to our MAT file format.
-            np_file = strrep(nd2_file, 'nd2', 'mat');
-            version = ProgramInfo.version;
+            np_file = strrep(file, 'nd2', 'mat');
+            version = Program.information.version;
             save(np_file, 'version', 'data', 'info', 'prefs', 'worm', '-v7.3');
 
-            DataHandling.Helpers.nd2.write_data(np_file, file);
+            DataHandling.Helpers.nd2.write_data(np_file, f);
         end
 
         function dimension_struct = get_dimensions(file)
@@ -111,18 +111,18 @@ classdef nd2
                 'nt', {file.getSizeT});
         end
 
-        function channel_struct = get_channels(file)            
+        function channel_struct = get_channels(reader)            
             channel_struct = struct( ...
-                'names', {DataHandling.Helpers.nd2.get_channel_names(file)}, ...
+                'names', {DataHandling.Helpers.nd2.get_channel_names(reader)}, ...
                 'order', {Program.Handlers.channels.parse_order(names)}, ...
                 'has_bools', {Program.Handlers.channels.parse_presence(names)});
         end
 
-        function names = get_channel_names(file)
+        function names = get_channel_names(reader)
             names = {};
 
-            for c = 1:file.getSizeC
-                names{end+1} = string(file.getMetadataStore.getChannelName(0, c - 1));
+            for c = 1:reader.getSizeC
+                names{end+1} = string(reader.getMetadataStore.getChannelName(0, c - 1));
             end
 
             names = string(names);
@@ -190,7 +190,7 @@ classdef nd2
 
         end
 
-        function obj = get_plane(varargin)
+        function obj = get_plane(file, varargin)
             % GET_PLANE Extract a specific plane or slice from the ND2 file based on the given coordinates.
             %
             % Parameters:
@@ -199,17 +199,19 @@ classdef nd2
             % Returns:
             %   obj - Multidimensional array containing image planes.
 
-            metadata = DataHandling.file.metadata; % Retrieve file metadata.
+            if ischar(file) || isstring(file)
+                file = Program.GUIPreferences.instance().image_dir;
+            end
+
             t = Program.GUIHandling.current_frame; % Retrieve the current time frame from GUI.
 
             % Set up input parser to handle variable input arguments
             p = inputParser;
-            addOptional(p, 'x', 1:metadata.nx);
-            addOptional(p, 'y', 1:metadata.ny);
-            addOptional(p, 'z', 1:metadata.nz);
-            addOptional(p, 'c', 1:metadata.nc);
+            addOptional(p, 'x', 1:file.getSizeX);
+            addOptional(p, 'y', 1:file.getSizeY);
+            addOptional(p, 'z', 1:file.getSizeZ);
+            addOptional(p, 'c', 1:file.getSizeC);
             addOptional(p, 't', t);
-            addOptional(p, 'file', DataHandling.file.current_file)
             parse(p, varargin{:});
         
             % Determine starting positions for extraction (zero-based)
@@ -226,7 +228,8 @@ classdef nd2
             numT = numel(p.Results.t);
         
             % Preallocate array to hold the extracted image planes
-            obj = zeros(height, width, numZ, numC, numT, 'like', metadata.ml_bit_depth);
+            obj = zeros(height, width, numZ, numC, numT, ...
+                'like', file.getMetadataStore.getPixelsSignificantBits(0).getValue());
         
             % Loop through z, c, and t indices to retrieve planes
             for idxZ = 1:numZ
@@ -252,50 +255,52 @@ classdef nd2
     end
 
     methods (Static, Access = private)
-        function write_data(np_file, nd2_file)
+        function write_data(np_file, nd2_reader)
             np_write = matfile(np_file, "Writable", true);
-            nd2_file = bfGetReader(nd2_file);
 
-            nx = nd2_file.getSizeX;
-            ny = nd2_file.getSizeY;
-            nz = nd2_file.getSizeZ;
-            nc = nd2_file.getSizeC;
-            nt = nd2_file.getSizeT;
+            nx = nd2_reader.getSizeX;
+            ny = nd2_reader.getSizeY;
+            nz = nd2_reader.getSizeZ;
+            nc = nd2_reader.getSizeC;
+            nt = nd2_reader.getSizeT;
 
             np_write.data = zeros( ...
                 ny, nx, ...
                 nz, nc, nt, ...
-                Program.GUIHandling.standard_class);
+                Program.config.defaults{'class'});
 
             if nt > 1
                 for t=1:nt
                     this_frame = DataHandling.Helpers.nd2.get_plane( ...
+                        nd2_reader, ...
                         'x', 1:nx, 'y', 1:ny, 'z', 1:nz, ...
-                        'c', 1:nc, 't', t, 'file', nd2_file);
+                        'c', 1:nc, 't', t);
                     np_write.data(:, :, :, :, t) = DataHandling.Types.to_standard(this_frame);
                 end
                 
             else
                 for z=1:nz
                     this_slice = DataHandling.Helpers.nd2.get_plane( ...
-                        'x', 1:nx, 'y', 1:ny, 'z', z, 'c', 1:nc, 'file', nd2_file);
+                        nd2_reader, 'x', 1:nx, 'y', 1:ny, 'z', z, 'c', 1:nc);
                     np_write.data(:, :, z, :) = DataHandling.Types.to_standard(this_slice);
                 end
             end
         end
 
-        function scale = parse_scale(file, pfx)
+        function scale = parse_scale(reader, pfx)
+            key_map = DataHandling.Helpers.nd2.key_map;
+
             if ~exist('pfx', 'var')
-                xy_scale = Program.Handlers.channels.get_keys(file, key_map('xy_scale'), 'globals');
-                z_scale = Program.Handlers.channels.get_keys(file, key_map('z_scale'), 'globals');
+                xy_scale = DataHandling.Helpers.nd2.get_keys(reader, key_map('xy_scale'), 'globals');
+                z_scale = DataHandling.Helpers.nd2.get_keys(reader, key_map('z_scale'), 'globals');
 
                 if isempty(xy_scale) || isempty(z_scale)
-                    Program.Handlers.channels.parse_scale(file, 'Global ');
+                    DataHandling.Helpers.nd2.parse_scale(reader, 'Global ');
                 end
 
             else
-                xy_scale = Program.Handlers.channels.get_keys(file, sprintf("%s %s", pfx, key_map('xy_scale')), 'globals');
-                z_scale = Program.Handlers.channels.get_keys(file,  sprintf("%s %s", pfx, key_map('xy_scale')), 'globals');
+                xy_scale = DataHandling.Helpers.nd2.get_keys(reader, sprintf("%s %s", pfx, key_map('xy_scale')), 'globals');
+                z_scale = DataHandling.Helpers.nd2.get_keys(reader,  sprintf("%s %s", pfx, key_map('xy_scale')), 'globals');
 
             end
 
@@ -303,12 +308,15 @@ classdef nd2
                 scale = [0 0 0];
 
             else
-                scale = [xy_scale(1) xy_scale(2) z_scale];
+                scale = [ ...
+                    str2num(xy_scale) ...
+                    str2num(xy_scale) ...
+                    str2num(z_scale)];
                 
             end
         end
 
-        function obj = get_keys(file, query, scope)
+        function obj = get_keys(reader, query, scope)
             % GET_KEYS Retrieve specific keys from the file metadata.
             %
             % Parameters:
@@ -319,15 +327,19 @@ classdef nd2
             % Returns:
             %   obj - Metadata values corresponding to the queried keys.
 
-            [globals, series] = DataHandling.Helpers.nd2.parse_keys(file); % Parse metadata into globals and series.
+            if iscell(query)
+                query = query{1};
+            end
+
+            [globals, series] = DataHandling.Helpers.nd2.parse_keys(reader); % Parse metadata into globals and series.
             keys = struct('globals', {fieldnames(globals)}, 'series', {fieldnames(series)}); % Structure for keys.
 
             % Handle optional 'scope' argument
             if ~exist('scope', 'var')
                 % Default case returns both global and series keys
                 obj = struct( ...
-                    'globals', {DataHandling.Helpers.nd2.get_keys(file, query, 'globals')}, ...
-                    'series', {DataHandling.Helpers.nd2.get_keys(file, query, 'series')});
+                    'globals', {DataHandling.Helpers.nd2.get_keys(reader, query, 'globals')}, ...
+                    'series', {DataHandling.Helpers.nd2.get_keys(reader, query, 'series')});
                 return
             end
 
@@ -340,16 +352,16 @@ classdef nd2
             % Extract values based on scope and matched keys
             switch scope
                 case 'globals'
-                    values = string(cellfun(@(x)globals.get(x), order, 'UniformOutput', false));
+                    values = string(cellfun(@(x)globals.(x), order, 'UniformOutput', false));
                 case 'series'
-                    values = string(cellfun(@(x)series.get(x), order, 'UniformOutput', false));
+                    values = string(cellfun(@(x)series.(x), order, 'UniformOutput', false));
             end
 
             % Filter out any "NA" values
             obj = values(values ~= "NA");
         end
 
-        function [globals, series] = parse_keys(file)
+        function [globals, series] = parse_keys(reader)
             % PARSE_KEYS Parse global and series metadata tables if not already parsed.
             %
             % Parameters:
@@ -364,12 +376,12 @@ classdef nd2
 
             % Parse global metadata only if not already done
             if isempty(g_table)
-                g_table = DataHandling.Helpers.java.parse_hashtable(file.getGlobalMetadata);
+                g_table = DataHandling.Helpers.java.parse_hashtable(reader.getGlobalMetadata);
             end
 
             % Parse series metadata only if not already done
             if isempty(s_table)
-                s_table = DataHandling.Helpers.java.parse_hashtable(file.getSeriesMetadata);
+                s_table = DataHandling.Helpers.java.parse_hashtable(reader.getSeriesMetadata);
             end
 
             globals = g_table;
