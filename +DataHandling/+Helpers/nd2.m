@@ -238,7 +238,7 @@ classdef nd2
                         % Retrieve coordinates in zero-based format
                         z = p.Results.z(idxZ);
                         c = p.Results.c(idxC);
-                        t = p.Results.t(idxT);
+                        t = max(p.Results.t(idxT), 1);
         
                         % Calculate the index for the specific plane in the reader object
                         planeIndex = file.getIndex(z - 1, c - 1, t - 1) + 1;
