@@ -1,5 +1,5 @@
 function standard_arr = to_standard(arr)
-    standard_arr = cast(arr, Program.GUIHandling.standard_class);
+    standard_arr = cast(arr, Program.config.defaults{'class'});
     
     %current_class = class(arr);
     %standard_class = Program.GUIHandling.standard_class;
