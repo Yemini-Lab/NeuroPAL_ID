@@ -66,13 +66,15 @@ classdef NeuroPALImage
             
             % Is the file already in NeuroPAL format?
             if ~exist(np_file,'file')
+                Program.Handlers.dialogue.add_task(sprintf('Converting %s file to NeuroPAL_ID file...', ext));
                 switch lower(ext)
                     case '.mat' % NeuroPAL format
                         error('File not found: "%s"', file);
                     case '.czi' % Zeiss format
                         NeuroPALImage.convertCZI(file);
                     case '.nd2' % Nikon format
-                        NeuroPALImage.convertND2(file);
+                        DataHandling.Helpers.nd2.to_npal(file);
+                        % NeuroPALImage.convertND2(file);
                     case {'.lif'} % Leica format
                         NeuroPALImage.convertAny(file);
                     case {'.ims'} % Imaris format
@@ -86,6 +88,7 @@ classdef NeuroPALImage
                     otherwise % Unknown format
                         error('Unknown image format: "%s"', file);
                 end
+                Program.Handlers.dialogue.resolve();
             end
             
             % Did we manage to convert the file?
