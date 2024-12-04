@@ -17,100 +17,26 @@ classdef rotation_gui
     methods (Static)
 
         function draw(app, roi)
+            % Close any existing rotation GUI elements
             Program.rotation_gui.close(app);
             
+            % Ensure ROI is a freehand ROI
             if ~isa(roi, 'images.roi.Freehand') || strcmp(roi.Tag, 'redraw') 
                 app.rotation_stack.roi = Program.GUIHandling.rect_to_freehand(roi);
-                app.rotation_stack.cache.(app.VolumeDropDown.Value) = struct('angle', {0});
+                app.rotation_stack.cache.(app.VolumeDropDown.Value) = struct('angle', 0);
             end
-            
-            axes = app.rotation_stack.roi.Parent;
-            symbols = Program.rotation_gui.symbols.in_gui;
-            sym_count = sum(cellfun(@length, symbols));
+        
+            top_right_corner = Program.Helpers.get_corner(app.rotation_stack.roi.Position).top_right;
+            Program.rotation_gui.draw_symbols(top_right_corner, app.rotation_stack.roi.Parent);
 
-            font_size = Program.rotation_gui.settings.font_size;
-            stroke_size = Program.rotation_gui.settings.stroke_size;
-            vertical_offset = Program.rotation_gui.settings.vertical_offset;
-            box_padding = Program.rotation_gui.settings.box_padding;
-
-            corners = Program.rotation_gui.get_edges(app, app.rotation_stack.roi.Position);
-            top_right_corner = corners(3:-1:2);
-            
-            bg_width = font_size*sym_count + stroke_size*length(symbols) + box_padding(1)/2;
-            bg_height = font_size + stroke_size + box_padding(2);
-            bg_xmin = top_right_corner(1) - bg_width;
-            bg_ymin = min(app.rotation_stack.roi.Position(:, 2)) - font_size - vertical_offset;
-
-            bg_pos = [
-                [bg_xmin+bg_width, bg_ymin];
-                [bg_xmin, bg_ymin];
-                [bg_xmin, bg_ymin+bg_height];
-                [bg_xmin+bg_width, bg_ymin+bg_height]];
-
-            app.rotation_stack.gui{end+1} = images.roi.Freehand(app.rotation_stack.roi.Parent, 'Position', bg_pos, 'Color', [0.1 0.1 0.1], 'FaceAlpha', 0.7, ...
-                'InteractionsAllowed', 'none', 'MarkerSize', 1e-99, 'LineWidth', 1e-99);
-
-            % Construct rotation symbols
-            multi_string = 0;
-            for n = 1:length(symbols)
-                symbol = symbols{n};
-                symbol_x = bg_xmin + (((font_size)*(n-1))/n + stroke_size)*n + box_padding(1) / 2 + multi_string/2;
-                symbol_y = bg_ymin + bg_height/2;
-                multi_string = multi_string + font_size * (length(symbol)-1);
-
-                switch symbol
-                    case 'OK'
-                        color = 'green';
-                    case 'X'
-                        color = 'red';
-                    otherwise
-                        color = 'white';
-                end
-
-                app.rotation_stack.gui{end+1} = text(axes, symbol_x, symbol_y, symbol, ...
-                    'Color', color, ...
-                    'FontName', 'MonoSpace', 'FontSize', font_size, 'FontWeight', 'bold', ...
-                    'ButtonDownFcn', @(src, event) Program.rotation_gui.trigger(app, event), ...
-                    'Tag', 'rot_symbol');
-            end
-
-            % Construct scaling symbols
-            for n = 1:length(Program.rotation_gui.symbols.out_gui)
-                scale = Program.rotation_gui.symbols.out_gui{n};
-                pos = Program.rotation_gui.get_edges(app);
-                
-                if strcmp(scale, '↔')
-                    x1 = pos(1) - Program.rotation_gui.settings.font_size;
-                    y1 = (pos(2) + pos(4)) / 2;
-                    
-                    x2 = pos(3) - Program.rotation_gui.settings.font_size;
-                    y2 = (pos(2) + pos(4)) / 2;
-                    
-                elseif strcmp(scale, '↕')
-                    x1 = (pos(1) + pos(3)) / 2 - Program.rotation_gui.settings.font_size;
-                    y1 = pos(2);
-                    
-                    x2 = (pos(1) + pos(3)) / 2 - Program.rotation_gui.settings.font_size;
-                    y2 = pos(4);
-                end
-                
-                app.rotation_stack.gui{end+1} = text(axes, x1, y1, scale, ...
-                    'Color', 'white', ...
-                    'FontName', 'MonoSpace', 'FontSize', Program.rotation_gui.settings.font_size*2, ...
-                    'ButtonDownFcn', @(src, event) Program.rotation_gui.trigger(app, event), ...
-                    'Tag', num2str(n));
-            
-                app.rotation_stack.gui{end+1} = text(axes, x2, y2, scale, ...
-                    'Color', 'white', ...
-                    'FontName', 'MonoSpace', 'FontSize', Program.rotation_gui.settings.font_size*2, ...
-                    'ButtonDownFcn', @(src, event) Program.rotation_gui.trigger(app, event), ...
-                    'Tag', num2str(n+2));
-            end
-
-            app.rotation_stack.listeners{end+1} = addlistener(app.rotation_stack.roi, 'MovingROI', @(src, event) Program.rotation_gui.update(app, event, 'move'));
+            % Set up listeners for mouse click & drag.
             app.rotation_stack.listeners{end+1} = addlistener(app.CELL_ID, 'WindowMousePress', @(~,~) Program.GUIHandling.mouse_poll(app, 1));
             app.rotation_stack.listeners{end+1} = addlistener(app.CELL_ID, 'WindowMouseRelease', @(~,~) Program.GUIHandling.mouse_poll(app, 0));
             set(app.CELL_ID, 'WindowButtonMotionFcn', @(~,~) Program.GUIHandling.mouse_poll(app));
+        
+            % Set up listeners for ROI movement.
+            app.rotation_stack.listeners{end+1} = addlistener(app.rotation_stack.roi, 'MovingROI', ...
+                @(src, event) Program.rotation_gui.update(app, event, 'move'));
         end
 
         function update(app, event, mode)
@@ -326,6 +252,69 @@ classdef rotation_gui
 
             cellfun(@delete, app.rotation_stack.listeners);
             app.rotation_stack.listeners = {};
+        end
+
+        function settings = calc_graphics()
+            font_size = Program.rotation_gui.settings.font_size;
+            stroke_size = Program.rotation_gui.settings.stroke_size;
+            vertical_offset = Program.rotation_gui.settings.vertical_offset;
+            box_padding = Program.rotation_gui.settings.box_padding;
+
+            settings = struct( ...
+                'font_size', {font_size}, ...
+                'stroke_size', {stroke_size}, ...
+                'vertical_offset', {vertical_offset}, ...
+                'box_padding', {box_padding});
+        end
+
+        function draw_symbols(corner, axesHandle)
+            app = Program.GUIHandling.app;
+
+            xLimits = axesHandle.XLim;
+            yLimits = axesHandle.YLim;
+        
+            % Define symbols and their callbacks
+            symbols = Program.rotation_gui.symbols.in_gui;
+            numSymbols = length(symbols);
+            callbacks = {
+                @(src, event) Program.rotation_gui.trigger(app, event), ... % ↺
+                @(src, event) Program.rotation_gui.trigger(app, event), ... % ⦝
+                @(src, event) Program.rotation_gui.trigger(app, event), ... % ⦬
+                @(src, event) Program.rotation_gui.trigger(app, event), ... % OK
+                @(src, event) Program.rotation_gui.trigger(app, event)      % X
+            };
+
+            % Define the offsets for positioning
+            xOffset = 0.02 * diff(xLimits); % Adjust as needed
+            yOffset = 0.02 * diff(yLimits); % Adjust as needed
+
+            % Calculate positions for each symbol
+            for n = 1:numSymbols
+                symbol = symbols{numSymbols-(n-1)};
+
+                switch symbol
+                    case "OK"
+                        color = 'green';
+                    case "X"
+                        color = 'red';
+                    otherwise
+                        color = 'white';
+                end
+
+                % Position relative to the top-right corner of the ROI
+                xPosData = corner(1) - xOffset - (n/1.5 - 1) * 0.05 * diff(xLimits);
+                yPosData = corner(2) - yOffset;
+        
+                % Create the text object within the axes
+                txtHandle = text(axesHandle, xPosData, yPosData, symbol, ...
+                    'Units', 'data', 'HorizontalAlignment', 'center', ...
+                    'VerticalAlignment', 'middle', 'Color', color, ...
+                    'FontSize', 16, 'FontWeight', 'bold', ...
+                    'ButtonDownFcn', callbacks{n}, 'Tag', 'rot_symbol');
+        
+                % Store the handle for later reference
+                app.rotation_stack.gui{end+1} = txtHandle;
+            end
         end
 
     end
