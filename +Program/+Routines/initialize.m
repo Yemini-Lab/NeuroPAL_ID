@@ -11,6 +11,13 @@ function initialize()
     app = Program.GUIHandling.app;
     window = Program.GUIHandling.window_fig;
 
+    if ~isdeployed
+        % If we're running in dev mode, add Data & External Dependencies to
+        % path.
+        addpath(genpath(fullfile(pwd, "Data")));
+        addpath(genpath(fullfile(pwd, "External_Dependencies")));
+    end
+
     d = uiprogressdlg(window, "Title","NeuroPAL ID","Message","Starting NeuroPAL_ID...",'Indeterminate','on');
     app.logEvent('Main','Starting NeuroPAL_ID...', 1);
     app.logEvent('Main','Resizing NeuroPAL_ID...', 1);
