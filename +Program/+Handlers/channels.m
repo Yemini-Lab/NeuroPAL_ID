@@ -32,6 +32,9 @@ classdef channels
     end
     
     methods (Static)
+                names = input;
+                nc = length(names);
+            end
         function set_idx(order, ~)
             app = Program.app;
 
