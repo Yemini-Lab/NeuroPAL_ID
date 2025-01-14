@@ -1,4 +1,5 @@
-function delete_channel(app, channel, permanence_flag, from_file)
+function delete_channel(channel, permanence_flag, from_file)
+    app = Program.app;
     target = Program.channel_handler.get_channel(app, channel);
 
     if permanence_flag
