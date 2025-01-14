@@ -1,0 +1,9 @@
+function reference_idx = decode_references(query)
+    app = Program.app;
+    reference_values = { ...
+        lower(app.proc_c4_ref.Value), ...
+        lower(app.proc_c5_ref.Value), ...
+        lower(app.proc_c6_ref.Value)};
+    reference_idx = find(strcmp(query, reference_values));
+end
+
