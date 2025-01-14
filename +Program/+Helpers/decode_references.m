@@ -4,6 +4,6 @@ function reference_idx = decode_references(query)
         lower(app.proc_c4_ref.Value), ...
         lower(app.proc_c5_ref.Value), ...
         lower(app.proc_c6_ref.Value)};
-    reference_idx = find(strcmp(query, reference_values));
+    reference_idx = find(strcmp(query, reference_values))+3;
 end
 
