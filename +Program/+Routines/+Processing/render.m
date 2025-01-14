@@ -1,9 +1,11 @@
 function render()
     app = Program.app;
-    raw_volume = Program.Handlers.active_volume.get_array;
+    raw = Program.GUIHandling.get_active_volume(app, 'request', 'all');
+    [raw_volume, raw_dims] = Program.Validation.pad_rgb(raw.array);
     
     % Determine the color channel indices.
     [r, g, b, white, dic, gfp] = Program.Handlers.channels.parse_channel_gui();
+    [x, y, z, t] = Program.Routines.Processing.parse_gui(); 
     
     % Determine the channel=color assignments for displaying.
     color_indices = [r.idx, g.idx, b.idx];
@@ -37,12 +39,12 @@ function render()
         wchannel = raw_volume(:, : , :, white.idx);
     
         % Adjust the gamma.
-        if w.settings.gamma ~= 1
+        if white.settings.gamma ~= 1
             wchannel = imadjustn(wchannel, white.settings.low_high_in, white.settings.low_high_out, white.settings.gamma);
         end
     
         % Add the white channel.
-        render_volume = render_volume + repmat(wchannel, [1, 1, 1, 3]);
+        render_volume = render_volume + repmat(squeeze(wchannel), [1, 1, 1, 3]);
     end
     
     % Add in the DIC channel.
@@ -57,7 +59,7 @@ function render()
         end
     
         % Add the DIC channel.
-        render_volume = render_volume + repmat(dic_channel, [1, 1, 1, 3]);
+        render_volume = render_volume + repmat(squeeze(dic_channel), [1, 1, 1, 3]);
     end
     
     % Add in the GFP channel.
@@ -73,7 +75,7 @@ function render()
         end
     
         % Add the GFP channel.
-        gfp_channel = repmat(gfp_channel, [1, 1, 1, 3]);
+        gfp_channel = repmat(squeeze(gfp_channel), [1, 1, 1, 3]);
         gfp_channel(:, :, :, ~gfp_color) = 0;
         render_volume = render_volume + gfp_channel;
     end
@@ -81,8 +83,8 @@ function render()
     % Adjust the gamma.
     % Note: the image only shows RGB. We added the other channels
     % (W, DIC, GFP) to the RGB in order to show these as well.
-    render_volume = uint16(double(intmax('uint16')) * ...
-        double(render_volume)/double(max(render_volume(:))));
+    volume_max = double(max(render_volume, [], 'all'));
+    render_volume = uint16(double(intmax('uint16')) * double(render_volume)/volume_max);
     render_volume = double(render_volume)/double(max(render_volume(:)));
 
     % Apply processing operations.
@@ -94,7 +96,7 @@ function render()
         end
     end
 
-    Program.GUIHandling.set_gui_limits(app, dims=size(raw_volume));
+    Program.GUIHandling.set_gui_limits(app, dims=raw_dims);
     Program.GUIHandling.histogram_handler(app, 'draw', render_volume);
     Program.GUIHandling.shorten_knob_labels(app);
 
