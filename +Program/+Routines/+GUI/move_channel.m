@@ -1,15 +1,23 @@
-function move_channel(channel, direction)
-    direction = -1+2*(any(ismember(direction, [Program.channel_handler.down_signs{:}])));
-    target = Program.Handlers.channels.get_channel(channel);
+function move_channel(event)
+    app = Program.app;
+    direction = -1+2*(any(ismember(event.Source.Text, [Program.Handlers.channels.handles{'pp_down'}{:}])));
+    target_channel = event.Source.Layout.Row;
 
-    if Program.channel_handler.can_move(target.gui.dd, direction)
-        neighbor = Program.channel_handler.get_channel(channel + direction);
+    if direction > 0
+        can_move = target_channel < length(event.Source.Parent.RowHeight);
+    else
+        can_move = target_channel > 1;
+    end
 
-        target.gui.dd.Value = neighbor.cached_values.dd;
-        neighbor.gui.dd.Value = target.cached_values.dd;
+    if can_move
+        target_dd = app.(sprintf(Program.Handlers.channels.handles{'pp_dd'}, target_channel));
+        neighbor_dd = app.(sprintf(Program.Handlers.channels.handles{'pp_dd'}, target_channel + direction));
 
-        target.gui.cb.Value = neighbor.cached_values.cb;
-        neighbor.gui.cb.Value = target.cached_values.cb;
+        old_value = target_dd.Value;
+        new_value = neighbor_dd.Value;
+
+        target_dd.Value = new_value;
+        neighbor_dd.Value = old_value;
     end
 
     %Program.GUIHandling.histogram_handler(app, 'draw');
