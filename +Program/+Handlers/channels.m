@@ -32,8 +32,9 @@ classdef channels
             'channel_colors', {{'#ff0000', '#00d100', '#0000ff', '#fff', '#6b6b6b', '#ffff00'}});
     end
     
-    methods (Static)
+    methods (Static)        
         function [r, g, b, white, dic, gfp] = parse_channel_gui()
+            app = Program.app;
             indices = Program.Handlers.channels.get_channel_idx();
 
             r = struct( ...
@@ -53,19 +54,47 @@ classdef channels
 
             white = struct( ...
                 'idx', indices.white, ...
-                'bool', app.(sprintf(Program.Handlers.channels.handles('pp_cb'), Program.Helpers.decode_references('white'))).Value, ...
+                'bool', app.(sprintf(Program.Handlers.channels.handles{'pp_cb'}, Program.Helpers.decode_references('white'))).Value, ...
                 'settings', Program.Handlers.channels.get_processing_info('white'));
 
             dic = struct( ...
                 'idx', indices.dic, ...
-                'bool', app.(sprintf(Program.Handlers.channels.handles('pp_cb'), Program.Helpers.decode_references('dic'))).Value, ...
+                'bool', app.(sprintf(Program.Handlers.channels.handles{'pp_cb'}, Program.Helpers.decode_references('dic'))).Value, ...
                 'settings', Program.Handlers.channels.get_processing_info('dic'));
 
             gfp = struct( ...
                 'idx', indices.gfp, ...
-                'bool', app.(sprintf(Program.Handlers.channels.handles('pp_cb'), Program.Helpers.decode_references('gfp'))).Value, ...
+                'bool', app.(sprintf(Program.Handlers.channels.handles{'pp_cb'}, Program.Helpers.decode_references('gfp'))).Value, ...
                 'settings', Program.Handlers.channels.get_processing_info('gfp'));
         end        
+
+        function bools = get_bools(mode)
+            app = Program.app;
+
+            if nargin < 1
+                mode = 'array';
+            end
+
+            switch mode
+                case 'array'
+                    bools = [];
+                    for c=1:Program.Handlers.channels.config{'max_channels'}
+                        handle = sprintf(Program.Handlers.channels.handles{'pp_cb'}, c);
+                        if app.(handle).Value
+                            bools = [bools c];
+                        end
+                    end
+
+                case 'struct'
+                    bools = struct( ...
+                        'r', {app.(sprintf(Program.Handlers.channels.handles{'pp_cb'}, 1)).Value}, ...
+                        'g', {app.(sprintf(Program.Handlers.channels.handles{'pp_cb'}, 2)).Value}, ...
+                        'b', {app.(sprintf(Program.Handlers.channels.handles{'pp_cb'}, 3)).Value}, ...
+                        'white', {app.(sprintf(Program.Handlers.channels.handles{'pp_cb'}, 4)).Value}, ...
+                        'dic', {app.(sprintf(Program.Handlers.channels.handles{'pp_cb'}, 5)).Value}, ...
+                        'gfp', {app.(sprintf(Program.Handlers.channels.handles{'pp_cb'}, 6)).Value});
+            end
+        end
 
         function set_idx(order, ~)
             app = Program.app;
@@ -142,21 +171,22 @@ classdef channels
                     'gfp', {Program.Handlers.channels.get_channel_idx('gfp')});
 
             else
+                app = Program.app;
                 value_list = app.proc_c1_dropdown.Items;
 
                 switch query
                     case 'r'
-                        target_component_string = sprintf(Program.Handlers.channels.handles('pp_dd'), 1);
+                        target_component_string = sprintf(Program.Handlers.channels.handles{'pp_dd'}, 1);
 
                     case 'g'
-                        target_component_string = sprintf(Program.Handlers.channels.handles('pp_dd'), 2);
+                        target_component_string = sprintf(Program.Handlers.channels.handles{'pp_dd'}, 2);
 
                     case 'b'
-                        target_component_string = sprintf(Program.Handlers.channels.handles('pp_dd'), 3);
+                        target_component_string = sprintf(Program.Handlers.channels.handles{'pp_dd'}, 3);
 
                     otherwise
                         target_reference = Program.Helpers.decode_references(query);
-                        target_component_string = sprintf(Program.Handlers.channels.handles('pp_ref'), target_reference);
+                        target_component_string = sprintf(Program.Handlers.channels.handles{'pp_dd'}, target_reference);
                 end
 
                 idx = find(strcmp(value_list, app.(target_component_string).Value));
@@ -174,23 +204,28 @@ classdef channels
                     'gfp', {Program.Handlers.channels.get_processing_info('gfp')});
 
             else
+                app = Program.app;
                 query = Program.Helpers.short_to_long(query);
-                grid_pfx = Program.Handlers.channels.names('histogram_grid');
+                grid_pfx = Program.Handlers.channels.names{'histogram_grid'};
 
                 for pfx=1:length(grid_pfx)
-                    label = sprintf("%s_Label", pfx);
-                    if contains(app.(label).Value, query)
-                        slider_vals = app.(sprintf("%s_hist_slider", pfx)).Value;
-                        hist_limit = app.(sprintf("%s_hist_slider", pfx)).Limits(2);                        
+                    label = sprintf("%s_Label", grid_pfx{pfx});
+                    if contains(app.(label).Text, query)
+                        slider_vals = app.(sprintf("%s_hist_slider", grid_pfx{pfx})).Value;
+                        hist_limit = app.(sprintf("%s_hist_slider", grid_pfx{pfx})).Limits(2);                        
 
                         info_struct = struct( ...
-                            'gamma', {app.(sprintf("%s_GammaEditField", pfx)).Value}, ...
+                            'gamma', {app.(sprintf("%s_GammaEditField", grid_pfx{pfx})).Value}, ...
                             'low_high_in', {[slider_vals(1)/hist_limit slider_vals(2)/hist_limit]}, ...
                             'low_high_out', {[]});
                         return
                     end
                 end
 
+                info_struct = struct( ...
+                    'gamma', {1}, ...
+                    'low_high_in', {[]}, ...
+                    'low_high_out', {[]});
             end
         end
 
