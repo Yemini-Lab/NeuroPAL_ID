@@ -646,7 +646,7 @@ classdef GUIHandling
             x = app.proc_xSlider.Value;
             y = min(max(round(app.proc_xSlider.Value), 1), app.proc_xSlider.Limits(2));
             z = min(max(round(app.proc_zSlider.Value), 1), app.proc_zSlider.Limits(2));
-            c = Program.GUIHandling.check_channels(app);
+            c = Program.Handlers.channels.get_bools('array');
             t = app.proc_tSlider.Value;
 
             if isempty(p.Results.coords)
@@ -698,7 +698,7 @@ classdef GUIHandling
                     rgb = Program.GUIHandling.get_rgb;
                     missing_rgb = rgb(~ismember(rgb, c));
                     slice(:, :, :, missing_rgb) = 0;
-                    slice = slice(:, :, :, [rgb c(~ismember(c, rgb))]);
+                    slice(:, :, :, [find(~ismember(Program.Validation.noskip_index(c), c))]) = 0;
                     package.array = slice;
 
                 case 'coords'
