@@ -99,6 +99,8 @@ classdef NeuroPALImage
             % Load the file.
             [data, info, prefs, worm, mp, neurons, id_file] = ...
                 NeuroPALImage.loadNP(np_file);
+
+            Program.Validation.fill_channels(data);
         end
 
     end
