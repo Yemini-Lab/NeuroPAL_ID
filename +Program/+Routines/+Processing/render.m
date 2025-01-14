@@ -1,5 +1,6 @@
 function render()
-    raw_volume = Program.GUIHandling.active_volume.get_array;
+    app = Program.app;
+    raw_volume = Program.Handlers.active_volume.get_array;
     
     % Determine the color channel indices.
     [r, g, b, white, dic, gfp] = Program.Handlers.channels.parse_channel_gui();
