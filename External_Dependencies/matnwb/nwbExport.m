@@ -38,7 +38,8 @@ function nwbExport(nwb, filenames)
         else
             filename = filenames;
         end
-        
+        disp('export filename')
+        disp(filename)
         nwb(iFiles).export(filename);
     end
 end

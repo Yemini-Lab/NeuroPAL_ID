@@ -23,6 +23,8 @@ classdef NwbFile < types.core.NWBFile
         function export(obj, filename)
             %add to file create date
             
+            disp('export function')
+            disp(filename)
             if isa(obj.file_create_date, 'types.untyped.DataStub')
                 obj.file_create_date = obj.file_create_date.load();
             end
@@ -46,6 +48,13 @@ classdef NwbFile < types.core.NWBFile
             try
                 output_file_id = H5F.create(filename);
                 isEditingFile = false;
+                if exist(filename, 'file')
+                    disp('File has been successfully created.');
+                else
+                    disp('File creation failed.');
+                end
+
+          
             catch ME % if file exists, open and edit
                 if verLessThan('matlab', '9.9') % < 2020b
                     isEditingFile = strcmp(ME.identifier, 'MATLAB:imagesci:hdf5lib:libraryError')...
@@ -63,15 +72,20 @@ classdef NwbFile < types.core.NWBFile
 
             try
                 obj.embedSpecifications(output_file_id);
+                disp('refs input')
+                disp(output_file_id)
+                
                 refs = export@types.core.NWBFile(obj, output_file_id, '/', {});
+                %refs = export@types.core.NWBFile(obj, output_file_id, filename, {});
+
                 obj.resolveReferences(output_file_id, refs);
                 H5F.close(output_file_id);
             catch ME
                 obj.file_create_date(end) = [];
                 H5F.close(output_file_id);
-                if ~isEditingFile
-                    delete(filename);
-                end
+                % if ~isEditingFile
+                %     delete(filename);
+                % end
                 rethrow(ME);
             end
         end

@@ -446,6 +446,9 @@ classdef ChunkyMethods
 
         function neurons = stream_neurons(mode)
             video_info = Program.GUIHandling.global_grab('NeuroPAL ID', 'video_info');
+            disp(video_info);
+            disp(class(video_info));
+            video_info
             video_neurons = Program.GUIHandling.global_grab('NeuroPAL ID', 'video_neurons');
 
             if ~exist('mode', 'var')

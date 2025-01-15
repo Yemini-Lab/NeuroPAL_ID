@@ -373,7 +373,34 @@ methods
                 io.writeDataset(fid, [fullpath '/description'], obj.description);
             end
         end
-        refs = obj.device.export(fid, [fullpath '/device'], refs);
+        
+        disp(fid);
+        disp(class(fid));
+        disp(fullpath);
+        disp(class(fullpath));
+    
+        disp(refs);
+        disp(class(refs))
+        disp(class(refs{1}))
+        fullpath = string(fullpath);% Convert to string
+        % refs = struct('path', '/acquisition/NeuroPALImageRaw/imaging_volume');
+
+        if isfield(obj, 'device') || isprop(obj, 'device')
+             disp('The "device" field or property exists.');
+        else
+             disp('The "device" field or property does not exist.');
+        end
+
+        if isempty(obj.device)
+            disp('"device" is empty.');
+        else
+            disp('"device" is not empty.');
+        end
+
+
+        %refs = obj.device.export(fid, [(fullpath) '/device'], refs{:});
+        refs = obj.device.export(fid, fullfile(fullpath, 'device'), refs);
+
         if startsWith(class(obj.excitation_lambda), 'types.untyped.')
             refs = obj.excitation_lambda.export(fid, [fullpath '/excitation_lambda'], refs);
         elseif ~isempty(obj.excitation_lambda)

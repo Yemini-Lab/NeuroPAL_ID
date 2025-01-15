@@ -4,16 +4,27 @@ function writeDataset(fid, fullpath, data, varargin)
         'options should be character arrays.');
     [tid, sid, data] = io.mapData2H5(fid, data, varargin{:});
     [~, dims, ~] = H5S.get_simple_extent_dims(sid);
+
     try
         dcpl = H5P.create('H5P_DATASET_CREATE');
         if any(strcmp('forceChunking', varargin))
-            H5P.set_chunk(dcpl, dims)
+            H5P.set_chunk(dcpl, dims);
         end
+    
+        if isstring(fullpath) && numel(fullpath) == 2
+            disp('fullpath has two strings. Choosing the first string.');
+            fullpath = fullpath(1); % Select the first string
+        end 
+    
         did = H5D.create(fid, fullpath, tid, sid, dcpl);
         H5P.close(dcpl);
+
     catch ME
+
         if contains(ME.message, 'name already exists')
+   
             did = H5D.open(fid, fullpath);
+
             create_plist = H5D.get_create_plist(did);
             edit_sid = H5D.get_space(did);
             [~, edit_dims, ~] = H5S.get_simple_extent_dims(edit_sid);
@@ -22,7 +33,7 @@ function writeDataset(fid, fullpath, data, varargin)
             is_same_dims = all(edit_dims == dims);
             H5P.close(create_plist);
             H5S.close(edit_sid);
-            
+
             if ~is_same_dims && is_chunked
                 H5D.set_extent(did, dims);
             elseif ~is_same_dims
@@ -32,7 +43,7 @@ function writeDataset(fid, fullpath, data, varargin)
                 H5D.close(did);
                 return;
             end
-        else
+        else 
             rethrow(ME);
         end
     end

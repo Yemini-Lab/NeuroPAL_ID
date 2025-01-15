@@ -26,9 +26,10 @@ classdef writeNWB
             progress.Message = 'Loading volume data...';
             ctx.colormap.data = Program.GUIHandling.global_grab('NeuroPAL ID', 'image_data');
             ctx.video.info = Program.GUIHandling.global_grab('NeuroPAL ID', 'video_info');
-
+            % disp(ctx.video.info);
+            % disp(class(ctx.video.info));
             ctx.neurons.colormap = Program.GUIHandling.global_grab('NeuroPAL ID', 'image_neurons');
-            ctx.neurons.video = Methods.ChunkyMethods.stream_neurons('annotations');
+            % ctx.neurons.video = Methods.ChunkyMethods.stream_neurons('annotations');
             ctx.neurons.activity_data = Program.GUIHandling.global_grab('NeuroPAL ID', 'activity_table');
 
             % Build nwb file.
@@ -188,7 +189,8 @@ classdef writeNWB
                 module = ctx.build.processing_modules.(name);
                 ctx.build.file.processing.set(name, module);
             end
-
+            disp('here')
+            disp(path)
             if ~exist(path, "file")
                 % If not, save.
                 nwbExport(ctx.build.file, path);

@@ -7,6 +7,13 @@ if isempty(sepindices)
    return;
 end
 lastsepidx = sepindices(end);
+lastsepidx
+%stem = path(1:lastsepidx-1);
+if iscell(lastsepidx)
+    lastsepidx = lastsepidx{1};  % Extract the numeric value
+end
+
 stem = path(1:lastsepidx-1);
+
 root = path(lastsepidx+1:end);
 end
