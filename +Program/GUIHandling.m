@@ -849,7 +849,7 @@ classdef GUIHandling
             for comp=1:length(Program.GUIHandling.cm_exclusive_gui)
                 app.(Program.GUIHandling.cm_exclusive_gui{comp}).Enable = strcmp(app.VolumeDropDown.Value, 'Colormap');
             end
-            app.ProcessingGridLayout.ColumnWidth = {'1x', 190};
+            app.ProcessingGridLayout.ColumnWidth = {'1x', 282};
         end
 
         function set_thresholds(app, max_val)

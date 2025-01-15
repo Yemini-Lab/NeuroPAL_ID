@@ -1,7 +1,12 @@
-function [outputArg1,outputArg2] = save_prompt(inputArg1,inputArg2)
-%SAVE_PROMPT Summary of this function goes here
-%   Detailed explanation goes here
-outputArg1 = inputArg1;
-outputArg2 = inputArg2;
+function save_prompt(action)
+    app = Program.app;
+    check = uiconfirm(app.CELL_ID, "Do you want to save this operation to the file?", "NeuroPAL_ID", "Options", ["Yes", "No, stick with preview"]);
+    if strcmp(check, "Yes")
+        app.proc_apply_processing(action);
+        if isfield(app.flags, action)
+            app.flags = rmfield(app.flags, action);
+        end
+    else
+        app.flags.(action) = 1;
+    end
 end
-

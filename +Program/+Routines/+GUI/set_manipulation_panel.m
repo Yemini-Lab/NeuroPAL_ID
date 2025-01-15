@@ -18,7 +18,12 @@ function set_manipulation_panel(state)
             end
 
         case 'downsample'
-            new_panel_height = 147;
+            if strcmp(app.VolumeDropDown.Value, 'Colormap')
+                new_panel_height = 147;
+            else
+                new_panel_height = 192;
+            end
+
             app.proc_ds_panel.Visible = "on";
 
             for h=1:length(panel_gui.default)
