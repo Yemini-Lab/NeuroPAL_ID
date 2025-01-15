@@ -1,6 +1,4 @@
 classdef loading
-    %LOADING Summary of this class goes here
-    %   Detailed explanation goes here
     
     properties
     end
@@ -40,10 +38,8 @@ classdef loading
                 Program.Handlers.loading.current(hLabel);
                 drawnow;
 
-            else
-                try
-                    current_loading_label.Text = msg;
-                end
+            elseif isprop(current_loading_label, 'Text')
+                current_loading_label.Text = msg;
             end
         end
 
@@ -51,10 +47,11 @@ classdef loading
             app = Program.app;
             current_loading_label = Program.Handlers.loading.current();
 
-            t = timer('TimerFcn', @(myTimerObj, thisEvent) Program.Handlers.loading.fade_label(myTimerObj, current_loading_label), ...
+            t = timer('TimerFcn', @(time_obj, this_event) Program.Handlers.loading.fade_label(time_obj, current_loading_label), ...
                       'Period', 0.005, ...
-                      'ExecutionMode', 'fixedRate', ...
-                      'TasksToExecute', 50);
+                      'TasksToExecute', 50, ...
+                      'ExecutionMode', 'fixedRate');
+
             app.load_graphic.Visible = 'off';
             start(t);
         end
@@ -65,14 +62,21 @@ classdef loading
             if ~isempty(hLabel)
                 currentColor = hLabel.FontColor;
                 newColor = min(currentColor + [0.02 0.02 0.02], [0.9 0.9 0.9]);
-                hLabel.FontColor = newColor;
             
                 if all(newColor == [0.9 0.9 0.9])
-                    delete(hLabel);
                     stop(t);
                     delete(t);
+                    delete(hLabel);
                     Program.Handlers.loading.current([]);
+
+                else
+                    hLabel.FontColor = newColor;
+                    
                 end
+
+            else
+                stop(t);
+                delete(t);
             end
         end
     end
