@@ -92,12 +92,12 @@ function render()
     for a=1:length(actions)
         action = actions{a};
         if app.flags.(action) == 1
+            Program.Handlers.loading.start(sprintf("Applying %s...", action));
             render_volume = Methods.ChunkyMethods.apply_vol(app, action, render_volume);
         end
     end
 
     Program.GUIHandling.set_gui_limits(app, dims=raw_dims);
-    %Program.GUIHandling.histogram_handler(app, 'draw', render_volume);
     Program.Handlers.histograms.draw();
     Program.GUIHandling.shorten_knob_labels(app);
 

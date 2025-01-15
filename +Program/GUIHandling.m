@@ -633,6 +633,7 @@ classdef GUIHandling
         end
 
         function package = get_active_volume(app, varargin)
+            Program.Handlers.loading.start('Chunk loading selection...');
             package = struct('state', {{}}, 'dims', {[]}, 'array', {[]}, 'coords', {[]});
             
             p = inputParser;
@@ -708,6 +709,8 @@ classdef GUIHandling
                     package.coords(1) = min(max(round(package.dims(1)-app.proc_ySlider.Value), 1), app.proc_ySlider.Limits(2));
 
             end
+
+            Program.Handlers.loading.done();
         end
 
         function rgb = get_rgb()
