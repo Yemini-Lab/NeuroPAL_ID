@@ -15,6 +15,21 @@ classdef nwb
         end
 
         function load_tracks(filepath)
+            nwb_file = nwbRead(filepath);
+            x_coords = nwb_file.processing.get('NeuroPAL').dynamictable.get('TrackedNeurons').vectordata.get('x').data.load();
+            y_coords = nwb_file.processing.get('NeuroPAL').dynamictable.get('TrackedNeurons').vectordata.get('y').data.load();
+            z_coords = nwb_file.processing.get('NeuroPAL').dynamictable.get('TrackedNeurons').vectordata.get('z').data.load();
+
+            frames = nwb_file.processing.get('NeuroPAL').dynamictable.get('TrackedNeurons').vectordata.get('t').data.load();
+            if min(frames) == 0
+                frames = frame + 1;
+            end
+            
+            cache = Program.Routines.Videos.tracks.cache;
+            cache.wl_record = unique(nwb_file.processing.get('NeuroPAL').dynamictable.get('TrackedNeurons').vectordata.get('neuron_id').data.load());
+            cache.provenances = {'NWB'};
+            [~, wl_ids] = ismember(labels, cache.wl_record);
+            cache.frames = [frames, x_coords, y_coords, z_coords, wl_ids, 1];
         end
 
         function path = search(file, module)
