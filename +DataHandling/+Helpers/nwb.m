@@ -14,6 +14,9 @@ classdef nwb
             path = instance;
         end
 
+        function load_tracks(filepath)
+        end
+
         function path = search(file, module)
             % to be merged from loader branch
         end
