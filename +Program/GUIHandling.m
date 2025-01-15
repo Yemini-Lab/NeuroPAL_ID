@@ -601,6 +601,7 @@ classdef GUIHandling
                         cla(app.(sprintf("%s_hist_ax", prefix)))
 
                     case 'draw'
+
                         chan_hist = raw.array(:, :, :, c);
 
                         if app.HidezerointensitypixelsCheckBox.Value
@@ -646,7 +647,9 @@ classdef GUIHandling
             x = app.proc_xSlider.Value;
             y = min(max(round(app.proc_xSlider.Value), 1), app.proc_xSlider.Limits(2));
             z = min(max(round(app.proc_zSlider.Value), 1), app.proc_zSlider.Limits(2));
-            c = Program.Handlers.channels.get_bools('array');
+            c_bools = Program.Handlers.channels.get_bools('array');
+            c_max = Program.Handlers.channels.get_max_idx();
+            c_load = 1:c_max;
             t = app.proc_tSlider.Value;
 
             if isempty(p.Results.coords)
@@ -679,16 +682,16 @@ classdef GUIHandling
                     if app.ProcShowMIPCheckBox.Value
                         switch app.VolumeDropDown.Value
                             case 'Colormap'
-                                safe_c = Program.Validation.noskip_index(c);
-                                slice = app.proc_image.data(:, :, :, safe_c);
+                                safe_c = Program.Validation.noskip_index(c_max);
+                                slice = app.proc_image.data(:, :, :, c_load);
                             case 'Video'
                                 slice = app.retrieve_frame(package.coords(4));
                         end
                     else
                         switch app.VolumeDropDown.Value
                             case 'Colormap'
-                                safe_c = Program.Validation.noskip_index(c);
-                                slice = app.proc_image.data(:, :, package.coords(3), safe_c);
+                                safe_c = Program.Validation.noskip_index(c_max);
+                                slice = app.proc_image.data(:, :, package.coords(3), c_load);
                             case 'Video'
                                 slice = app.retrieve_frame(package.coords(4));
                                 slice = slice(:, :, package.coords(3), :);
@@ -696,9 +699,9 @@ classdef GUIHandling
                     end
 
                     rgb = Program.GUIHandling.get_rgb;
-                    missing_rgb = rgb(~ismember(rgb, c));
+                    missing_rgb = rgb(~ismember(rgb, c_load));
                     slice(:, :, :, missing_rgb) = 0;
-                    slice(:, :, :, [find(~ismember(Program.Validation.noskip_index(c), c))]) = 0;
+                    slice(:, :, :, [find(~ismember(c_load, c_bools))]) = 0;
                     package.array = slice;
 
                 case 'coords'

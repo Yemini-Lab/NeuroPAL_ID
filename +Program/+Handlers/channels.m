@@ -33,6 +33,17 @@ classdef channels
     end
     
     methods (Static)        
+        function channel_struct = get_channel_struct()
+            [r, g, b, white, dic, gfp] = Program.Handlers.channels.parse_channel_gui();
+            channel_struct = struct( ...
+                'r', {r}, ...
+                'g', {g}, ...
+                'b', {b}, ...
+                'white', {white}, ...
+                'dic', {dic}, ...
+                'gfp', {gfp});
+        end
+
         function [r, g, b, white, dic, gfp] = parse_channel_gui()
             app = Program.app;
             indices = Program.Handlers.channels.get_channel_idx();
@@ -94,6 +105,20 @@ classdef channels
                         'dic', {app.(sprintf(Program.Handlers.channels.handles{'pp_cb'}, 5)).Value}, ...
                         'gfp', {app.(sprintf(Program.Handlers.channels.handles{'pp_cb'}, 6)).Value});
             end
+        end
+
+        function max_idx = get_max_idx()
+            app = Program.app;
+            for c=Program.Handlers.channels.config{'max_channels'}:-1:1
+                cb_handle = app.(sprintf(Program.Handlers.channels.handles{'pp_cb'}, c));
+                if cb_handle.Value
+                    dd_handle = app.(sprintf(Program.Handlers.channels.handles{'pp_dd'}, c));
+                    max_idx = find(strcmp(dd_handle.Items, dd_handle.Value));
+                    return
+                end
+            end
+
+            max_idx = 6;
         end
 
         function set_idx(order, ~)
@@ -212,12 +237,12 @@ classdef channels
                     label = sprintf("%s_Label", grid_pfx{pfx});
                     if contains(app.(label).Text, query)
                         slider_vals = app.(sprintf("%s_hist_slider", grid_pfx{pfx})).Value;
-                        hist_limit = app.(sprintf("%s_hist_slider", grid_pfx{pfx})).Limits(2);                        
+                        hist_limit = app.(sprintf("%s_hist_slider", grid_pfx{pfx})).Limits(2);   
 
                         info_struct = struct( ...
                             'gamma', {app.(sprintf("%s_GammaEditField", grid_pfx{pfx})).Value}, ...
-                            'low_high_in', {[slider_vals(1)/hist_limit slider_vals(2)/hist_limit]}, ...
-                            'low_high_out', {[]});
+                            'low_high_in', {[]}, ...
+                            'low_high_out', {[slider_vals(1)/hist_limit slider_vals(2)/hist_limit]});
                         return
                     end
                 end

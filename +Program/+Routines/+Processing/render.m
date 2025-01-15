@@ -12,7 +12,7 @@ function render()
     
     % Draw the 3 color channels.
     render_volume = raw_volume(:, :, :, color_indices);
-    
+
     % Remove unchecked color channels.
     if ~r.bool % Red
         render_volume(:, :, :, 1) = 0;
@@ -97,7 +97,8 @@ function render()
     end
 
     Program.GUIHandling.set_gui_limits(app, dims=raw_dims);
-    Program.GUIHandling.histogram_handler(app, 'draw', render_volume);
+    %Program.GUIHandling.histogram_handler(app, 'draw', render_volume);
+    Program.Handlers.histograms.draw();
     Program.GUIHandling.shorten_knob_labels(app);
 
     if app.ProcShowMIPCheckBox.Value
