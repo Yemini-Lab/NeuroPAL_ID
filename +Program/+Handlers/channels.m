@@ -3,6 +3,7 @@ classdef channels
     properties (Constant)
         handles = dictionary( ...
             'id_pfx', {{'R', 'G', 'B', 'W', 'DIC', 'GFP'}}, ...
+            'pp_ef', {'proc_c%.f_editfield'}, ...
             'pp_dd', {'proc_c%.f_dropdown'}, ...
             'pp_cb', {'proc_c%.f_checkbox'}, ...
             'pp_ref', {'proc_c%.f_ref'}, ...
@@ -141,6 +142,45 @@ classdef channels
                 if c <= 3
                     app.(cb_handle).Value = true;
                 end
+            end
+        end
+
+        function edit_channels()
+            app = Program.app;
+            state = app.EditChannelsButton.Text;
+
+            switch state
+                case "Edit Channels"
+                    app.EditChannelsButton.Text = "Done Editing";
+
+                    for c=1:length(app.proc_channel_grid.RowHeight)
+                        dd_handle = sprintf(Program.Handlers.channels.handles{'pp_dd'}, c);
+                        ef_handle = sprintf(Program.Handlers.channels.handles{'pp_ef'}, c);
+        
+                        app.(ef_handle).Value = app.(dd_handle).Value;
+        
+                        app.(ef_handle).Visible = 'on';
+                        app.(dd_handle).Visible = 'off';
+                    end
+
+                case "Done Editing"
+                    app.EditChannelsButton.Text = "Edit Channels";
+
+                    new_channel_list = {};
+                    
+                    for c=1:length(app.proc_channel_grid.RowHeight)
+                        ef_handle = sprintf(Program.Handlers.channels.handles{'pp_ef'}, c);
+                        new_channel_list{end+1} = app.(ef_handle).Value;
+                        app.(ef_handle).Visible = 'off';
+                    end
+                    
+                    for c=1:length(app.proc_channel_grid.RowHeight)
+                        ef_handle = sprintf(Program.Handlers.channels.handles{'pp_ef'}, c);
+                        dd_handle = sprintf(Program.Handlers.channels.handles{'pp_dd'}, c);
+                        app.(dd_handle).Items = new_channel_list;
+                        app.(dd_handle).Value = app.(ef_handle).Value;
+                        app.(dd_handle).Visible = 'on';
+                    end
             end
         end
 
