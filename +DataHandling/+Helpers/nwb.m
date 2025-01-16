@@ -19,17 +19,23 @@ classdef nwb
             x_coords = nwb_file.processing.get('NeuroPAL').dynamictable.get('TrackedNeurons').vectordata.get('x').data.load();
             y_coords = nwb_file.processing.get('NeuroPAL').dynamictable.get('TrackedNeurons').vectordata.get('y').data.load();
             z_coords = nwb_file.processing.get('NeuroPAL').dynamictable.get('TrackedNeurons').vectordata.get('z').data.load();
+            neuronal_ids = nwb_file.processing.get('NeuroPAL').dynamictable.get('TrackedNeurons').vectordata.get('neuron_id').data.load();
 
-            frames = nwb_file.processing.get('NeuroPAL').dynamictable.get('TrackedNeurons').vectordata.get('t').data.load();
+            frames = cast(nwb_file.processing.get('NeuroPAL').dynamictable.get('TrackedNeurons').vectordata.get('t').data.load(), class(x_coords));
             if min(frames) == 0
-                frames = frame + 1;
+                frames = frames + 1;
             end
             
             cache = Program.Routines.Videos.tracks.cache;
-            cache.wl_record = unique(nwb_file.processing.get('NeuroPAL').dynamictable.get('TrackedNeurons').vectordata.get('neuron_id').data.load());
+            cache.Writable = true;
+            cache.wl_record = unique(neuronal_ids);
             cache.provenances = {'NWB'};
-            [~, wl_ids] = ismember(labels, cache.wl_record);
-            cache.frames = [frames, x_coords, y_coords, z_coords, wl_ids, 1];
+            [~, wl_ids] = ismember(neuronal_ids, cache.wl_record);
+            indices = 1:length(x_coords);
+            one_array = ones(size(indices));
+            cache.frames = cast([frames, x_coords, y_coords, z_coords, wl_ids, one_array', indices'], class(x_coords));
+            cache.Writable = false;
+            Program.Routines.Videos.tracks.save_cache(cache);
         end
 
         function path = search(file, module)

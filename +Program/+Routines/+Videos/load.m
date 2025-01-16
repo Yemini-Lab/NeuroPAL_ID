@@ -3,12 +3,15 @@ function load(file)
     app.video_path = file;
     [~, ~, ext] = fileparts(path);
 
-    if strcmp(ext, '.h5')
-        app.load_h5(file);
-    elseif strcmp(ext, '.nwb')
-        app.load_nwb(file);
-    elseif strcmp(ext, '.nd2')
-        app.load_nd2(file);
+    switch ext
+        case '.h5'
+            app.load_h5(file);
+        case '.nwb'
+            app.load_nwb(file);
+        case '.nd2'
+            app.load_nd2(file);
+        case '.tif'
+            app.load_tif()
     end
 end
 
