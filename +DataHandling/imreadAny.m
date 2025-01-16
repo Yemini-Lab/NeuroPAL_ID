@@ -47,7 +47,7 @@ end
 zStr = zcData{end-1};
 zStr = strrep(zStr, '?', '');
 zI = strfind(zStr, '/');
-if ~contains(zStr, 'Z=') || isempty(zI)
+if (~contains(zStr, 'Z=') && ~contains(zStr, 'plane ')) || isempty(zI)
     f = uifigure;
     str = sprintf('"%s" has no Z slices!', filename);
     uialert(f, str, 'Invalid Image Format');
