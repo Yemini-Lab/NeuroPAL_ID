@@ -16,10 +16,20 @@ classdef nwb
 
         function load_tracks(filepath)
             nwb_file = nwbRead(filepath);
+
+            neuronal_ids = nwb_file.processing.get('NeuroPAL').dynamictable.get('TrackedNeurons').vectordata.get('neuron_id').data.load();
+
             x_coords = nwb_file.processing.get('NeuroPAL').dynamictable.get('TrackedNeurons').vectordata.get('x').data.load();
             y_coords = nwb_file.processing.get('NeuroPAL').dynamictable.get('TrackedNeurons').vectordata.get('y').data.load();
             z_coords = nwb_file.processing.get('NeuroPAL').dynamictable.get('TrackedNeurons').vectordata.get('z').data.load();
-            neuronal_ids = nwb_file.processing.get('NeuroPAL').dynamictable.get('TrackedNeurons').vectordata.get('neuron_id').data.load();
+
+            nx = nwb_file.acquisition.get('NeuroPALImageRaw').data.internal.dims(2);
+            ny = nwb_file.acquisition.get('NeuroPALImageRaw').data.internal.dims(1);
+            nz = nwb_file.acquisition.get('NeuroPALImageRaw').data.internal.dims(3);
+
+            x_coords = Program.Validation.zephir_check(nx, x_coords);
+            y_coords = Program.Validation.zephir_check(ny, y_coords);
+            z_coords = Program.Validation.zephir_check(nz, z_coords);
 
             frames = cast(nwb_file.processing.get('NeuroPAL').dynamictable.get('TrackedNeurons').vectordata.get('t').data.load(), class(x_coords));
             if min(frames) == 0
@@ -28,12 +38,16 @@ classdef nwb
             
             cache = Program.Routines.Videos.tracks.cache;
             cache.Writable = true;
-            cache.wl_record = unique(neuronal_ids);
+
             cache.provenances = {'NWB'};
+            cache.wl_record = unique(neuronal_ids);
             [~, wl_ids] = ismember(neuronal_ids, cache.wl_record);
+
             indices = 1:length(x_coords);
             one_array = ones(size(indices));
+
             cache.frames = cast([frames, x_coords, y_coords, z_coords, wl_ids, one_array', indices'], class(x_coords));
+
             cache.Writable = false;
             Program.Routines.Videos.tracks.save_cache(cache);
         end

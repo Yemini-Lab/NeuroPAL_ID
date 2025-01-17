@@ -22,8 +22,10 @@ classdef tracks
                 current_cache = matfile(new_cache, 'Writable', true);
                 current_cache.path = new_cache;
                 Program.Routines.Videos.tracks.save_cache(current_cache);
+
             elseif isempty(current_cache)
                 current_cache = Program.Routines.Videos.tracks.create_default_cache();
+
             end
 
             cache_file = current_cache;
@@ -256,7 +258,8 @@ classdef tracks
 
         function worldline = find_worldline(worldline_id)
             cache = Program.Routines.Videos.tracks.cache;
-            worldline = cache.worldlines(worldline_id);
+            worldline = cache.worldlines(:, worldline_id);
+            worldline = worldline{:};
         end
 
         function select_worldline(worldline_id, annotation)
@@ -290,7 +293,8 @@ classdef tracks
 
         function provenance = find_provenance(provenance_id)
             cache = Program.Routines.Videos.tracks.cache;
-            provenance = cache.provenances(provenance_id);
+            provenance = cache.provenances(:, provenance_id);
+            provenance = provenance{:};
         end
     end
 
