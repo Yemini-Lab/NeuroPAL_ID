@@ -70,7 +70,18 @@ classdef tif
             end
 
             info = struct('file', {file});                                      % Initialize info struct.
-            info.scale = [0 0 0];                                               % Set image scale
+
+            scale = inputdlg({'X & Y microns/pixel:','Z microns/pixel:'}, ...
+                'Image Scale', [1 35], {'0.3','0.9'});
+
+            if isempty(scale)
+                info.scale = [0 0 0];
+            else
+                xy_scale = str2double(scale{1});
+                z_scale = str2double(scale{2});
+                info.scale = [xy_scale, xy_scale, z_scale];
+            end
+            
             info.RGBW = 1:3;                                                    % Set RGBW indices.
             
             if nc > 4
