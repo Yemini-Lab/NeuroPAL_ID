@@ -43,28 +43,7 @@ classdef GUIPreferences < handle
                  obj = Program.GUIPreferences();
                  
                  % Setup the preferences file location.
-                 if ~isdeployed
-                     obj.prefs_file = obj.prefs_name;
-                 else
-                     if ismac
-                        prefs_root = '~/Library/Application Support';
-                     else
-                        prefs_root = ctfroot;
-                     end
-                     
-                     % Determine the file separator.
-                     filesep = [];
-                     if ispc
-                         filesep = '\';
-                         %i = strfind(prefs_root, '\');
-                     else
-                         filesep = '/';
-                         %i = strfind(prefs_root, '/');
-                     end
-                     %prefs_root = prefs_root(1:i(end));
-                     obj.prefs_file = ...
-                         [prefs_root filesep obj.prefs_name];
-                 end
+                 obj.prefs_file = fullfile(Program.Routines.Debug.security.app_data_folder, obj.prefs_name);
                  
                  % Add the image directory.
                  if ispc

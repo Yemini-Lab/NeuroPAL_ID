@@ -1,5 +1,5 @@
 <deployment-project plugin="plugin.ezdeploy" plugin-version="1.0">
-  <configuration build-checksum="1218674227" file="C:\Users\YeminiPC\Documents\GitHub\NeuroPAL_ID\win_visualize.prj" location="C:\Users\YeminiPC\Documents\GitHub\NeuroPAL_ID" name="win_visualize" preferred-package-location="C:\Users\YeminiPC\Documents\GitHub\NeuroPAL_ID\win_visualize\for_redistribution" preferred-package-type="package.type.exe" target="target.ezdeploy.standalone" target-name="Application Compiler">
+  <configuration build-checksum="603576267" file="C:\Users\YeminiPC\Documents\GitHub\NeuroPAL_ID\win_visualize.prj" location="C:\Users\YeminiPC\Documents\GitHub\NeuroPAL_ID" name="win_visualize" preferred-package-location="C:\Users\YeminiPC\Documents\GitHub\NeuroPAL_ID\win_visualize\for_redistribution" preferred-package-type="package.type.exe" target="target.ezdeploy.standalone" target-name="Application Compiler">
     <param.appname>NeuroPAL_ID</param.appname>
     <param.icon>${PROJECT_ROOT}\win_visualize_resources\icon.ico</param.icon>
     <param.icons>
@@ -26,7 +26,7 @@ https://doi.org/10.1016/j.cell.2020.12.012</param.description>
     <param.screenshot>${PROJECT_ROOT}\Data\Images\NeuroPAL Software Splash Screen Small.png</param.screenshot>
     <param.guid />
     <param.installpath.string>\NeuroPAL_ID\</param.installpath.string>
-    <param.installpath.combo>option.installpath.programfiles</param.installpath.combo>
+    <param.installpath.combo>option.installpath.appdata</param.installpath.combo>
     <param.logo>${PROJECT_ROOT}\Data\Images\NeuroPAL Software Logo.png</param.logo>
     <param.install.notes>PLEASE READ THE FOLLOWING:
 
@@ -51,7 +51,7 @@ Please add it to your desktop so you can easily find it.
     <param.no.mcr.name>MyAppInstaller_app</param.no.mcr.name>
     <param.windows.command.prompt>true</param.windows.command.prompt>
     <param.create.log>true</param.create.log>
-    <param.log.file>NeuroPAL_ID_log.txt</param.log.file>
+    <param.log.file>log.txt</param.log.file>
     <param.native.matlab>false</param.native.matlab>
     <param.checkbox>false</param.checkbox>
     <param.example />
@@ -63,7 +63,6 @@ Please add it to your desktop so you can easily find it.
 	 input arguments</param.help.text>
     <unset>
       <param.guid />
-      <param.installpath.combo />
       <param.target.install.notes />
       <param.intermediate />
       <param.files.only />
@@ -806,6 +805,7 @@ Please add it to your desktop so you can easily find it.
       <file>${PROJECT_ROOT}\+Program\+Helpers\short_to_long.m</file>
       <file>${PROJECT_ROOT}\+Program\+Routines\+Debug\graphics.m</file>
       <file>${PROJECT_ROOT}\+Program\+Routines\+Debug\rotation.m</file>
+      <file>${PROJECT_ROOT}\+Program\+Routines\+Debug\security.m</file>
       <file>${PROJECT_ROOT}\+Program\+Routines\+GUI\delete_channel.m</file>
       <file>${PROJECT_ROOT}\+Program\+Routines\+GUI\get_component.m</file>
       <file>${PROJECT_ROOT}\+Program\+Routines\+GUI\move_channel.m</file>

@@ -10,6 +10,7 @@ function initialize()
 
     app = Program.GUIHandling.app;
     window = Program.GUIHandling.window_fig;
+    Program.Routines.Debug.security.set_up();
 
     if ~isdeployed
         % If we're running in dev mode, add Data & External Dependencies to
