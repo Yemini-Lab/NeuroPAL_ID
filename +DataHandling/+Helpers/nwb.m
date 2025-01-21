@@ -15,6 +15,7 @@ classdef nwb
         end
 
         function load_tracks(filepath)
+            app = Program.app;
             nwb_file = nwbRead(filepath);
 
             neuronal_ids = nwb_file.processing.get('NeuroPAL').dynamictable.get('TrackedNeurons').vectordata.get('neuron_id').data.load();
@@ -23,13 +24,9 @@ classdef nwb
             y_coords = nwb_file.processing.get('NeuroPAL').dynamictable.get('TrackedNeurons').vectordata.get('y').data.load();
             z_coords = nwb_file.processing.get('NeuroPAL').dynamictable.get('TrackedNeurons').vectordata.get('z').data.load();
 
-            nx = nwb_file.acquisition.get('NeuroPALImageRaw').data.internal.dims(2);
-            ny = nwb_file.acquisition.get('NeuroPALImageRaw').data.internal.dims(1);
-            nz = nwb_file.acquisition.get('NeuroPALImageRaw').data.internal.dims(3);
-
-            x_coords = Program.Validation.zephir_check(nx, x_coords);
-            y_coords = Program.Validation.zephir_check(ny, y_coords);
-            z_coords = Program.Validation.zephir_check(nz, z_coords);
+            x_coords = Program.Validation.zephir_check(app.video_info.nx, x_coords);
+            y_coords = Program.Validation.zephir_check(app.video_info.ny, y_coords);
+            z_coords = Program.Validation.zephir_check(app.video_info.nz, z_coords);
 
             frames = cast(nwb_file.processing.get('NeuroPAL').dynamictable.get('TrackedNeurons').vectordata.get('t').data.load(), class(x_coords));
             if min(frames) == 0
