@@ -29,7 +29,7 @@ function render(t, z, y, x)
     end
 
     if app.OverlayFrameMIPCheckBox.Value
-        xy_arr = max(target_frame,[],3);
+        xy_arr = max(target_frame, [], 3);
         xz_arr = max(target_frame(:, y, :, :), [], 3);
         yz_arr = max(target_frame(x, :, :, :), [], 3);
 
@@ -53,7 +53,7 @@ function render(t, z, y, x)
 
     xy_arr = squeeze(xy_arr);
     xz_arr = squeeze(xz_arr);
-    yz_arr = permute(squeeze(yz_arr),[2, 1, 3]);
+    yz_arr = permute(squeeze(yz_arr), [2, 1, 3]);
 
     xy_img = image(app.xyAxes, xy_arr);
     xz_img = image(app.xzAxes, yz_arr);

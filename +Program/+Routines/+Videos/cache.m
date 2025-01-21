@@ -1,0 +1,56 @@
+classdef cache
+    %CACHE Summary of this class goes here
+    %   Detailed explanation goes here
+    
+    properties (Constant)
+        default = struct( ...
+                'wl_record', {{}}, ...
+                'worldlines', {{}}, ...
+                'provenances', {{}}, ...
+                'frames', {double([0 0 0 0 0 0 0])});
+    end
+    
+    methods (Static, Access = public)
+        function cache_file = get(new_cache)
+            persistent current_cache
+
+            if nargin == 1
+                current_cache = matfile(new_cache, 'Writable', true);
+                current_cache.path = new_cache;
+                Program.Routines.Videos.cache.save(current_cache);
+                Program.Routines.Videos.worldlines.get(current_cache.worldlines);
+
+            else
+                if isempty(current_cache)
+                    current_cache = Program.Routines.Videos.cache.default();
+                end
+            end
+
+            cache_file = current_cache;
+        end
+
+        function track_cache = create(cache_path)            
+            track_cache = Program.Routines.Videos.cache.default();
+            save(cache_path, "-struct", "track_cache", '-v7.3');
+            Program.Routines.Videos.cache.get(cache_path);
+        end
+
+        function save(cache)
+            if nargin == 0
+                cache = Program.Routines.Videos.tracks.cache();
+            end
+
+            if isa(cache, "matlab.io.MatFile")
+                cache = struct( ...
+                    'frames', {double(cache.frames)}, ...
+                    'path', {cache.path}, ...
+                    'provenances', {cache.provenances}, ...
+                    'wl_record', {cache.wl_record}, ...
+                    'worldlines', {cache.worldlines});
+            end
+
+            save(cache.path, "-struct", "cache", '-v7.3');
+        end
+    end
+end
+

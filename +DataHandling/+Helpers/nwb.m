@@ -33,7 +33,7 @@ classdef nwb
                 frames = frames + 1;
             end
             
-            cache = Program.Routines.Videos.tracks.cache;
+            cache = Program.Routines.Videos.cache.get();
             cache.Writable = true;
 
             cache.provenances = {'NWB'};
@@ -46,7 +46,7 @@ classdef nwb
             cache.frames = cast([frames, x_coords, y_coords, z_coords, wl_ids, one_array', indices'], class(x_coords));
 
             cache.Writable = false;
-            Program.Routines.Videos.tracks.save_cache(cache);
+            Program.Routines.Videos.cache.save(cache);
         end
 
         function path = search(file, module)

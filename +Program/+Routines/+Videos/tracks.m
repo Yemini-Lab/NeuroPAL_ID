@@ -1,8 +1,27 @@
 classdef tracks
-    %TRACKS Summary of this class goes here
-    %   Detailed explanation goes here
+    %TRACKS A class for managing neuronal track data, including caching, importing,
+    %and rendering of Regions of Interest (ROIs).
+    %
+    %   The TRACKS class includes methods for:
+    %   1) Creating and saving a cache of track data (frames, worldlines, etc.).
+    %   2) Loading external data (XML, H5, NWB files) and incorporating it into the cache.
+    %   3) Managing ROIs, including creation and movement of neuron tracking points.
+    %   4) Managing "worldlines" (unique identifiers for tracked entities).
+    %   5) Handling provenance information.
+    %
+    %   Usage:
+    %       cache_file = tracks.cache();                  % Retrieve or create default cache
+    %       tracks.load(filepath);                        % Load track data from a file
+    %       tracks.import(positions, labels);             % Import positions & labels
+    %       rois = tracks.find_roi('t', 10);              % Find ROIs at t=10
+    %       tracks.draw();                                % Draw ROIs for current time/frame
     
     properties (Constant)
+
+        %DIMENSIONAL_INDEX Struct for dimension indexes of track data columns.
+        %   The fields in DIMENSIONAL_INDEX map descriptive dimension names
+        %   (t, x, y, z, worldline_id, provenance_id, annotation_id) to
+        %   their corresponding column indices.
         dimensional_index = struct( ...
             't', {1}, ...
             'x', {2}, ...
@@ -14,59 +33,31 @@ classdef tracks
     end
     
     methods (Static, Access = public)
-        %% Cache
-        function cache_file = cache(new_cache)
-            persistent current_cache
-
-            if nargin == 1
-                current_cache = matfile(new_cache, 'Writable', true);
-                current_cache.path = new_cache;
-                Program.Routines.Videos.tracks.save_cache(current_cache);
-
-            elseif isempty(current_cache)
-                current_cache = Program.Routines.Videos.tracks.create_default_cache();
-
-            end
-
-            cache_file = current_cache;
-        end
-
-        function save_cache(cache)
-            if nargin == 0
-                cache = Program.Routines.Videos.tracks.cache();
-            end
-
-            if isa(cache, "matlab.io.MatFile")
-                cache = struct( ...
-                    'frames', {double(cache.frames)}, ...
-                    'path', {cache.path}, ...
-                    'provenances', {cache.provenances}, ...
-                    'wl_record', {cache.wl_record}, ...
-                    'worldlines', {cache.worldlines});
-            end
-
-            save(cache.path, "-struct", "cache", '-v7.3');
-        end
-
-        function set_wl_record(worldlines)
-            cache = Program.Routines.Videos.tracks.cache;
-            cache.Writable = true;
-            cache.wl_record = worldlines;
-            cache.Writable = false;
-        end
-
-        %% General
         function load(filepath)
-            [path, ~, ~] = fileparts(filepath);
-            cache_path = fullfile(path, "track_cache.mat");
-            neurons = Program.Routines.Videos.tracks.create_default_cache();
-            save(cache_path, "-struct", "neurons", '-v7.3');
-            Program.Routines.Videos.tracks.cache(cache_path);
+            parent_task = "Importing annotations...";
+            d = uiprogressdlg(Program.window, "Title", "NeuroPAL_ID", "Message", parent_task, "Indeterminate", "off");
+            d.Message = sprintf("%s\n└🢒 Building cache...", parent_task); d.Value = 0/5;
 
+            [path, name, ~] = fileparts(filepath);
+            cache_path = fullfile(path, "track_cache.mat");
+
+            if exist(cache_path, "file")
+                check = uiconfirm(Program.window, "Found existing neuron track cache. Load or build from scratch?", "NeuroPAL_ID", "Options", ["Load from cache", "Build new"]);
+
+                if strcmp(check, "Build new")
+                    delete(cache_path);
+                else
+                    Program.Routines.Videos.cache.create(cache_path);
+                end
+            else
+                Program.Routines.Videos.cache.create(cache_path);
+            end
+
+
+            d.Message = sprintf("%s\n└🢒 Reading %s...", parent_task, name); d.Value = 1/5;
             if endsWith(filepath, '.xml')
                 [positions, labels] = DataHandling.readTrackmate(filepath);
                 Program.app.import_annotations(positions, labels);
-                %Program.Routines.Videos.tracks.import(positions, labels);
 
             elseif endsWith(filepath, '.h5')
                 DataHandling.Helpers.h5.load_tracks(filepath);
@@ -76,50 +67,13 @@ classdef tracks
 
             end
 
-            cache = Program.Routines.Videos.tracks.cache(cache_path);
-            if isempty(cache.worldlines)
-                d = uiprogressdlg(Program.window, "Title", "NeuroPAL_ID", "Message", "Importing worldlines...", "Indeterminate", "off");
-                for entry=1:length(cache.wl_record)
-                    d.Value = entry/length(cache.wl_record);
-                    worldline_name = cache.wl_record(entry, :);
-                    d.Message = sprintf("Importing %s...", worldline_name{:});
-                    [node, color, style] = Program.Routines.Videos.tracks.add_node(worldline_name{:});
-                    Program.Routines.Videos.tracks.add_worldline(node, worldline_name, color, style);
-                end
-                close(d);
-            end
+            d.Message = parent_task;
+            Program.Routines.Videos.worldlines.build_from_cache(d);
             
+            d.Message = sprintf("%s\n└🢒 Drawing ROIs...", parent_task);
+            d.Value = 4/5;
             Program.Routines.Videos.tracks.draw();
-        end
-        
-        function import(positions, labels)
-            app = Program.app;
-            cache = Program.Routines.Videos.tracks.cache;
-
-            positions = Program.Validation.coordinate_conversion_check(positions);
-            positions(:, 1) = round(positions(:, 1));
-
-            for n=1:length(labels)
-                coords = positions(n, :);
-
-                worldline_name = labels{n};
-                t = coords(1);
-                x = coords(2);
-                y = coords(3);
-                z = coords(4);
-
-                worldline_exists, worldline_id = ismember(worldline_name, cache.wl_record);
-                if ~worldline_exists
-                    cache.wl_record{end+1} = worldline_name;
-                    [node, color, style] = Program.Routines.Videos.tracks.add_node(worldline_name);
-                    Program.Routines.Videos.tracks.add_worldline(node, worldline_name, color, style);
-                end
-
-                Program.Routines.Videos.tracks.add_roi(t, x, y, z, worldline_id);
-            end
-
-            Program.Routines.Videos.render();
-            app.data_flags.('Tracking_ROIs') = 1;
+            close(d);
         end
 
         function draw(cursor)
@@ -133,10 +87,10 @@ classdef tracks
             if app.ShowallneuronsCheckBox.Value
                 threshold = 9999;
             else
-                threshold = 3;
+                threshold = 1;
             end
 
-            target_roi = Program.Routines.Videos.tracks.find_roi( ...
+            target_roi = Program.Routines.Videos.annotations.find( ...
                 cursor.t, ...
                 'z', [cursor.z - threshold, cursor.z + threshold]);
             
@@ -145,7 +99,7 @@ classdef tracks
                 roi_x = annotation(dimensional_index.x);
                 roi_y = annotation(dimensional_index.y);
                 worldline_id = annotation(dimensional_index.worldline_id);
-                worldline = Program.Routines.Videos.tracks.find_worldline(worldline_id);
+                worldline = Program.Routines.Videos.worldlines.find(worldline_id);
                 annotation_id = annotation(dimensional_index.annotation_id);
 
                 this_roi = drawpoint(app.xyAxes, ...
@@ -159,172 +113,6 @@ classdef tracks
                 addlistener(this_roi, ...
                     'ROIMoved', @(source_axes, event) Program.Routines.Videos.track.roi_moved(source_axes, annotation_id, event));
             end
-        end
-
-        %% ROIs
-        function add_roi(t, x, y, z, worldline_id, provenance_id)
-            cache = Program.Routines.Videos.tracks.cache;
-            cache.Writable = true;
-            
-            if worldline_id > size(cache, 'worldline')
-                [node, color, style, worldline_id] = Program.Routines.Videos.tracks.add_node('Unknown');
-                Program.Routines.Videos.tracks.add_worldline(node, 'Unknown', color, style, worldline_id);
-            end
-            cache.frames = [cache.frames; t x y z worldline_id provenance_id size(cache.frames, 1)+1];
-
-            cache.Writable = false;
-            Program.Routines.Videos.tracks.save_cache(cache);
-        end
-
-        function target_roi = find_roi(varargin)
-            p = inputParser;
-
-            addRequired(p, 't');
-            addOptional(p, 'x', []);
-            addOptional(p, 'y', []);
-            addOptional(p, 'z', []);
-            addOptional(p, 'worldline_id', []);
-            addOptional(p, 'provenance_id', []);
-            addOptional(p, 'annotation_id', []);
-
-            parse(p, varargin{:});
-            
-            cache = Program.Routines.Videos.tracks.cache;
-            dimensional_index = Program.Routines.Videos.tracks.dimensional_index;
-
-            target_roi = cache.frames;
-            dimensions = fieldnames(dimensional_index);
-
-            for d=1:length(dimensions)
-                dimension = dimensions{d};
-                requirement = p.Results.(dimension);
-
-                if ~isempty(requirement)
-                    if isscalar(requirement)
-                        target_roi = target_roi(target_roi(:, dimensional_index.(dimension)) == requirement, :);
-
-                    else
-                        target_roi = target_roi(target_roi(:, dimensional_index.(dimension)) >= requirement(1), :);
-                        target_roi = target_roi(target_roi(:, dimensional_index.(dimension)) <= requirement(2), :);
-                    end
-                end
-            end
-        end
-
-        function move_roi(source_axes, annotation_id, event)
-            app = Program.app;
-            cache = Program.Routines.Videos.tracks.cache;
-            cache.Writable = true;
-            roi_idx = find(cache.frames(:, dimensional_index.annotation_id) == annotation_id);
-            
-            switch source_axes
-                case app.xyAxes
-                    cache.frames(roi_idx, 2) = event.CurrentPosition(1);
-                    cache.frames(roi_idx, 3) = event.CurrentPosition(2);
-                case app.xzAxes
-                    cache.frames(roi_idx, 2) = event.CurrentPosition(1);
-                    cache.frames(roi_idx, 4) = event.CurrentPosition(2);
-                case app.yzAxes
-                    cache.frames(roi_idx, 3) = event.CurrentPosition(2);
-                    cache.frames(roi_idx, 4) = event.CurrentPosition(1);
-            end
-
-            cache.Writable = false;
-            Program.Routines.Videos.tracks.save_cache(cache);
-        end
-
-        %% Worldlines
-        function add_worldline(node, name, color, style)
-            cache = Program.Routines.Videos.tracks.cache;
-            cache.Writable = true;
-
-            wl_record = cache.wl_record;
-            worldlines = cache.worldlines;
-
-            wl_record{end+1} = name;
-            worldlines{end+1} = struct( ...
-                'node', {node}, ...
-                'name', {name}, ...
-                'color', {color}, ...
-                'style', {style}, ...
-                'id', {length(cache.worldlines)+1});
-
-
-            cache.wl_record = wl_record;
-            cache.worldlines = worldlines;
-            cache.Writable = false;
-            Program.Routines.Videos.tracks.save_cache(cache);
-        end
-
-        function worldline = find_worldline(worldline_id)
-            cache = Program.Routines.Videos.tracks.cache;
-            worldline = cache.worldlines(:, worldline_id);
-            worldline = worldline{:};
-        end
-
-        function select_worldline(worldline_id, annotation)
-            app = Program.app;
-            worldline = cache.worldlines{worldline_id};
-
-            app.NameEditField.Value = worldline.name;
-            app.WorldlineIDEditField.Value = worldline_id;
-            app.ColorButton.BackgroundColor = worldline.color;
-
-            app.XCoordinateEditField.Value = annotation(2);
-            app.YCoordinateEditField.Value = annotation(3);
-            app.ZCoordinateEditField.Value = annotation(4);
-            app.ProvenanceEditField.Value = cache.provenances{annotation(5)};
-
-            app.xSlider.Value = app.XCoordinateEditField.Value;
-            app.ySlider.Value = app.video_info.ny - app.YCoordinateEditField.Value;
-            app.hor_zSlider.Value = app.ZCoordinateEditField.Value;
-        end
-
-        %% Provenance
-        function add_provenance(name)
-            cache = Program.Routines.Videos.tracks.cache;
-            cache.Writable = true;
-            provenances = cache.provenances;
-            provenances{end+1} = name;
-            cache.provenances = provenances;
-            cache.Writable = false;
-            Program.Routines.Videos.tracks.save_cache(cache);
-        end
-
-        function provenance = find_provenance(provenance_id)
-            cache = Program.Routines.Videos.tracks.cache;
-            provenance = cache.provenances(:, provenance_id);
-            provenance = provenance{:};
-        end
-    end
-
-    methods (Static, Access = private)
-        function track_cache = create_default_cache()
-            track_cache = struct( ...
-                'wl_record', {{}}, ...
-                'worldlines', {{}}, ...
-                'provenances', {{}}, ...
-                'frames', {double([0 0 0 0 0 0 0])});
-        end
-
-        function [node, color, style] = add_node(worldline_name)
-            app = Program.app;
-
-            if Neurons.Hermaphrodite.isCell(worldline_name)
-                node = uitreenode(app.IDdNode, ...
-                    "Text", worldline_name);
-
-            else
-                node = uitreenode(app.UnIDdNode, ...
-                    "Text", worldline_name);
-            end
-
-            color = [0.8, 0.8, 0.8];
-            style = uistyle("FontColor", color);
-            addStyle(app.WorldlineTree, style, "node", node);
-
-            node.NodeData = length(app.IDdNode.Children) + ...
-                length(app.UnIDdNode.Children);
         end
     end
 end
