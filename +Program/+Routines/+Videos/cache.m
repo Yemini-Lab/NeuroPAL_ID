@@ -51,6 +51,23 @@ classdef cache
 
             save(cache.path, "-struct", "cache", '-v7.3');
         end
+
+        function check_for_existing(path)
+            if exist(path, "file")
+                check = uiconfirm(Program.window, ...
+                    "Found existing neuron track cache. Load or build from scratch?", "NeuroPAL_ID", ...
+                    "Options", ["Load from cache", "Build new"]);
+
+                if strcmp(check, "Build new")
+                    delete(path);
+                    Program.Routines.Videos.cache.get(path);
+                else
+                    Program.Routines.Videos.cache.create(path);
+                end
+            else
+                Program.Routines.Videos.cache.create(path);
+            end
+        end
     end
 end
 

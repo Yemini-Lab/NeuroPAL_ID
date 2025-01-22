@@ -27,19 +27,7 @@ classdef tracks
 
             [path, name, ~] = fileparts(filepath);
             cache_path = fullfile(path, "track_cache.mat");
-
-            if exist(cache_path, "file")
-                check = uiconfirm(Program.window, "Found existing neuron track cache. Load or build from scratch?", "NeuroPAL_ID", "Options", ["Load from cache", "Build new"]);
-
-                if strcmp(check, "Build new")
-                    delete(cache_path);
-                else
-                    Program.Routines.Videos.cache.create(cache_path);
-                end
-            else
-                Program.Routines.Videos.cache.create(cache_path);
-            end
-
+            Program.Routines.Videos.cache.check_for_existing(cache_path);
 
             d.Message = sprintf("%s\n└🢒 Reading %s...", parent_task, name); d.Value = 1/5;
             if endsWith(filepath, '.xml')
