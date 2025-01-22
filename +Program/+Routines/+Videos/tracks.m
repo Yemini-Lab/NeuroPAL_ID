@@ -17,19 +17,6 @@ classdef tracks
     %       tracks.draw();                                % Draw ROIs for current time/frame
     
     properties (Constant)
-
-        %DIMENSIONAL_INDEX Struct for dimension indexes of track data columns.
-        %   The fields in DIMENSIONAL_INDEX map descriptive dimension names
-        %   (t, x, y, z, worldline_id, provenance_id, annotation_id) to
-        %   their corresponding column indices.
-        dimensional_index = struct( ...
-            't', {1}, ...
-            'x', {2}, ...
-            'y', {3}, ...
-            'z', {4}, ...
-            'worldline_id', {5}, ...
-            'provenance_id', {6}, ...
-            'annotation_id', {7});
     end
     
     methods (Static, Access = public)
@@ -78,7 +65,7 @@ classdef tracks
 
         function draw(cursor)
             app = Program.app;
-            dimensional_index = Program.Routines.Videos.tracks.dimensional_index;
+            dimensional_index = Program.Routines.Videos.annotations.dimensional_index;
 
             if nargin == 0
                 cursor = Program.Routines.Videos.cursor;
@@ -108,11 +95,46 @@ classdef tracks
                     'Color', worldline.color);
 
                 addlistener(this_roi, ...
-                    'ROIClicked', @(source, event) Program.Routines.Videos.worldlines.select(worldline_id, annotation));
+                    'ROIClicked', @(source, event) Program.Routines.Videos.worldlines.select(worldline_id, annotation, this_roi));
 
                 addlistener(this_roi, ...
                     'ROIMoved', @(source_axes, event) Program.Routines.Videos.annotations.moved(source_axes, annotation_id, event));
             end
+        end
+
+        function save()
+            cache = Program.Routines.Videos.cache.get();
+            annotations_to_write = Program.Routines.Videos.annotations.get();
+            worldlines_to_write = Program.Routines.Videos.worldlines.get();
+
+            if ~isempty(worldlines_to_write)
+                cache.worldlines = worldlines_to_write;
+            end
+
+            if ~isempty(annotations_to_write)
+                annotations = cache.frames;
+                dim_index = Program.Routines.Videos.annotations.dimensional_index;
+
+                for n=1:length(annotations_to_write)
+                    annotation_id = annotations_to_write(n, dim_index.annotation_id);
+                    matching_row = annotations(:, dim_index.annotation_id) == annotation_id;
+
+                    if any(matching_row)
+                        annotations(matching_row, :) = annotations_to_write(n, :);
+
+                    else
+                        annotations(end+1, :) = annotations_to_write(n, :);
+                    end
+                end
+
+                cache.frames = annotations;
+            end
+
+            Program.Routines.Videos.cache.save(cache);
+        end
+
+        function export()
+            % TBD
         end
     end
 end

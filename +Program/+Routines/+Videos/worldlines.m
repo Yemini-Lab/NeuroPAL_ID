@@ -99,9 +99,13 @@ classdef worldlines
             end
         end
 
-        function select(worldline_id, annotation)            
+        function select(worldline_id, annotation, roi)            
             app = Program.app;
             worldline = cache.worldlines{worldline_id};
+
+            if nargin == 3
+                Program.Routines.Videos.annotations.currently_selected(roi);
+            end
 
             app.NameEditField.Value = worldline.name;
             app.WorldlineIDEditField.Value = worldline_id;

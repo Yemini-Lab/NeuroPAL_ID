@@ -1,9 +1,41 @@
 classdef annotations
     
-    properties
+    properties (Constant)
+        %DIMENSIONAL_INDEX Struct for dimension indexes of track data columns.
+        %   The fields in DIMENSIONAL_INDEX map descriptive dimension names
+        %   (t, x, y, z, worldline_id, provenance_id, annotation_id) to
+        %   their corresponding column indices.
+        dimensional_index = struct( ...
+            't', {1}, ...
+            'x', {2}, ...
+            'y', {3}, ...
+            'z', {4}, ...
+            'worldline_id', {5}, ...
+            'provenance_id', {6}, ...
+            'annotation_id', {7});
     end
     
     methods (Static, Access = public)        
+        function roi = currently_selected(new_roi)
+            persistent selected_roi
+
+            if nargin == 1
+                selected_roi = new_roi;
+            end
+
+            roi = selected_roi;
+        end
+
+        function annotations = get(annotations)
+            persistent cached_annotation_changes
+
+            if nargin == 1
+                cached_annotation_changes = annotations;
+            end
+
+            annotations = cached_annotation_changes;
+        end
+
         function add(t, x, y, z, worldline_id, provenance_id)
             cache = Program.Routines.Videos.cache.get();
             cache.Writable = true;
@@ -33,7 +65,7 @@ classdef annotations
             parse(p, varargin{:});
             
             cache = Program.Routines.Videos.cache.get();
-            dimensional_index = Program.Routines.Videos.tracks.dimensional_index;
+            dimensional_index = Program.Routines.Videos.annotations.dimensional_index;
 
             target_roi = cache.frames;
             dimensions = fieldnames(dimensional_index);
@@ -54,10 +86,26 @@ classdef annotations
             end
         end
 
+        function edit(annotation_id, property, value)
+            annotation = Program.Routines.Videos.annotations.find(annotation_id);
+            dim_index = Program.Routines.Videos.annotations.dimensional_index;
+
+            switch property
+                case 'Position'
+                    annotation(dim_index.x) = value(1);
+                    annotation(dim_index.y) = value(2);
+                    annotation(dim_index.z) = value(3);
+
+                case fieldnames(dim_index)
+                    annotation(dim_index.(property)) = value;
+            end
+        end
+
         function move(source_axes, annotation_id, event)            
             app = Program.app;
+            dim_index = Program.Routines.Videos.annotations.dimensional_index;
             cache = Program.Routines.Videos.cache.get();
-            roi_idx = find(cache.frames(:, dimensional_index.annotation_id) == annotation_id;
+            roi_idx = find(cache.frames(:, dim_index.annotation_id) == annotation_id);
             cache.Writable = true;
             
             switch source_axes
