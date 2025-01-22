@@ -67,17 +67,36 @@ classdef worldlines
             end
 
             worldline = struct( ...
+                'id', {wl_id}, ...
                 'node', {node}, ...
                 'name', {name}, ...
                 'color', {color}, ...
                 'style', {style}, ...
-                'id', {wl_id});
+                'provenance', {'NPAL'});
         end
 
         function worldline = find(worldline_id)            
             worldlines = Program.Routines.Videos.worldlines.get();
             worldline = worldlines(:, worldline_id);
             worldline = worldline{:};
+        end
+
+        function edit(worldline_id, property, value)
+            app = Program.app;
+            worldlines = Program.Routines.Videos.worldlines.get();
+
+            switch property
+                case 'name'
+                    worldlines(:, worldline_id).(property) = value;
+
+                case 'color'
+                    worldlines(:, worldline_id).(property) = value;
+                    worldlines(:, worldline_id).style = uistyle("FontColor", value);
+                    addStyle(app.WorldlineTree, worldlines(:, worldline_id).style, worldlines(:, worldline_id).node);
+
+                case 'provenance'
+                    worldlines(:, worldline_id).(property) = value;
+            end
         end
 
         function select(worldline_id, annotation)            

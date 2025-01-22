@@ -57,8 +57,8 @@ classdef annotations
         function move(source_axes, annotation_id, event)            
             app = Program.app;
             cache = Program.Routines.Videos.cache.get();
+            roi_idx = find(cache.frames(:, dimensional_index.annotation_id) == annotation_id;
             cache.Writable = true;
-            roi_idx = find(cache.frames(:, dimensional_index.annotation_id) == annotation_id);
             
             switch source_axes
                 case app.xyAxes

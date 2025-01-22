@@ -108,10 +108,10 @@ classdef tracks
                     'Color', worldline.color);
 
                 addlistener(this_roi, ...
-                    'ROIClicked', @(source, event) Program.Routines.Videos.track.select_worldline(worldline_id, annotation));
+                    'ROIClicked', @(source, event) Program.Routines.Videos.worldlines.select(worldline_id, annotation));
 
                 addlistener(this_roi, ...
-                    'ROIMoved', @(source_axes, event) Program.Routines.Videos.track.roi_moved(source_axes, annotation_id, event));
+                    'ROIMoved', @(source_axes, event) Program.Routines.Videos.annotations.moved(source_axes, annotation_id, event));
             end
         end
     end
