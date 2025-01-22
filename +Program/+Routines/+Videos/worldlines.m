@@ -27,16 +27,16 @@ classdef worldlines
             wl_msg = sprintf("%s\n├🢒 Registering worldlines...", dlg.Message);
             dlg.Message = wl_msg; dlg.Value = 3/5;
             
-            for wl=1:n_wls
-                dlg.Value = min(1, 3 + (wl/n_wls)) / 5;
+            for wl_id=1:n_wls
+                dlg.Value = min(1, 3 + (wl_id/n_wls)) / 5;
 
-                wl_name = cache.wl_record(wl, :);
+                wl_name = cache.wl_record(wl_id, :);
                 wl_name = wl_name{:};
 
                 dlg.Message = sprintf("%s\n└─{ %s }...", wl_msg, wl_name);
 
-                [node, color, style] = Program.Routines.Videos.worldlines.add_node(wl_name);
-                worldlines{end+1} = Program.Routines.Videos.worldlines.create(node, wl_name, color, style, wl);
+                [node, color, style] = Program.Routines.Videos.worldlines.add_node(wl_name, wl_id);
+                worldlines{end+1} = Program.Routines.Videos.worldlines.create(node, wl_name, color, style, wl_id);
             end
 
             cache.worldlines = worldlines;
@@ -130,7 +130,7 @@ classdef worldlines
             cache.Writable = false;
         end
 
-        function [node, color, style] = add_node(worldline_name)            
+        function [node, color, style] = add_node(worldline_name, worldline_id)            
             app = Program.app;
 
             if Neurons.Hermaphrodite.isCell(worldline_name)
@@ -146,8 +146,7 @@ classdef worldlines
             style = uistyle("FontColor", color);
             addStyle(app.WorldlineTree, style, "node", node);
 
-            node.NodeData = length(app.IDdNode.Children) + ...
-                length(app.UnIDdNode.Children);
+            node.NodeData = worldline_id;
         end
     end
 end
