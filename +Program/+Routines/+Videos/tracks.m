@@ -122,7 +122,50 @@ classdef tracks
         end
 
         function export()
-            % TBD
+            supported_formats = {'.h5', '.csv', '.xlsx', '.xml', '.mat'};
+            [export_file, export_path] = uiputfile(supported_formats, ...
+                'Select export location and format');
+            export_filepath = fullfile(export_path, export_file);
+
+            if isequal(export_file, 0) || isequal(export_path, 0)
+                return
+            end
+
+            parent_task = 'Exporting neuron tracks...';
+            d = uiprogressdlg(Program.window, 'Title', 'NeuroPAL_ID', parent_task, 'Indeterminate', 'off');
+            cache = Program.Routines.Videos.cache.get();
+            app = Program.app;
+
+            if endsWith(export_file, 'h5')
+                DataHandling.writeZephir(app.video_info, cache, export_filepath);
+
+            elseif  endsWith(export_file, 'csv') || endsWith(export_file, 'xlsx')
+                DataHandling.writeExcel(app.video_info, cache, export_filepath);
+
+            elseif endsWith(export_file, 'xml')
+                DataHandling.writeTrackMate(app.video_info, cache, export_filepath, Program.window);
+
+            elseif endsWith(export_file, 'mat')
+                neuron_tracks = struct( ...
+                    'frames', {double([0 0 0 0 0 0])}, ...
+                    'path', {export_filepath}, ...
+                    'provenances', {{}}, ...
+                    'wl_record', {{}}, ...
+                    'worldlines', {{}});
+                fields_to_write = fieldnames(neuron_tracks);
+                n_fields = length(fields_to_write);
+                save(export_filepath, "-struct", "neuron_tracks", '-v7.3');
+                
+                f = matfile(export_filepath, "Writable", true);
+                for p=1:length(n_fields)
+                    d.Value = p/length(n_fields);
+                    field = fields_to_write{p};
+                    d.Message = sprintf("%s\n└─{ Writing %s }...", parent_task, field);
+                    f.(field) = cache.(field);
+                end                
+            end
+
+            close(d);
         end
     end
 end
