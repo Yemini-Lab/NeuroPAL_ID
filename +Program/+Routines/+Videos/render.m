@@ -30,13 +30,25 @@ function render(t, z, y, x)
 
     if app.OverlayFrameMIPCheckBox.Value
         xy_arr = max(target_frame, [], 3);
-        xz_arr = max(target_frame(:, y, :, :), [], 3);
-        yz_arr = max(target_frame(x, :, :, :), [], 3);
+        xz_arr = max(target_frame, [], 2);
+        yz_arr = max(target_frame, [], 1);
+
+        xy_arr(:, :, :, 1) = xy_arr(:, :, :, 1) * app.RSlider.Value;
+        xy_arr(:, :, :, 2) = xy_arr(:, :, :, 2) * app.GSlider.Value;
+        xy_arr(:, :, :, 3) = xy_arr(:, :, :, 3) * app.BSlider.Value;
+        
+        xz_arr(:, :, :, 1) = xz_arr(:, :, :, 1) * app.RSlider.Value;
+        xz_arr(:, :, :, 2) = xz_arr(:, :, :, 2) * app.GSlider.Value;
+        xz_arr(:, :, :, 3) = xz_arr(:, :, :, 3) * app.BSlider.Value;
+        
+        yz_arr(:, :, :, 1) = yz_arr(:, :, :, 1) * app.RSlider.Value;
+        yz_arr(:, :, :, 2) = yz_arr(:, :, :, 2) * app.GSlider.Value;
+        yz_arr(:, :, :, 3) = yz_arr(:, :, :, 3) * app.BSlider.Value;
 
     else
-        xy_arr = target_frame(:, :, z, :);
-        xz_arr = target_frame(:, y, :, :);
-        yz_arr = target_frame(x, :, :, :);
+        xy_arr = target_frame(:, :, cursor.z, :);
+        xz_arr = target_frame(:, cursor.y, :, :);
+        yz_arr = target_frame(cursor.x, :, :, :);
 
         xy_arr(:, :, :, 1) = xy_arr(:, :, :, 1) * app.RSlider.Value;
         xy_arr(:, :, :, 2) = xy_arr(:, :, :, 2) * app.GSlider.Value;
@@ -83,13 +95,13 @@ function render(t, z, y, x)
     delete(app.yz_xline)
     delete(app.xz_xline)
 
-    app.xy_yline = yline(app.xyAxes, x, '--', 'color', '#9c9c9c', 'LineWidth', 0.2);
-    app.yz_yline = yline(app.yzAxes, x, '--', 'color', '#9c9c9c', 'LineWidth', 0.2);
-    app.xz_yline = yline(app.xzAxes, app.xzAxes.YLim(2)*(z/app.video_info.nz), '--', 'color', '#9c9c9c', 'LineWidth', 0.2);
+    app.xy_yline = yline(app.xyAxes, cursor.x, '--', 'color', '#9c9c9c', 'LineWidth', 0.2);
+    app.yz_yline = yline(app.yzAxes, cursor.x, '--', 'color', '#9c9c9c', 'LineWidth', 0.2);
+    app.xz_yline = yline(app.xzAxes, app.xzAxes.YLim(2)*(cursor.z/app.video_info.nz), '--', 'color', '#9c9c9c', 'LineWidth', 0.2);
 
-    app.xy_xline = xline(app.xyAxes, y, '--', 'color', '#9c9c9c', 'LineWidth', 0.2);
-    app.yz_xline = xline(app.yzAxes, app.yzAxes.XLim(2)*(z/app.video_info.nz), '--', 'color', '#9c9c9c', 'LineWidth', 0.2);
-    app.xz_xline = xline(app.xzAxes, y, '--', 'color', '#9c9c9c', 'LineWidth', 0.2);
+    app.xy_xline = xline(app.xyAxes, cursor.y, '--', 'color', '#9c9c9c', 'LineWidth', 0.2);
+    app.yz_xline = xline(app.yzAxes, app.yzAxes.XLim(2)*(cursor.z/app.video_info.nz), '--', 'color', '#9c9c9c', 'LineWidth', 0.2);
+    app.xz_xline = xline(app.xzAxes, cursor.y, '--', 'color', '#9c9c9c', 'LineWidth', 0.2);
 
     delete(findobj(app.xyAxes,'Type','images.roi.Point'));
     delete(findobj(app.yzAxes,'Type','images.roi.Point'));
