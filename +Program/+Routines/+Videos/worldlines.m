@@ -18,6 +18,18 @@ classdef worldlines
             worldlines = current_wl;
         end
 
+        function wl_record = get_wl_record(new_wl)
+            persistent current_wl_record
+
+            if nargin > 0
+                current_wl_record = new_wl;
+            elseif isempty(current_wl_record)
+                current_wl_record = Program.Routines.Videos.cache.get().wl_record;
+            end
+
+            wl_record = current_wl_record;
+        end
+
         function build_from_cache(dlg)            
             cache = Program.Routines.Videos.cache.get();
             wl_record = cache.wl_record;
