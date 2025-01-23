@@ -123,6 +123,11 @@ classdef annotations
             cache.Writable = false;
             Program.Routines.Videos.cache.save(cache);
         end
+
+        function roi = find_roi(annotation_id)
+            app = Program.app;
+            roi = findobj(app.xyAxes, 'Tag', num2str(annotation_id));
+        end
     end
 end
 
