@@ -181,6 +181,11 @@ classdef worldlines
 
             node.NodeData = worldline_id;
         end
+
+        function node = find_nodes(node_data)
+            app = Program.app;
+            node = findobj(app.WorldlineTree, 'NodeData', node_data);
+        end
     end
 end
 
