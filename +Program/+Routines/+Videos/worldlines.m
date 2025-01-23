@@ -87,16 +87,18 @@ classdef worldlines
 
             switch property
                 case 'name'
-                    worldlines(:, worldline_id).(property) = value;
+                    worldlines{:, worldline_id}.(property) = value;
 
                 case 'color'
-                    worldlines(:, worldline_id).(property) = value;
-                    worldlines(:, worldline_id).style = uistyle("FontColor", value);
-                    addStyle(app.WorldlineTree, worldlines(:, worldline_id).style, worldlines(:, worldline_id).node);
+                    worldlines{:, worldline_id}.(property) = value;
+                    style = uistyle("FontColor", value);
+                    Program.Helpers.style_node(app.WorldlineTree, worldlines{:, worldline_id}.node, style);
 
                 case 'provenance'
-                    worldlines(:, worldline_id).(property) = value;
+                    worldlines{:, worldline_id}.(property) = value;
             end
+
+            Program.Routines.Videos.worldlines.get(worldlines);
         end
 
         function select(worldline_id, annotation, roi)
