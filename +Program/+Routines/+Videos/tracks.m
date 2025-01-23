@@ -23,11 +23,16 @@ classdef tracks
         function load(filepath)
             parent_task = "Importing annotations...";
             d = uiprogressdlg(Program.window, "Title", "NeuroPAL_ID", "Message", parent_task, "Indeterminate", "off");
-            d.Message = sprintf("%s\n└🢒 Building cache...", parent_task); d.Value = 0/5;
 
-            [path, name, ~] = fileparts(filepath);
-            cache_path = fullfile(path, "track_cache.mat");
-            Program.Routines.Videos.cache.check_for_existing(cache_path);
+            if endsWith(filepath, "_vt_cache.mat")
+                Program.Routines.Videos.cache.get(filepath);
+            else         
+                d.Message = sprintf("%s\n└🢒 Building cache...", parent_task); d.Value = 0/5;
+    
+                [path, name, ~] = fileparts(filepath);
+                cache_path = fullfile(path, sprintf("%s_vt_cache.mat", name));
+                Program.Routines.Videos.cache.check_for_existing(cache_path);       
+            end
 
             d.Message = sprintf("%s\n└🢒 Reading %s...", parent_task, name); d.Value = 1/5;
             if endsWith(filepath, '.xml')
@@ -62,60 +67,90 @@ classdef tracks
             if app.ShowallneuronsCheckBox.Value
                 threshold = 9999;
             else
-                threshold = 1;
+                threshold = 2;
             end
 
-            target_roi = Program.Routines.Videos.annotations.find( ...
-                cursor.t, ...
-                'z', [cursor.z - threshold, cursor.z + threshold]);
-            
-            for n=1:length(target_roi)
-                annotation = target_roi(n, :);
-                roi_x = annotation(dimensional_index.x);
-                roi_y = annotation(dimensional_index.y);
-                worldline_id = annotation(dimensional_index.worldline_id);
-                worldline = Program.Routines.Videos.worldlines.find(worldline_id);
-                annotation_id = annotation(dimensional_index.annotation_id);
+            target_roi = struct( ...
+                'xy', {Program.Routines.Videos.annotations.find(cursor.t, 'z', [cursor.z - threshold, cursor.z + threshold])}, ...
+                'xz', {Program.Routines.Videos.annotations.find(cursor.t, 'y', [cursor.x - threshold-1, cursor.x + threshold+1])}, ...
+                'yz', {Program.Routines.Videos.annotations.find(cursor.t, 'x', [cursor.y - threshold-1, cursor.y + threshold+1])});
+            perspectives = fieldnames(target_roi);
 
-                this_roi = drawpoint(app.xyAxes, ...
-                    'Position', [roi_x, roi_y], ...
-                    'MarkerSize', cursor.marker_size, ...
-                    'Color', worldline.color);
+            for p=1:length(perspectives)
+                perspective = perspectives{p};
+                ax_handle = sprintf("%sAxes", perspective);
+                rois = target_roi.(perspective);
+                
+                for n=1:size(rois, 1)
+                    annotation = rois(n, :);
+                    d1 = perspective(1);
+                    d2 = perspective(2);
 
-                addlistener(this_roi, ...
-                    'ROIClicked', @(source, event) Program.Routines.Videos.worldlines.select(worldline_id, annotation, this_roi));
+                    if ~strcmp(perspective, 'yz')
+                        d1_coord = annotation(dimensional_index.(d1));
+                        d2_coord = annotation(dimensional_index.(d2));
+                    else
+                        d1_coord = annotation(dimensional_index.(d2));
+                        d2_coord = annotation(dimensional_index.(d1));
+                    end
 
-                addlistener(this_roi, ...
-                    'ROIMoved', @(source_axes, event) Program.Routines.Videos.annotations.moved(source_axes, annotation_id, event));
+                    worldline_id = annotation(dimensional_index.worldline_id);
+                    worldline = Program.Routines.Videos.worldlines.find(worldline_id);
+                    annotation_id = annotation(dimensional_index.annotation_id);
+    
+                    this_roi = drawpoint( ...
+                        app.(ax_handle), ...
+                        'Position', [d1_coord, d2_coord], ...
+                        'MarkerSize', cursor.marker_size, ...
+                        'Color', worldline.color, ...
+                        'Tag', num2str(annotation_id));
+    
+                    addlistener(this_roi, ...
+                        'ROIClicked', @(source, event) Program.Routines.Videos.worldlines.select(worldline_id, annotation, this_roi));
+    
+                    addlistener(this_roi, ...
+                        'ROIMoved', @(source_axes, event) Program.Routines.Videos.annotations.moved(source_axes, annotation_id, event));
+                end
             end
         end
 
         function save()
             cache = Program.Routines.Videos.cache.get();
-            annotations_to_write = Program.Routines.Videos.annotations.get();
-            worldlines_to_write = Program.Routines.Videos.worldlines.get();
+            to_write = struct( ...
+                'annotations', {Program.Routines.Videos.annotations.get()}, ...
+                'worldlines', {Program.Routines.Videos.worldlines.get()}, ...
+                'wl_record', {Program.Routines.Videos.worldlines.get_wl_record()}, ...
+                'provenances', {Program.Routines.Videos.provenances.get()});
 
-            if ~isempty(worldlines_to_write)
-                cache.worldlines = worldlines_to_write;
+            if ~isempty(to_write.worldlines)
+                cache.worldlines = to_write.worldlines;
             end
 
-            if ~isempty(annotations_to_write)
+            if ~isempty(to_write.annotations)
                 annotations = cache.frames;
                 dim_index = Program.Routines.Videos.annotations.dimensional_index;
 
-                for n=1:length(annotations_to_write)
-                    annotation_id = annotations_to_write(n, dim_index.annotation_id);
+                for n=1:length(to_write.annotations)
+                    annotation_id = to_write.annotations(n, dim_index.annotation_id);
                     matching_row = annotations(:, dim_index.annotation_id) == annotation_id;
 
                     if any(matching_row)
-                        annotations(matching_row, :) = annotations_to_write(n, :);
+                        annotations(matching_row, :) = to_write.annotations(n, :);
 
                     else
-                        annotations(end+1, :) = annotations_to_write(n, :);
+                        annotations(end+1, :) = to_write.annotations(n, :);
                     end
                 end
 
                 cache.frames = annotations;
+            end
+
+            if ~isempty(to_write.wl_record)
+                cache.wl_record = to_write.wl_record;
+            end
+
+            if ~isempty(to_write.provenances)
+                cache.provenances = to_write.provenances;
             end
 
             Program.Routines.Videos.cache.save(cache);
