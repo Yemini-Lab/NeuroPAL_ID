@@ -6,6 +6,18 @@ classdef provenances
     end
     
     methods (Static, Access = public)
+        function provenances = get(new_prov)
+            persistent current_prov
+
+            if nargin > 0
+                current_prov = new_prov;
+            elseif isempty(current_prov)
+                current_prov = Program.Routines.Videos.cache.get().provenances;
+            end
+
+            provenances = current_prov;
+        end
+
         function add(name, cache)            
             if nargin < 2
                 cache = Program.Routines.Videos.cache.get();
