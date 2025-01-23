@@ -55,29 +55,21 @@ classdef worldlines
             Program.Routines.Videos.cache.save(cache);
         end
         
-        function add(node, name, color, style)            
-            cache = Program.Routines.Videos.cache.get;
-            cache.Writable = true;
-
-            wl_id = length(cache.worldlines)+1;
-            cache.wl_record(:, wl_id) = name;
-            cache.worldlines(:, wl_id) = {struct( ...
+        function add(node, name, color, style)  
+            worldlines = Program.Routines.Videos.worldlines.get();
+            
+            wl_id = length(worldlines) + 1;
+            worldlines(:, wl_id) = {struct( ...
                 'node', {node}, ...
                 'name', {name}, ...
                 'color', {color}, ...
                 'style', {style}, ...
                 'id', {wl_id})};
 
-            cache.Writable = false;
-            Program.Routines.Videos.cache.save(cache);
+            Program.Routines.Videos.worldlines.get(worldlines);
         end
 
         function worldline = create(node, name, color, style, wl_id)
-            if nargin < 5
-                cache = Program.Routines.Videos.cache.get();
-                wl_id = length(cache.worldlines) + 1;
-            end
-
             worldline = struct( ...
                 'id', {wl_id}, ...
                 'node', {node}, ...
