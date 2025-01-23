@@ -186,6 +186,28 @@ classdef worldlines
             app = Program.app;
             node = findobj(app.WorldlineTree, 'NodeData', node_data);
         end
+
+        function assign_random_colors()
+            d = uiprogressdlg(Program.window, 'Title', 'Updating colors...', 'Indeterminate', 'off');
+            n_worldlines = length(Program.Routines.Videos.worldlines.get());
+            generated_colors = zeros([n_worldlines 3]);
+            
+            wl_id = 1;
+            while wl_id <= n_worldlines
+                d.Value = wl_id/n_worldlines;
+                randomly_generated_color = rand(1, 3);
+                
+                if ~ismember(randomly_generated_color, generated_colors, 'rows')
+                    Program.Routines.Videos.worldlines.edit(wl_id, 'color', randomly_generated_color)
+                    generated_colors(wl_id, :) = randomly_generated_color;
+                    wl_id = wl_id + 1;
+                end
+            end
+
+            Program.Routines.Videos.render();
+            drawnow;
+            close(d)
+        end
     end
 end
 
