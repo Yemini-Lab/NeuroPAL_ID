@@ -53,16 +53,16 @@ classdef cache
         end
 
         function check_for_existing(path)
-            if exist(path, "file")
+            if exist(path, "file") == 2
                 check = uiconfirm(Program.window, ...
                     "Found existing neuron track cache. Load or build from scratch?", "NeuroPAL_ID", ...
                     "Options", ["Load from cache", "Build new"]);
 
                 if strcmp(check, "Build new")
                     delete(path);
-                    Program.Routines.Videos.cache.get(path);
-                else
                     Program.Routines.Videos.cache.create(path);
+                else
+                    Program.Routines.Videos.cache.get(path);
                 end
             else
                 Program.Routines.Videos.cache.create(path);
