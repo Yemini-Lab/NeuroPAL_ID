@@ -99,26 +99,59 @@ classdef worldlines
             end
         end
 
-        function select(worldline_id, annotation, roi)            
-            app = Program.app;
-            worldline = cache.worldlines{worldline_id};
-
-            if nargin == 3
-                Program.Routines.Videos.annotations.currently_selected(roi);
+        function select(worldline_id, annotation, roi)
+            if isempty(worldline_id)
+                return
             end
 
+            app = Program.app;
+            dim_index = Program.Routines.Videos.annotations.dimensional_index;
+
+            worldlines = Program.Routines.Videos.worldlines.get();
+            provenances = Program.Routines.Videos.provenances.get();
+
+            worldline = worldlines{worldline_id};
             app.NameEditField.Value = worldline.name;
             app.WorldlineIDEditField.Value = worldline_id;
             app.ColorButton.BackgroundColor = worldline.color;
 
-            app.XCoordinateEditField.Value = annotation(2);
-            app.YCoordinateEditField.Value = annotation(3);
-            app.ZCoordinateEditField.Value = annotation(4);
-            app.ProvenanceEditField.Value = cache.provenances{annotation(5)};
+            if ~exist('annotation', 'var')
+                annotation = Program.Routines.Videos.annotations.find( ...
+                    Program.Routines.Videos.cursor().t, ...
+                    'worldline_id', worldline_id);
+            end
 
-            app.xSlider.Value = app.XCoordinateEditField.Value;
-            app.ySlider.Value = app.video_info.ny - app.YCoordinateEditField.Value;
-            app.hor_zSlider.Value = app.ZCoordinateEditField.Value;
+            if ~isempty(annotation)
+                t = annotation(dim_index.t);
+                x = round(annotation(dim_index.x));
+                y = round(annotation(dim_index.y));
+                z = round(annotation(dim_index.z));
+                annotation_id = annotation(dim_index.annotation_id);
+                provenance = provenances{annotation(dim_index.provenance_id)};
+
+                app.tEditField.Value = t;
+                app.XCoordinateEditField.Value = x;
+                app.YCoordinateEditField.Value = y;
+                app.ZCoordinateEditField.Value = z;
+                app.ProvenanceEditField.Value = provenance;
+                app.AnnotationIDEditField.Value = annotation_id;
+
+                app.tSlider.Value = app.tEditField.Value;
+                app.xSlider.Value = app.XCoordinateEditField.Value;
+                app.ySlider.Value = app.video_info.ny - app.YCoordinateEditField.Value;
+                app.hor_zSlider.Value = app.ZCoordinateEditField.Value;
+
+                Program.Routines.Videos.render()
+                roi = Program.Routines.Videos.annotations.find_roi(annotation_id);
+                Program.Routines.GUI.Toggles.local_roi_panel('on');
+            else
+                Program.Routines.GUI.Toggles.local_roi_panel('off');
+            end
+
+            if ~exist('roi', 'var')
+                Program.Routines.Videos.annotations.currently_selected(roi);
+                roi.Selected = 1;
+            end
         end
     end
 
