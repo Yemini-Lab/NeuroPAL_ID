@@ -23,6 +23,10 @@ classdef annotations
                 selected_roi = new_roi;
             end
 
+            if ~selected_roi.Selected
+                selected_roi.Selected = 1;
+            end
+
             roi = selected_roi;
         end
 
@@ -38,20 +42,24 @@ classdef annotations
 
         function add(t, x, y, z, worldline_id, provenance_id)
             cache = Program.Routines.Videos.cache.get();
-            cache.Writable = true;
+            dim_index = Program.Routines.Videos.annotations.dimensional_index;
+            annotations = Program.Routines.Videos.annotations.get();
             
-            if worldline_id > size(cache, 'worldline')
-                [node, color, style, worldline_id] = Program.Routines.worldlines.add_node('Unknown');
-                Program.Routines.Videos.worldlines.add(node, 'Unknown', color, style, worldline_id);
+            if worldline_id > length(Program.Routines.Videos.worldlines.get())
+                [node, color, style, worldline_id] = Program.Routines.worldlines.add_node('???');
+                Program.Routines.Videos.worldlines.add(node, '???', color, style, worldline_id);
             end
 
-            cache.frames = [cache.frames; t x y z worldline_id provenance_id size(cache.frames, 1)+1];
+            if provenance_id > length(Program.Routines.Videos.provenances.get())
+                Program.Routines.Videos.provenances.add('????', cache);
+            end
 
-            cache.Writable = false;
-            Program.Routines.Videos.cache.save(cache);
+            annotations(:, dim_index.annotation_id) = [t x y z worldline_id, provenance_id];
+
+            Program.Routines.Videos.annotations.get(annotations);
         end
 
-        function target_roi = find(varargin)            
+        function target_annotation = find(varargin)            
             p = inputParser;
 
             addRequired(p, 't');
@@ -65,22 +73,22 @@ classdef annotations
             parse(p, varargin{:});
             
             cache = Program.Routines.Videos.cache.get();
-            dimensional_index = Program.Routines.Videos.annotations.dimensional_index;
+            dim_index = Program.Routines.Videos.annotations.dimensional_index;
 
-            target_roi = cache.frames;
-            dimensions = fieldnames(dimensional_index);
+            target_annotation = cache.frames;
+            dimensions = fieldnames(dim_index);
 
             for d=1:length(dimensions)
-                dimension = dimensions{d};
-                requirement = p.Results.(dimension);
+                dim = dimensions{d};
+                req = p.Results.(dim);
 
-                if ~isempty(requirement)
-                    if isscalar(requirement)
-                        target_roi = target_roi(target_roi(:, dimensional_index.(dimension)) == requirement, :);
+                if ~isempty(req)
+                    if isscalar(req)
+                        target_annotation = target_annotation(target_annotation(:, dim_index.(dim)) == req, :);
 
                     else
-                        target_roi = target_roi(target_roi(:, dimensional_index.(dimension)) >= requirement(1), :);
-                        target_roi = target_roi(target_roi(:, dimensional_index.(dimension)) <= requirement(2), :);
+                        target_annotation = target_annotation(target_annotation(:, dim_index.(dim)) >= req(1), :);
+                        target_annotation = target_annotation(target_annotation(:, dim_index.(dim)) <= req(2), :);
                     end
                 end
             end
