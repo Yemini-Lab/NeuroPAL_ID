@@ -136,6 +136,28 @@ classdef annotations
             app = Program.app;
             roi = findobj(app.xyAxes, 'Tag', num2str(annotation_id));
         end
+        function target_annotations = target(x, y)
+            persistent current_target
+
+            if nargin == 2
+                % If vertices have been passed, save them.
+                current_target = struct('x', {x}, 'y', {y});
+
+            else
+                % Otherwise, grab all annotations in the cache
+                cache = Program.Routines.Videos.cache.get();
+                annotations = cache.frames;
+
+                % Test whether they are located within the target polgyon
+                [in, on] = inpolygon( ...
+                    annotations(:, dim_index.x), annotations(:, dim_index.y), ...
+                    current_target.x, current_target.y);
+
+                % Use booleans to filter the chunk load from cache
+                in_bounds = find(in || on);
+                target_annotations = cache.frames(in_bounds, :);
+            end
+        end
     end
 end
 
