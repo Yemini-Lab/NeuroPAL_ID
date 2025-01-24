@@ -50,9 +50,6 @@ classdef worldlines
                 [node, color, style] = Program.Routines.Videos.worldlines.add_node(wl_name, wl_id);
                 worldlines{end+1} = Program.Routines.Videos.worldlines.create(node, wl_name, color, style, wl_id);
             end
-
-            cache.worldlines = worldlines;
-            Program.Routines.Videos.cache.save(cache);
         end
         
         function add(node, name, color, style)  
