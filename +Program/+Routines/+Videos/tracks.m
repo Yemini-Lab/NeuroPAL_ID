@@ -23,15 +23,16 @@ classdef tracks
         function load(filepath)
             parent_task = "Importing annotations...";
             d = uiprogressdlg(Program.window, "Title", "NeuroPAL_ID", "Message", parent_task, "Indeterminate", "off");
+            is_cache = endsWith(filepath, "_vt_cache.mat");
+            [path, name, ~] = fileparts(filepath);
 
-            if endsWith(filepath, "_vt_cache.mat")
-                Program.Routines.Videos.cache.get(filepath);
-            else         
+            if ~is_cache
                 d.Message = sprintf("%s\n└🢒 Building cache...", parent_task); d.Value = 0/5;
-    
-                [path, name, ~] = fileparts(filepath);
                 cache_path = fullfile(path, sprintf("%s_vt_cache.mat", name));
-                Program.Routines.Videos.cache.check_for_existing(cache_path);       
+                if Program.Routines.Videos.cache.check_for_existing(cache_path)
+                    close(d);
+                    return
+                end
             end
 
             d.Message = sprintf("%s\n└🢒 Reading %s...", parent_task, name); d.Value = 1/5;
@@ -45,6 +46,8 @@ classdef tracks
             elseif endsWith(filepath, '.nwb')
                 DataHandling.Helpers.nwb.load_tracks(filepath);
 
+            elseif endsWith(filepath, "_vt_cache.mat")
+                Program.Routines.Videos.cache.get(filepath);     
             end
 
             d.Message = parent_task;
