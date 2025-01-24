@@ -148,7 +148,7 @@ classdef worldlines
                 app.hor_zSlider.Value = app.ZCoordinateEditField.Value;
 
                 Program.Routines.Videos.render()
-                roi = Program.Routines.Videos.annotations.find_roi(annotation_id);
+                roi = Program.Routines.Videos.rois.find(annotation_id);
                 Program.Routines.GUI.Toggles.local_roi_panel('on');
             else
                 Program.Routines.GUI.Toggles.local_roi_panel('off');
