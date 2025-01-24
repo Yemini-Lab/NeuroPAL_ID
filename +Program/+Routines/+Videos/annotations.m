@@ -109,28 +109,24 @@ classdef annotations
             end
         end
 
-        function move(source_axes, annotation_id, event)            
+        function move(source, annotation_id, event)            
             app = Program.app;
-            dim_index = Program.Routines.Videos.annotations.dimensional_index;
             cache = Program.Routines.Videos.cache.get();
-            roi_idx = find(cache.frames(:, dim_index.annotation_id) == annotation_id);
-            cache.Writable = true;
             
-            switch source_axes
+            switch source.Parent
                 case app.xyAxes
-                    cache.frames(roi_idx, 2) = event.CurrentPosition(1);
-                    cache.frames(roi_idx, 3) = event.CurrentPosition(2);
+                    cache.frames(annotation_id, 2) = event.CurrentPosition(1);
+                    cache.frames(annotation_id, 3) = event.CurrentPosition(2);
 
                 case app.xzAxes
-                    cache.frames(roi_idx, 2) = event.CurrentPosition(1);
-                    cache.frames(roi_idx, 4) = event.CurrentPosition(2);
+                    cache.frames(annotation_id, 2) = event.CurrentPosition(1);
+                    cache.frames(annotation_id, 4) = event.CurrentPosition(2);
 
                 case app.yzAxes
-                    cache.frames(roi_idx, 3) = event.CurrentPosition(2);
-                    cache.frames(roi_idx, 4) = event.CurrentPosition(1);
+                    cache.frames(annotation_id, 3) = event.CurrentPosition(2);
+                    cache.frames(annotation_id, 4) = event.CurrentPosition(1);
             end
 
-            cache.Writable = false;
             Program.Routines.Videos.cache.save(cache);
         end
 
