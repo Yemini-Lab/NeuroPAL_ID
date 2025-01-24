@@ -4,6 +4,18 @@ classdef rois
     end
     
     methods (Static, Access = public)
+        function rois = active()
+            app = Program.app;
+            rois = findobj(app.xyAxes, 'Type','images.roi.Point');            
+        end
+
+        function roi = find(annotation_id)
+            roi = Program.Routines.Videos.rois.active();
+
+            if nargin ~= 0
+                roi = str2double({roi.Tag}) == annotation_id;
+            end
+        end
 
         function target_annotations = target(x, y)
             persistent current_target
@@ -15,14 +27,15 @@ classdef rois
             elseif ~isempty(current_target)
                 app = Program.app;
                 rois = findobj(app.xyAxes, 'Type','images.roi.Point');
+                roi_pos = vertcat(rois.Position);
 
                 % Test whether they are located within the target polgyon
                 [in, on] = inpolygon( ...
-                    rois(:, dim_index.x), rois(:, dim_index.y), ...
+                    roi_pos(:, 1), roi_pos(:, 2), ...
                     current_target.x, current_target.y);
 
                 % Use booleans to filter the chunk load from cache
-                in_bounds = find(in || on);
+                in_bounds = in | on;
                 target_annotations = rois(in_bounds);
 
             else
