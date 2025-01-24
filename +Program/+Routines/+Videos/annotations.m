@@ -144,7 +144,7 @@ classdef annotations
                 % If vertices have been passed, save them.
                 current_target = struct('x', {x}, 'y', {y});
 
-            else
+            elseif ~isempty(current_target)
                 % Otherwise, grab all annotations in the cache
                 cache = Program.Routines.Videos.cache.get();
                 annotations = cache.frames;
@@ -157,6 +157,10 @@ classdef annotations
                 % Use booleans to filter the chunk load from cache
                 in_bounds = find(in || on);
                 target_annotations = cache.frames(in_bounds, :);
+
+            else
+                
+                target_annotations = current_target;
             end
         end
 
@@ -177,6 +181,8 @@ classdef annotations
             addOptional(p, 'provenance_id', []);
             addOptional(p, 'annotation_id', []);
 
+            addOptional(p, 'macro', []);
+
             parse(p, varargin{:});
             inputs = p.Results; args = fieldnames(inputs);
             dim_index = Program.Routines.Videos.annotations.dimensional_index;
@@ -185,37 +191,76 @@ classdef annotations
             d = uiprogressdlg(Program.window, "Title", "NeuroPAL_ID", ...
                 "Message", parent_task, "Indeterminate", "off");
 
-            cache = Program.Routines.Videos.cache.get();
-            a_cache = Program.Routines.Videos.annotations.get();
-            cached_annotations = a_cache(:, dim_index.annotation_id);
+            current_annotation_cache = Program.Routines.Videos.annotations.get();
 
+            annotations = Program.Routines.Videos.annotations.target();
+            if isempty(annotations)
+                cursor = Program.Routines.Videos.cursor;
+                annotations = Program.Routines.Videos.annotations.find(cursor.t);
+            end
+            
+            annotation_ids = annotations(:, dim_index.annotation_id);
             for a=1:length(annotation_ids)
                 a_id = annotation_ids(a);
 
-                if ~any(ismember(a_id, cached_annotations))
-                    a_cache(end+1, :) = cache.frames(cache.frames(:, dim_index.annotation_id) == a_id);
-                    a_idx = size(a_cache, 1);
+                if ~any(ismember(a_id, current_annotation_cache(:, dim_index.annotation_id)))
+                    current_annotation_cache(end+1, :) = cache.frames(cache.frames(:, dim_index.annotation_id) == a_id);
+                    a_idx = size(current_annotation_cache, 1);
 
                 else
-                    a_idx = find(a_cache(:, dim_index.annotation_id) == a_id);
+                    a_idx = find(current_annotation_cache(:, dim_index.annotation_id) == a_id);
                 end
 
-                wl_name = Program.Routines.Videos.worldlines.get_name(a_cache(a_idx, dim_index.worldline_id));
+                wl_name = Program.Routines.Videos.worldlines.get_name(current_annotation_cache(a_idx, dim_index.worldline_id));
                 d.Message = sprintf("%s\n└─{ %s }...", parent_task, wl_name);d.Value = a/length(annotation_ids);
 
                 for i=1:length(args)
                     arg = args{i};
 
-                    if ~isempty(inputs.(arg))
+                    if ~isempty(inputs.(arg)) && ~strcmp(arg, 'macro')
                         if startsWith(arg, 'd')
                             dim = arg(2:end);
-                            a_cache(a_idx, dim_index.(dim)) = a_cache(a_idx, dim_index.(dim)) + inputs.(arg);
+                            current_annotation_cache(a_idx, dim_index.(dim)) = current_annotation_cache(a_idx, dim_index.(dim)) + inputs.(arg);
 
                         else
-                            a_cache(a_idx, dim_index.(arg)) = inputs.(arg);
+                            current_annotation_cache(a_idx, dim_index.(arg)) = inputs.(arg);
 
                         end
                     end
+                end
+            end
+
+            if ~isempty(inputs.macro)
+                macro_code = split(inputs.(arg), '_');
+                pc_pos = Program.Helpers.calc_point_cloud_bbox(current_annotation_cache(:, dim_index.x:dim_index.y));
+    
+                switch macro_code(1)
+                    case 'flip'
+                        switch macro_code(2)
+                            case 'ud'
+                                pc_pos.xy(:, 2) = pc_pos.xy(:, 2) + (pc_pos.xy(:, 2) - pos.vertical_center)*2;
+                            case 'lr'
+                                pc_pos.xy(:, 1) = pc_pos.xy(:, 1) + (pc_pos.xy(:, 1) - pos.horizontal_center)*2;
+                        end
+    
+                    case 'center'
+                        switch macro_code(2)
+                            case 'hor'
+                                pc_pos.xy(:, 2) = pc_pos.xy(:, 2) + (app.video_info.nx/2 - pos.vertical_center);
+                            case 'vert'
+                                pc_pos.xy(:, 1) = pc_pos.xy(:, 1) + (app.video_info.ny/2 - pos.horizontal_center);
+                        end
+    
+                    case 'rotate'
+                        app = Program.app;
+                        theta = app.RotateEditField.Value;
+                        
+                        if strcmp(macro_code(2), 'ccw')
+                            theta = theta * -1;
+                        end
+    
+                        pc_pos.xy = Program.Helper.rotate_xy_arr(pc_pos.xy, theta);
+                        
                 end
             end
         end
