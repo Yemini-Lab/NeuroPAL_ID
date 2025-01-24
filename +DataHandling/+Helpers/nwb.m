@@ -8,7 +8,15 @@ classdef nwb
             persistent current_nwb
 
             if nargin > 0
-                current_nwb = nwb_nwb;
+                current_nwb = struct( ...
+                    'path', {new_nwb}, ...
+                    'obj', {nwbRead(new_nwb)});
+            end
+
+            if isempty(current_nwb)
+                current_nwb = struct( ...
+                    'path', {''}, ...
+                    'obj', {[]});
             end
 
             nwb_obj = current_nwb;
@@ -24,9 +32,18 @@ classdef nwb
             path = instance;
         end
 
+        function obj = cached_read(path)
+            current_nwb = DataHandling.Helpers.nwb.current();
+            if strcmp(path, current_nwb.path)
+                obj = current_nwb.obj;
+            else
+                obj = DataHandling.Helpers.nwb.current(path).obj;
+            end
+        end
+
         function load_tracks(filepath)
             app = Program.app;
-            nwb_file = nwbRead(filepath);
+            nwb_file = DataHandling.Helpers.nwb.cached_read(filepath);
 
             neuronal_ids = nwb_file.processing.get('NeuroPAL').dynamictable.get('TrackedNeurons').vectordata.get('neuron_id').data.load();
 
@@ -70,7 +87,7 @@ classdef nwb
                 DataHandling.Helpers.nwb.volume_path('/acquisition/NeuroPALImageRaw');
             end
 
-            f = nwbRead(file);
+            f = DataHandling.Helpers.nwb.cached_read(file);
             target_module = DataHandling.Helpers.nwb.volume_path;
 
             metadata = struct( ...
@@ -111,7 +128,7 @@ classdef nwb
                 is_video = Program.Validation.agnostic_vol_check();
             end
 
-            f = nwbRead(file);                                              % Get reader object.
+            f = DataHandling.Helpers.nwb.cached_read(file);                                              % Get reader object.
 
             if is_video
                 module = f.acquisition.get('CalciumImageSeries');
