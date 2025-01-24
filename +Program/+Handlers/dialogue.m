@@ -18,14 +18,18 @@ classdef dialogue
             obj = handle;
         end
 
-        function cache_struct = cache(input)
-            persistent cache
-
-            if nargin > 0
-                cache = input;
+        function progress(value)
+            dialogue = Program.Handlers.dialogue.active();
+            if ~isempty(dialogue)
+                dialogue.Value = value;
             end
+        end
 
-            cache_struct = cache;
+        function message(message)
+            dialogue = Program.Handlers.dialogue.active();
+            if ~isempty(dialogue)
+                dialogue.Message = message;
+            end
         end
 
         function handle = choice(message, choices)
