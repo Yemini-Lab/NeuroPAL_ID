@@ -35,6 +35,16 @@ classdef cache
             Program.Routines.Videos.cache.get(cache_path);
         end
 
+        function load(cache)
+            if nargin == 0
+                cache = Program.Routines.Videos.cache.get();
+            end
+
+            Program.Routines.Videos.wl_record.get(cache.wl_record);
+            Program.Routines.Videos.worldlines.get(cache.worldlines);
+            Program.Routines.Videos.provenances.get(cache.provenances);
+        end
+
         function save(cache)
             if nargin == 0
                 cache = Program.Routines.Videos.tracks.cache();
