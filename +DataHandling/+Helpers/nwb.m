@@ -4,6 +4,16 @@ classdef nwb
     end
     
     methods (Static)
+        function nwb_obj = current(new_nwb)
+            persistent current_nwb
+
+            if nargin > 0
+                current_nwb = nwb_nwb;
+            end
+
+            nwb_obj = current_nwb;
+        end
+
         function path = volume_path(new_path)
             persistent instance
 
