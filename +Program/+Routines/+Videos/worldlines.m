@@ -120,6 +120,7 @@ classdef worldlines
             app.NameEditField.Value = worldline.name;
             app.WorldlineIDEditField.Value = worldline_id;
             app.ColorButton.BackgroundColor = worldline.color;
+            app.WorldlineTree.SelectedNodes = Program.Routines.Videos.worldlines.find_nodes(worldline.node);
 
             if ~exist('annotation', 'var')
                 annotation = Program.Routines.Videos.annotations.find( ...
@@ -211,6 +212,10 @@ classdef worldlines
         end
 
         function node = find_nodes(node_data)
+            if isa(node_data, "matlab.ui.container.TreeNode")
+                node_data = node_data.NodeData;
+            end
+
             app = Program.app;
             node = findobj(app.WorldlineTree, 'NodeData', node_data);
         end
