@@ -136,6 +136,7 @@ classdef annotations
             app = Program.app;
             roi = findobj(app.xyAxes, 'Tag', num2str(annotation_id));
         end
+
         function target_annotations = target(x, y)
             persistent current_target
 
@@ -156,6 +157,66 @@ classdef annotations
                 % Use booleans to filter the chunk load from cache
                 in_bounds = find(in || on);
                 target_annotations = cache.frames(in_bounds, :);
+            end
+        end
+
+        function batch_edit(varargin)
+            p = inputParser;
+
+            addRequired(p, 'annotation_ids');
+
+            addOptional(p, 'x', []);
+            addOptional(p, 'y', []);
+            addOptional(p, 'z', []);
+
+            addOptional(p, 'dx', []);
+            addOptional(p, 'dy', []);
+            addOptional(p, 'dz', []);
+
+            addOptional(p, 'worldline_id', []);
+            addOptional(p, 'provenance_id', []);
+            addOptional(p, 'annotation_id', []);
+
+            parse(p, varargin{:});
+            inputs = p.Results; args = fieldnames(inputs);
+            dim_index = Program.Routines.Videos.annotations.dimensional_index;
+
+            parent_task = "Updating annotations...";
+            d = uiprogressdlg(Program.window, "Title", "NeuroPAL_ID", ...
+                "Message", parent_task, "Indeterminate", "off");
+
+            cache = Program.Routines.Videos.cache.get();
+            a_cache = Program.Routines.Videos.annotations.get();
+            cached_annotations = a_cache(:, dim_index.annotation_id);
+
+            for a=1:length(annotation_ids)
+                a_id = annotation_ids(a);
+
+                if ~any(ismember(a_id, cached_annotations))
+                    a_cache(end+1, :) = cache.frames(cache.frames(:, dim_index.annotation_id) == a_id);
+                    a_idx = size(a_cache, 1);
+
+                else
+                    a_idx = find(a_cache(:, dim_index.annotation_id) == a_id);
+                end
+
+                wl_name = Program.Routines.Videos.worldlines.get_name(a_cache(a_idx, dim_index.worldline_id));
+                d.Message = sprintf("%s\n└─{ %s }...", parent_task, wl_name);d.Value = a/length(annotation_ids);
+
+                for i=1:length(args)
+                    arg = args{i};
+
+                    if ~isempty(inputs.(arg))
+                        if startsWith(arg, 'd')
+                            dim = arg(2:end);
+                            a_cache(a_idx, dim_index.(dim)) = a_cache(a_idx, dim_index.(dim)) + inputs.(arg);
+
+                        else
+                            a_cache(a_idx, dim_index.(arg)) = inputs.(arg);
+
+                        end
+                    end
+                end
             end
         end
     end
