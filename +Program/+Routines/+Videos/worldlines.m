@@ -214,6 +214,11 @@ classdef worldlines
             drawnow;
             close(d)
         end
+
+        function wl_name = get_name(wl_id)
+            worldlines = Program.Routines.Videos.worldlines.get();
+            wl_name = worldlines{:, wl_id}.name;
+        end
     end
 end
 
