@@ -26,5 +26,7 @@ function load(file)
             Program.Routines.Videos.tracks.load(cache_path);
         end
     end
+
+    Program.Routines.Debug.cursor_visibility_check({app.xyAxes, app.xzAxes, app.yzAxes});
 end
 
