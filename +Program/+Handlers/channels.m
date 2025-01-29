@@ -203,6 +203,59 @@ classdef channels
                 order(c) = ch_idx;
             end
         end
+
+        function add_channel()
+            app = Program.app;
+            current_rows = app.proc_channel_grid.RowHeight;
+            tc = length(current_rows)+1;
+            current_rows{end+1} = 'fit';
+            app.proc_channel_grid.RowHeight = current_rows;
+
+            cb = sprintf(Program.Handlers.channels.handles{'pp_cb'}, tc);
+            dd = sprintf(Program.Handlers.channels.handles{'pp_dd'}, tc);
+            ef = sprintf(Program.Handlers.channels.handles{'pp_ef'}, tc); 
+
+            app.(cb) = uicheckbox( ...
+                "Text", "", "Value", 0, ...
+                "Parent", app.proc_channel_grid, ...
+                "ValueChangedFcn", @app.proc_c1_checkbox.ValueChangedFcn);
+            app.(cb).Layout.Row = tc;
+            app.(cb).Layout.Column = 1;
+
+            app.(dd) = uidropdown( ...
+                "Items", app.proc_c1_dropdown.Items, ...
+                "Parent", app.proc_channel_grid, ...
+                "ValueChangedFcn", @app.proc_c1_dropdown.ValueChangedFcn);
+            app.(dd).Layout.Row = tc;
+            app.(dd).Layout.Column = 3;
+
+            app.(ef) = uieditfield("Parent", app.proc_channel_grid);
+            app.(ef).Layout.Row = tc;
+            app.(ef).Layout.Column = 3;
+            app.(ef).Visible = 'off';
+
+            up = uibutton( ...
+                "Text", "⮝", ...
+                "Parent", app.proc_channel_grid, ...
+                "ButtonPushedFcn", @app.proc_c1_up.ButtonPushedFcn);
+            up.Layout.Row = tc;
+            up.Layout.Column = 5;
+
+            down = uibutton( ...
+                "Text", "⮟", ...
+                "Parent", app.proc_channel_grid, ...
+                "ButtonPushedFcn", @app.proc_c1_down.ButtonPushedFcn);
+            down.Layout.Row = tc;
+            down.Layout.Column = 6;
+
+            del = uibutton( ...
+                "Text", "🗑", ...
+                "FontWeight", "bold", ...
+                "Parent", app.proc_channel_grid, ...
+                "ButtonPushedFcn", @app.proc_c1_delete.ButtonPushedFcn);
+            del.Layout.Row = tc;
+            del.Layout.Column = 7;
+        end
     end
 
     methods (Static, Access = private)
