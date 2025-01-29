@@ -67,9 +67,18 @@ classdef nd2
 
             channels = DataHandling.Helpers.nd2.get_channel_names(f);           % Get channel names.
             channels = Program.Handlers.channels.parse_info(channels);          % Get channel indices from names.
-            info.RGBW = channels(1:4);                                          % Set RGBW indices.
-            info.DIC = channels(5);                                             % Set DIC if present, else set to 0.
-            info.GFP = channels(6);                                             % Set GFP is present, else set to 0.
+            info.RGBW = find(ismember(channels, [1 2 3 4]));                    % Set RGBW indices.
+
+            info.DIC = find(ismember(channels, 5));                             % Set DIC if present, else set to 0.
+            if isempty(info.DIC)
+                info.DIC = 0;
+            end
+
+            info.GFP = find(ismember(channels, 6));                             % Set GFP is present, else set to 0.
+            if isempty(info.GFP)
+                info.GFP = 0;
+            end
+
             info.bit_depth = bit_depth;
             
             % Determine the gamma.
