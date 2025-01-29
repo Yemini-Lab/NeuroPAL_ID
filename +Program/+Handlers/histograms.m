@@ -36,6 +36,9 @@ classdef histograms
                 if checkbox.Value
                     dropdown = Program.Routines.GUI.get_component('pp_dd', c);
                     reference = Program.Helpers.get_reference(c);
+                    if isempty(reference)
+                        continue
+                    end
 
                     chan_hist = raw.array(:, :, :, find(ismember(dropdown.Items, dropdown.Value)));
 
@@ -56,10 +59,14 @@ classdef histograms
                         'EdgeColor', reference.color)
                     h_axes.XLim = [app.HidezerointensitypixelsCheckBox.Value, h_axes.XLim(2)];
 
+                    n_max = Program.Handlers.channels.config{'max_channels'};
                     if c >= 4
                         h_panel.Parent = app.ProcHistogramGrid;
                         h_panel.Layout.Row = 2;
-                        h_panel.Layout.Column = c-3;
+
+                        if c <= n_max
+                            h_panel.Layout.Column = c - 3;
+                        end
                     end
                 end
             end
@@ -69,6 +76,12 @@ classdef histograms
 
     methods(Static, Access=private)
         function [h_panel, h_label, h_axes] = get_gui(c)
+            app = Program.app;
+
+            if c > Program.Handlers.channels.config{'max_channels'}
+                c = Program.Helpers.first_unchecked_channel();
+            end
+
             h_panel = Program.Routines.GUI.get_component('panels', Program.Handlers.histograms.prefixes{c});
             h_label = Program.Routines.GUI.get_component('labels', Program.Handlers.histograms.prefixes{c});
             h_axes = Program.Routines.GUI.get_component('axes', Program.Handlers.histograms.prefixes{c});

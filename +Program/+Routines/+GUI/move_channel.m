@@ -20,5 +20,5 @@ function move_channel(event)
         neighbor_dd.Value = old_value;
     end
 
-    %Program.GUIHandling.histogram_handler(app, 'draw');
+    Program.Routines.Processing.render()
 end

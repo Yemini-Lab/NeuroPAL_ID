@@ -67,6 +67,12 @@ classdef nd2
 
             info.channel_names = DataHandling.Helpers.nd2.get_channel_names(f);           % Get channel names.
             channels = Program.Handlers.channels.parse_info(info.channel_names);          % Get channel indices from names.
+            
+            [~, has_duplicate, duplicate_indices] = Program.Validation.check_for_duplicate_fluorophores(channels);
+            if has_duplicate
+                Program.Handlers.channels.add_reference(info.channel_names{duplicate_indices})
+            end
+
             info.RGBW = arrayfun(@(x) find(channels == x), 1:4);                    % Set RGBW indices.
 
             info.DIC = find(ismember(channels, 5));                             % Set DIC if present, else set to 0.
@@ -80,6 +86,7 @@ classdef nd2
             end
 
             info.bit_depth = bit_depth;
+            Program.Handlers.channels.set_references(info);
             
             % Determine the gamma.
             info.gamma = Program.Handlers.channels.config{'default_gamma'};     % Set gamma to default since we can't get it from ND2 hashtable.

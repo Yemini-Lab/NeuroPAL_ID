@@ -4,7 +4,7 @@ function render()
     [raw_volume, raw_dims] = Program.Validation.pad_rgb(raw.array);
     
     % Determine the color channel indices.
-    [r, g, b, white, dic, gfp] = Program.Handlers.channels.parse_channel_gui();
+    [r, g, b, white, dic, gfp, other] = Program.Handlers.channels.parse_channel_gui();
     [x, y, z, t] = Program.Routines.Processing.parse_gui(); 
     
     % Determine the channel=color assignments for displaying.
@@ -78,6 +78,17 @@ function render()
         gfp_channel = repmat(squeeze(gfp_channel), [1, 1, 1, 3]);
         gfp_channel(:, :, :, ~gfp_color) = 0;
         render_volume = render_volume + gfp_channel;
+    end
+
+    for c=1:length(other)
+        if other{c}.bool
+            other_channel = raw_volume(:, :, :, other{c}.idx);
+            other_channel = repmat(squeeze(other_channel), [1, 1, 1, 3]);
+            for rgb=1:3
+                other_channel(:, :, :, rgb) = other_channel(:, :, :, rgb) * other{c}.color(rgb);
+            end
+            render_volume = render_volume + other_channel;
+        end
     end
     
     % Adjust the gamma.

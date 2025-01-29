@@ -34,17 +34,66 @@ classdef channels
     end
     
     methods (Static)        
+        function set_references(info)
+            app = Program.app;
+            optional_references = {'DIC', 'GFP'};
+            ref_handle = Program.Handlers.channels.handles{'pp_ref'};
+            default_references = app.(sprintf(ref_handle, 4)).Items;
+
+            for r=1:length(optional_references)
+                reference = optional_references{r};
+                if info.(reference) == 0
+                    item = strcmp(default_references, reference);
+                    default_references{item} = 'None';
+                end
+            end
+
+            for r=4:6
+                handle = sprintf(ref_handle, r);
+                app.(handle).Items = default_references;
+            end
+        end
+
+        function add_reference(name)
+            if ~ischar(name) && ~isstring(name) && ~isscalar(name)
+                for n=1:length(name)
+                    Program.Handlers.channels.add_reference(name{n});
+                end
+            end
+
+            app = Program.app;
+            for r=4:6
+                handle = sprintf(Program.Handlers.channels.handles{'pp_ref'}, r);
+                app.(handle).Items{end+1} = name;
+            end
+
+        end
+
         function populate(order)
             app = Program.app;
-            for c=1:length(order.idx)
-                handle = sprintf(Program.Handlers.channels.handles{'pp_dd'}, c);
+            names = order.names;
+            indices = order.idx;
+            nc = length(indices);
 
-                if ~isempty(order.names)
-                    app.(handle).Items = order.names;
+            [indices, ~, ~] = Program.Validation.check_for_duplicate_fluorophores(indices);
+
+            n_rows = length(app.proc_channel_grid.RowHeight);
+            if n_rows < nc
+                for c=1:(nc-n_rows)
+                    Program.Handlers.channels.add_channel();
+                end
+            end
+
+            for c=1:nc
+                dd_handle = sprintf(Program.Handlers.channels.handles{'pp_dd'}, c);
+
+                if ~isempty(names)
+                    app.(dd_handle).Items = names;
                 end
 
-                if order.idx(c) ~= 0
-                    app.(handle).Value = app.(handle).Items{order.idx(c)};
+                name = app.(dd_handle).Items{indices(c)};
+                if indices(c) ~= 0
+                    app.(dd_handle).Value = name;
                 end
             end
         end
@@ -60,7 +109,7 @@ classdef channels
                 'gfp', {gfp});
         end
 
-        function [r, g, b, white, dic, gfp] = parse_channel_gui()
+        function [r, g, b, white, dic, gfp, other] = parse_channel_gui()
             app = Program.app;
             indices = Program.Handlers.channels.get_channel_idx();
 
@@ -93,6 +142,18 @@ classdef channels
                 'idx', indices.gfp, ...
                 'bool', app.(sprintf(Program.Handlers.channels.handles{'pp_cb'}, Program.Helpers.decode_references('gfp'))).Value, ...
                 'settings', Program.Handlers.channels.get_processing_info('gfp'));
+
+            n_rows = length(app.proc_channel_grid.RowHeight);
+            n_max = Program.Handlers.channels.config{'max_channels'};
+            other = {};
+            for n=n_max+1:n_rows
+                cb_handle = sprintf(Program.Handlers.channels.handles{'pp_cb'}, n);
+                color_handle = sprintf(Program.Handlers.channels.handles{'pp_ref'}, n);
+                other{end+1} = struct( ...
+                    'idx', indices.other(n-n_max), ...
+                    'bool', {app.(cb_handle).Value}, ...
+                    'color', {app.(color_handle).Value});
+            end
         end        
 
         function bools = get_bools(mode)
@@ -230,20 +291,27 @@ classdef channels
             app.proc_channel_grid.RowHeight = current_rows;
 
             cb = sprintf(Program.Handlers.channels.handles{'pp_cb'}, tc);
+            ref = sprintf(Program.Handlers.channels.handles{'pp_ref'}, tc);
             dd = sprintf(Program.Handlers.channels.handles{'pp_dd'}, tc);
             ef = sprintf(Program.Handlers.channels.handles{'pp_ef'}, tc); 
 
             app.(cb) = uicheckbox( ...
                 "Text", "", "Value", 0, ...
                 "Parent", app.proc_channel_grid, ...
-                "ValueChangedFcn", @app.proc_c1_checkbox.ValueChangedFcn);
+                "ValueChangedFcn", @(src, event) Program.Routines.Processing.render());
             app.(cb).Layout.Row = tc;
             app.(cb).Layout.Column = 1;
+
+            app.(ref) = uicolorpicker( ...
+                "Parent", app.proc_channel_grid, ...
+                "ValueChangedFcn", @(src, event) Program.Routines.Processing.render());
+            app.(ref).Layout.Row = tc;
+            app.(ref).Layout.Column = 2;
 
             app.(dd) = uidropdown( ...
                 "Items", app.proc_c1_dropdown.Items, ...
                 "Parent", app.proc_channel_grid, ...
-                "ValueChangedFcn", @app.proc_c1_dropdown.ValueChangedFcn);
+                "ValueChangedFcn", @(src, event) Program.Helpers.dd_sync(event.Source, event.PreviousValue, event.Value, Program.Handlers.channels.handles{'pp_dd'}));
             app.(dd).Layout.Row = tc;
             app.(dd).Layout.Column = 3;
 
@@ -252,27 +320,28 @@ classdef channels
             app.(ef).Layout.Column = 3;
             app.(ef).Visible = 'off';
 
+            down = uibutton( ...
+                "Text", app.proc_c1_down.Text, ...
+                "Parent", app.proc_c1_down.Parent, ...
+                "ButtonPushedFcn", @(src, event) Program.Routines.GUI.move_channel(event));
+            down.Layout.Row = tc;
+            down.Layout.Column = 4;
+
             up = uibutton( ...
-                "Text", "⮝", ...
-                "Parent", app.proc_channel_grid, ...
-                "ButtonPushedFcn", @app.proc_c1_up.ButtonPushedFcn);
+                "Text", app.proc_c1_up.Text, ...
+                "Parent", app.proc_c1_up.Parent, ...
+                "ButtonPushedFcn", @(src, event) Program.Routines.GUI.move_channel(event));
             up.Layout.Row = tc;
             up.Layout.Column = 5;
 
-            down = uibutton( ...
-                "Text", "⮟", ...
-                "Parent", app.proc_channel_grid, ...
-                "ButtonPushedFcn", @app.proc_c1_down.ButtonPushedFcn);
-            down.Layout.Row = tc;
-            down.Layout.Column = 6;
-
             del = uibutton( ...
-                "Text", "🗑", ...
-                "FontWeight", "bold", ...
-                "Parent", app.proc_channel_grid, ...
-                "ButtonPushedFcn", @app.proc_c1_delete.ButtonPushedFcn);
+                "Text", app.proc_c1_delete.Text, ...
+                "FontWeight", app.proc_c1_delete.FontWeight, ...
+                "BackgroundColor", app.proc_c1_delete.BackgroundColor, ...
+                "Parent", app.proc_c1_delete.Parent, ...
+                "ButtonPushedFcn", @(src, event) Program.Routines.GUI.delete_channel(tc));
             del.Layout.Row = tc;
-            del.Layout.Column = 7;
+            del.Layout.Column = 6;
         end
     end
 
@@ -297,6 +366,7 @@ classdef channels
         end
 
         function idx = get_channel_idx(query)
+            app = Program.app;
             if nargin < 1
                 idx = struct( ...
                     'r', {Program.Handlers.channels.get_channel_idx('r')}, ...
@@ -305,9 +375,19 @@ classdef channels
                     'white', {Program.Handlers.channels.get_channel_idx('white')}, ...
                     'dic', {Program.Handlers.channels.get_channel_idx('dic')}, ...
                     'gfp', {Program.Handlers.channels.get_channel_idx('gfp')});
+                
+                idx.other = {};
+
+                n_rows = length(app.proc_channel_grid.RowHeight);
+                n_max = Program.Handlers.channels.config{'max_channels'};
+                
+                value_list = app.proc_c1_dropdown.Items;
+                for n=n_max+1:n_rows
+                    target_component_string = sprintf(Program.Handlers.channels.handles{'pp_dd'}, n);
+                    idx.other{end+1} = find(strcmp(value_list, app.(target_component_string).Value));
+                end
 
             else
-                app = Program.app;
                 value_list = app.proc_c1_dropdown.Items;
 
                 switch query

@@ -31,5 +31,5 @@ function delete_channel(channel, permanence_flag, from_file)
         Methods.ChunkyMethods.delete_channel(channel);
     end
 
-    %Program.GUIHandling.histogram_handler(app, 'draw');
+    Program.Routines.Processing.render()
 end
