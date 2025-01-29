@@ -11,7 +11,18 @@ classdef histograms
     
     methods (Static)
         function reset(pfx)
-            Program.Routines.GUI.get_component('panels', pfx).Visible = 'off';
+            if nargin == 0
+                prefixes = Program.Handlers.histograms.prefixes;
+
+                for n=1:length(prefixes)
+                    Program.Handlers.histograms.reset(prefixes{n});
+                end
+
+                return
+            end
+
+            component = Program.Routines.GUI.get_component('panels', pfx);
+            component.Visible = 'off';
             cla(Program.Routines.GUI.get_component('axes', pfx))
         end
         
@@ -19,6 +30,7 @@ classdef histograms
             app = Program.app;
             raw = Program.GUIHandling.get_active_volume(app, 'request', 'array');
 
+            Program.Handlers.histograms.reset();
             for c=1:length(app.proc_channel_grid.RowHeight)
                 checkbox = Program.Routines.GUI.get_component('pp_cb', c);
                 if checkbox.Value
