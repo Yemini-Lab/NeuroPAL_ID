@@ -68,7 +68,15 @@ classdef ChunkyMethods
 
         function output_slice = apply_slice(app, action, slice)
             % Apply operation to a slice.
-            RGBW = [str2num(app.ProcRDropDown.Value), str2num(app.ProcGDropDown.Value), str2num(app.ProcBDropDown.Value), str2num(app.ProcWDropDown.Value)];
+            RGBW = [ ...
+                find(ismember(app.proc_c1_dropdown.Items, app.proc_c1_dropdown.Value)), ...
+                find(ismember(app.proc_c2_dropdown.Items, app.proc_c2_dropdown.Value)), ...
+                find(ismember(app.proc_c3_dropdown.Items, app.proc_c3_dropdown.Value)), ...
+                find(ismember(app.proc_c4_dropdown.Items, app.proc_c4_dropdown.Value))];
+
+            if size(slice, 4) < max(RGBW)
+                RGBW = 1:size(slice, 4);
+            end
             
             switch action
                 case 'zscore'
