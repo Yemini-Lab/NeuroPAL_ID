@@ -34,6 +34,21 @@ classdef channels
     end
     
     methods (Static)        
+        function populate(order)
+            app = Program.app;
+            for c=1:length(order.idx)
+                handle = sprintf(Program.Handlers.channels.handles{'pp_dd'}, c);
+
+                if ~isempty(order.names)
+                    app.(handle).Items = order.names;
+                end
+
+                if order.idx(c) ~= 0
+                    app.(handle).Value = app.(handle).Items{order.idx(c)};
+                end
+            end
+        end
+
         function channel_struct = get_channel_struct()
             [r, g, b, white, dic, gfp] = Program.Handlers.channels.parse_channel_gui();
             channel_struct = struct( ...
@@ -90,10 +105,12 @@ classdef channels
             switch mode
                 case 'array'
                     bools = [];
-                    for c=1:Program.Handlers.channels.config{'max_channels'}
+                    for c=1:length(app.proc_channel_grid.RowHeight)
                         handle = sprintf(Program.Handlers.channels.handles{'pp_cb'}, c);
                         if app.(handle).Value
-                            bools = [bools c];
+                            dd_handle = sprintf(Program.Handlers.channels.handles{'pp_dd'}, c);
+                            idx = find(ismember(app.(dd_handle).Items, app.(dd_handle).Value));
+                            bools = [bools idx];
                         end
                     end
 
@@ -110,16 +127,17 @@ classdef channels
 
         function max_idx = get_max_idx()
             app = Program.app;
-            for c=Program.Handlers.channels.config{'max_channels'}:-1:1
+            nc = length(app.proc_channel_grid.RowHeight);
+            indices = zeros([1, nc]);
+            for c=nc:-1:1
                 cb_handle = app.(sprintf(Program.Handlers.channels.handles{'pp_cb'}, c));
                 if cb_handle.Value
                     dd_handle = app.(sprintf(Program.Handlers.channels.handles{'pp_dd'}, c));
-                    max_idx = find(strcmp(dd_handle.Items, dd_handle.Value));
-                    return
+                    indices(c) = find(strcmp(dd_handle.Items, dd_handle.Value));
                 end
             end
 
-            max_idx = 6;
+            max_idx = max(indices);
         end
 
         function set_idx(order, ~)
