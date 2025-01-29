@@ -65,9 +65,9 @@ classdef nd2
             info = struct('file', {file});                                      % Initialize info struct.
             info.scale = DataHandling.Helpers.nd2.parse_scale(f);               % Set image scale
 
-            channels = DataHandling.Helpers.nd2.get_channel_names(f);           % Get channel names.
-            channels = Program.Handlers.channels.parse_info(channels);          % Get channel indices from names.
-            info.RGBW = find(ismember(channels, [1 2 3 4]));                    % Set RGBW indices.
+            info.channel_names = DataHandling.Helpers.nd2.get_channel_names(f);           % Get channel names.
+            channels = Program.Handlers.channels.parse_info(info.channel_names);          % Get channel indices from names.
+            info.RGBW = arrayfun(@(x) find(channels == x), 1:4);                    % Set RGBW indices.
 
             info.DIC = find(ismember(channels, 5));                             % Set DIC if present, else set to 0.
             if isempty(info.DIC)
