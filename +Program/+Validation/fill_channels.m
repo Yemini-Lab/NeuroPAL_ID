@@ -6,6 +6,10 @@ function fill_channels(data)
 
         for c=1:channel_count
             handle = sprintf(Program.Handlers.channels.handles{'pp_dd'}, c);
+            if ~isprop(app, handle) && ~isgraphics(app.(handle))
+                Program.Handlers.channels.add_channel();
+            end
+
             app.(handle).Items = new_items;
             app.(handle).Value = new_items{c};
         end
