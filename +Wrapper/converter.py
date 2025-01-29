@@ -54,17 +54,6 @@ def load_annotations(file_path):
     annotations = data['annos']
     return convert_struct_to_dict(annotations)
 
-def db_test(pos, x, y, z):
-    global db_stop
-
-    if db_stop != 1:
-        print(f"Ppos")
-
-        db_stop = 1
-
-    else:
-        return
-
 
 def cellid_to_annotator(video_path, metadata, data):
     shape = (metadata["nx"], metadata["ny"], metadata["nz"])

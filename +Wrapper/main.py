@@ -51,25 +51,15 @@ Options:
     --z_compensator=<z_compensator>     number of additional gradient descent steps for z-axis. [default: -1.0]
 """
 
-import h5py.defs
-import h5py.utils
-import h5py.h5ac
-import h5py._proxy
-
 import shutil
 from docopt import docopt
-from multiprocessing import Pool
-from multiprocessing import Manager, freeze_support
 import sys
 
 from zephir.__version__ import __version__
 from zephir.methods import *
 from zephir.models.container import Container
 from zephir.utils.io import *
-import save_movie
-import build_tree
-import track_all
-import n_io
+from source.clibs import track_all, save_movie, build_tree, n_io
 
 
 def run_zephir(dataset: Path, args: dict, filename=None):

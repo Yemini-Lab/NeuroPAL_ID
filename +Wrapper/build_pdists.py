@@ -4,13 +4,10 @@ from multiprocessing import Manager, freeze_support
 from skimage.transform import resize
 
 import sys
-import numpy as np
-from tqdm import tqdm
 
 from zephir.utils.io import *
 
-import getters
-import n_io
+from source.clibs import n_io
 
 
 def dist_corrcoef(image_1, image_2):
