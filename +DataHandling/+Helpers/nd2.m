@@ -69,7 +69,7 @@ classdef nd2
             channels = Program.Handlers.channels.parse_info(info.channel_names);          % Get channel indices from names.
             
             [~, has_duplicate, duplicate_indices] = Program.Validation.check_for_duplicate_fluorophores(channels);
-            if has_duplicate
+            if has_duplicate && ~isempty(info.channel_names{duplicate_indices})
                 Program.Handlers.channels.add_reference(info.channel_names{duplicate_indices})
             end
 
