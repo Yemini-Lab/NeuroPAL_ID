@@ -1,9 +1,9 @@
-from validation import is_file
 from pathlib import Path
-import scipy.io as sio
-from typing import *
-import numpy as np
+
 import mat73
+import scipy.io as sio
+
+from .validation import is_file
 
 
 def load_mat(path):
@@ -26,11 +26,12 @@ def load_neuropal_file(path):
 
 def load_config(path):
     data = load_mat(path)
+    d_keys = data.keys()
 
-    if not is_file('config', data):
-        return
+    #if not is_file('config', data):
+    #    return data
 
-    for each_arg in data.keys():
+    for each_arg in d_keys:
         match each_arg:
             case 'dataset':
                 data[each_arg] = Path(data[each_arg].replace('"', ''))

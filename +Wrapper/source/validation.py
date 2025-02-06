@@ -1,13 +1,16 @@
 def is_file(fmt, data):
     match fmt:
         case "neuropal":
-            is_valid_file = all(['data', 'info', 'prefs', 'version', 'worm'] in data.keys)
+            d_keys = data.keys()
+            is_valid_file = all(['data', 'info', 'prefs', 'version', 'worm'] in d_keys)
 
         case "vt_cache":
-            is_valid_file = all(['frames', 'path', 'provenances', 'wl_record', 'worldlines'] in data.keys)
+            d_keys = data.keys()
+            is_valid_file = all(['frames', 'path', 'provenances', 'wl_record', 'worldlines'] in d_keys)
 
         case "config":
-            is_valid_file = all(['is_config'] in data.keys)
+            d_keys = data.keys()
+            is_valid_file = 'is_config' in d_keys
 
         case _:
             is_valid_file = 2

@@ -8,7 +8,11 @@ from scipy.interpolate import griddata
 from zephir.models.losses import *
 from zephir.utils.utils import *
 
-import n_io
+from source.clibs import n_io
+
+
+def _get_bridge(**kwargs):
+    return kwargs['state'], kwargs['task']
 
 
 def track_all(
@@ -35,7 +39,11 @@ def track_all(
         restrict_update=False,
         sigmas=(1, 4, 4),
         _t_list=None,
-        filename=None):
+        filename=None,
+        **kwargs):
+
+    set_state, set_task = _get_bridge(**kwargs['feed'])
+
     # pull variables from container
     dataset = container.get('dataset')
     allow_rotation = container.get('allow_rotation')
@@ -68,6 +76,7 @@ def track_all(
     zephir.to(dev)
     tpbar = tqdm(t_list, desc='Analyzing movie', unit='frames')
     for t in tpbar:
+        set_state(state='Analyzing video', progress=t / len(t_list))
 
         # get frame branch information
         parent = p_list[t]
@@ -213,6 +222,7 @@ def track_all(
         zephir.train()
         pbar = tqdm(range(n_epoch + n_epoch_d), desc='Tracking', unit='epochs')
         for epoch in pbar:
+            set_state(state='Tracking', progress=epoch / (n_epoch + n_epoch_d))
 
             if (epoch + 1) % nb_epoch == 0:
                 with torch.no_grad():

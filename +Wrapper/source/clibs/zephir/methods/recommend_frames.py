@@ -28,22 +28,16 @@ Options:
     --verbose=<verbose>  					return score plots during search. [default: False]
 """
 
-import h5py.defs
-import h5py.utils
-import h5py.h5ac
-import h5py._proxy
-
-from collections import OrderedDict
-from docopt import docopt
-
-from zephir.__version__ import __version__
-#from zephir.methods.build_pdists import get_all_pdists
-from skimage.transform import resize
-from zephir.utils.utils import *
-from zephir.utils.io import *
-from getters import *
-import numpy as np
 import sys
+
+from skimage.transform import resize
+from zephir.utils.io import *
+
+from source.clibs.zephir.utils.getters import *
+
+
+def _get_bridge(**kwargs):
+    return kwargs['state'], kwargs['task']
 
 
 def dist_corrcoef(image_1, image_2):
@@ -52,7 +46,7 @@ def dist_corrcoef(image_1, image_2):
 
     dist = 0
     for x1, x2 in zip(image_1, image_2):
-        dist += (1 - np.corrcoef(x1.ravel(), x2.ravel())[0, 1])/len(image_1)
+        dist += (1 - np.corrcoef(x1.ravel(), x2.ravel())[0, 1]) / len(image_1)
     return dist
 
 
@@ -65,7 +59,7 @@ def get_thumbnail(dataset, filename, channel, t, scale):
     elif len(v.shape) == 4:
         v = np.max(v, axis=0)
     tmg = []
-    new_shape = np.array([max(1, l//s) for l, s in zip(v.shape, scale)])
+    new_shape = np.array([max(1, l // s) for l, s in zip(v.shape, scale)])
     for d in range(len(v.shape)):
         mip = np.max(v, axis=d)
         tmg.append(resize(mip, np.delete(new_shape, d)))
@@ -76,10 +70,12 @@ def get_all_pdists(dataset, filename, shape_t, channel,
                    dist_fn=dist_corrcoef,
                    load=True, save=True,
                    scale=(4, 16, 16),
-                   pbar=False
+                   pbar=False, **kwargs
                    ) -> np.ndarray:
     """Return all pairwise distances between the first shape_t frames in a dataset."""
+    set_state, set_task = _get_bridge(**kwargs['feed'])
 
+    set_task(task='Calculating pairwise distances between frames')
     f = dataset / 'null.npy'
     if load or save:
         if channel is not None:
@@ -93,11 +89,14 @@ def get_all_pdists(dataset, filename, shape_t, channel,
 
     thumbnails = []
     for t in tqdm(range(shape_t), desc='Compiling thumbnails from rf...', unit='frames', file=sys.stdout):
+        set_state(state='Compiling thumbnails', progress=t / shape_t)
         thumbnails += [get_thumbnail(dataset, filename, channel, t, scale)]
 
     d = np.zeros((shape_t, shape_t))
-    for i in (tqdm(range(shape_t), desc='Calculating distances', unit='frames', file=sys.stdout) if pbar else range(shape_t)):
-        for j in range(i+1, shape_t):
+    for i in (
+    tqdm(range(shape_t), desc='Calculating distances', unit='frames', file=sys.stdout) if pbar else range(shape_t)):
+        for j in range(i + 1, shape_t):
+            set_state(state='Calculating distances', progress=(i + (j / shape_t)) / shape_t)
             dist = dist_fn(thumbnails[i], thumbnails[j])
             if np.isnan(dist):
                 d[i, j] = 2.0
@@ -108,6 +107,7 @@ def get_all_pdists(dataset, filename, shape_t, channel,
     if save:
         np.save(str(f), d_full, allow_pickle=True)
 
+    set_task(finish_last=True)
     return d_full
 
 
@@ -115,10 +115,13 @@ def get_partial_pdists(dataset, shape_t, p_list, channel,
                        dist_fn=dist_corrcoef,
                        load=True,
                        scale=(4, 16, 16),
-                       pbar=False
+                       pbar=False,
+                       **kwargs
                        ) -> np.ndarray:
     """Return pairwise distances between shape_t frames and their parents in a dataset."""
+    set_state, set_task = _get_bridge(**kwargs['feed'])
 
+    set_task(task='Calculating partial pairwise distances between frames')
     f = dataset / 'null.npy'
     if load:
         if channel is not None:
@@ -130,10 +133,13 @@ def get_partial_pdists(dataset, shape_t, p_list, channel,
         d_full = np.load(str(f), allow_pickle=True)
 
     print('Compiling thumbnails...')
+    set_state(state='Compiling thumbnails')
     thumbnails = [get_thumbnail(dataset, channel, t, scale) for t in range(shape_t)]
 
     d_partial = np.zeros(shape_t)
-    for i in (tqdm(range(shape_t), desc='Calculating distances', unit='frames', file=sys.stdout) if pbar else range(shape_t)):
+    for i in (
+    tqdm(range(shape_t), desc='Calculating distances', unit='frames', file=sys.stdout) if pbar else range(shape_t)):
+        set_state(state='Calculating distances', progress=i / shape_t)
 
         if p_list[i] < 0:
             continue
@@ -147,4 +153,5 @@ def get_partial_pdists(dataset, shape_t, p_list, channel,
             else:
                 d_partial[i] = dist
 
+    set_task(finish_last=True)
     return d_partial

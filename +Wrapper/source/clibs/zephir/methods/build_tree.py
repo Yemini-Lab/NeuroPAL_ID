@@ -1,7 +1,7 @@
 from scipy.sparse.csgraph import shortest_path
 
-from zephir.utils.utils import *
-from build_pdists import get_all_pdists, get_partial_pdists
+from source.clibs.zephir.utils.utils import *
+from source.clibs.zephir.methods.recommend_frames import get_all_pdists, get_partial_pdists
 
 
 def build_tree(

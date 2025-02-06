@@ -38,13 +38,13 @@ from skimage.transform import resize
 from sklearn.cluster import SpectralClustering
 import sklearn.neighbors as sk
 
-from zephir.__version__ import __version__
-from zephir.methods import *
-from zephir.models.zephir import ZephIR
-from zephir.utils.utils import *
+from source.clibs.zephir.__version__ import __version__
+from source.clibs.zephir.methods import *
+from source.clibs.zephir.models.zephir import ZephIR
+from source.clibs.zephir.utils.utils import *
 
 import pandas as pd
-import getters
+from source.clibs.zephir.utils import getters
 import h5py
 
 

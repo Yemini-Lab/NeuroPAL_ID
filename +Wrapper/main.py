@@ -59,7 +59,8 @@ from zephir.__version__ import __version__
 from zephir.methods import *
 from zephir.models.container import Container
 from zephir.utils.io import *
-from source.clibs import track_all, save_movie, build_tree, n_io
+from source.clibs import n_io
+from source.clibs.zephir.methods import save_movie, track_all, build_tree
 
 
 def run_zephir(dataset: Path, args: dict, filename=None):

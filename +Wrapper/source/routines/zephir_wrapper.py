@@ -1,29 +1,34 @@
-from zephir.annotator.data.annotations_io import Annotation, AnnotationTable, Worldline, WorldlineTable
-from zephir.annotator.data.transform import coords_from_idx
-from zephir.models.container import Container
-
 from typing import Union
+import shutil
 
 from ..data_loader import load_vt_cache
 from ..validation import is_valid_annotation
+from ..clibs import n_io
 
-from ..clibs.recommend_frames import *
-from ..clibs.extract_traces import *
-from ..clibs.save_movie import *
-from ..clibs.build_tree import *
-from ..clibs.track_all import *
-from ..clibs.n_io import *
+from source.clibs.zephir.methods.recommend_frames import *
+from source.clibs.zephir.methods.extract_traces import *
+from source.clibs.zephir.methods.save_movie import *
+from source.clibs.zephir.methods.build_tree import *
+from source.clibs.zephir.methods.track_all import track_all as track
 
-import shutil
-import sys
+from source.clibs.zephir.annotator.data.annotations_io import Annotation, AnnotationTable, Worldline, WorldlineTable
+from source.clibs.zephir.annotator.data.transform import coords_from_idx
+from source.clibs.zephir.models.container import Container
 
 
-def convert(config):
-    vt_cache = load_vt_cache(config['cache'])
-    indices = config['dim_index']
+def _get_bridge(**kwargs):
+    return kwargs['state'], kwargs['task']
+
+
+def convert(**kwargs):
+    set_state, set_task = _get_bridge(**kwargs['feed'])
+
+    vt_cache = load_vt_cache(kwargs['cache'])
+    indices = kwargs['dim_index']
     provenances = vt_cache['provenances']
     worldlines = vt_cache['worldlines']
     annotations = vt_cache['frames']
+    n_annotations = len(annotations)
 
     W = WorldlineTable()
     for each_worldline in tqdm(worldlines, desc="Processing wordlines...", leave=True):
@@ -36,8 +41,11 @@ def convert(config):
             W._insert_and_preserve_id(w)
 
     A = AnnotationTable()
-    volume_shape = (config['nx'], config["ny"], config["nz"])
+    current_annotation = 0
+    volume_shape = (kwargs['nx'], kwargs["ny"], kwargs["nz"])
+    set_state(state='Processing annotations')
     for each_annotation in tqdm(annotations, desc="Processing annotations...", leave=True):
+        set_state(progress=current_annotation / n_annotations)
         a = Annotation()
 
         a.id = each_annotation[indices['annotation_id']]
@@ -54,19 +62,24 @@ def convert(config):
         if is_valid_annotation(a):
             A.insert(a)
 
-    A.to_hdf(config['output_path'] / "annotations.h5")
-    W.to_hdf(config['output_path'] / "worldlines.h5")
+        current_annotation += 1
+
+    set_state(state='Writing annotations to file')
+    A.to_hdf(kwargs['output_path'] / "annotations.h5")
+    W.to_hdf(kwargs['output_path'] / "worldlines.h5")
 
 
-def recommend_frames(
+def calculate_recommended_frames(
         dataset: Path,
-        n_frames: int, n_iter: int, t_list: Union[list, None] = None, channel: int = 0,
+        n_frames: int = 5, n_iter: int = 0, t_list: Union[list, None] = None, channel: int = 0,
         save_to_metadata: Union[bool, None] = None, **kwargs):
+    set_state, set_task = _get_bridge(**kwargs['feed'])
+
     if t_list is None:
         t_list = list(range(kwargs['nt']))
 
-    print('Building frame correlation graph...', flush=True)
-    d_full = get_all_pdists(dataset, dataset.name, kwargs['nt'], channel, pbar=True)
+    set_state(state='Building frame correlation graph')
+    d_full = get_all_pdists(**kwargs)
     d_slice = (d_full[t_list, :])[:, t_list]
 
     scores = np.mean(d_slice, axis=-1)
@@ -78,6 +91,7 @@ def recommend_frames(
     scores = d_slice[med_idx, :]
     pbar = tqdm(range(n_frames - 1), desc='Optimizing reference frames', unit='n_frames', leave=False, file=sys.stdout)
     for i in pbar:
+        set_state(state='Optimizing reference frames', progress=i / n_frames)
         d_adj = np.append(
             d_slice.copy()[:, :, None],
             np.tile(scores[None, :, None], (d_slice.shape[0], 1, 1)),
@@ -92,13 +106,14 @@ def recommend_frames(
         s_ref.append(opt_score)
         scores = d_opt[new_midx, :]
 
-    print(f'\nIterating over found reference frames...', flush=True)
+    set_state(state=f'\nIterating over found reference frames')
     n_i = 0
     while True:
         if 0 <= n_iter <= n_i:
             break
         kscore = opt_score
         for i in range(n_frames):
+            set_state(progress=i / n_frames)
             i_ref_temp = i_ref.copy()
             i_ref_temp.pop(i)
             d_adj = d_slice.copy()[:, :, None]
@@ -131,6 +146,9 @@ def recommend_frames(
 
 
 def track_neurons(**kwargs):
+    set_state, set_task = _get_bridge(**kwargs['feed'])
+
+    set_task(task="Preparing neuron tracker")
     dataset = kwargs['dataset']
     if not (dataset / 'backup').is_dir():
         Path.mkdir(dataset / 'backup')
@@ -166,6 +184,7 @@ def track_neurons(**kwargs):
     print(f'\nUsing device: {dev}\n\n')
 
     # building/loading variable container
+    set_state(state=f'Loading variable container')
     if state == 'init':
 
         print("Initializing...")
@@ -188,11 +207,13 @@ def track_neurons(**kwargs):
     else:
         results = n_io.get_checkpoint(dataset, 'results', filename=dataset.name)
 
+    set_task(task="Getting models", finish_last=True)
     # compiling spring network and frame tree
     if state == 'build':
 
         print("Building...")
         print("Building models!")
+        set_state(state=f'Building models')
         container, zephir, zephod = build_models(
             container=container,
             dimmer_ratio=kwargs['dimmer_ratio'],
@@ -204,15 +225,18 @@ def track_neurons(**kwargs):
         )
 
         print("Building springs!")
+        set_state(state=f'Building springs')
         container = build_springs(container=container, **kwargs)
 
         print("Building trees!")
+        set_state(state=f'Building trees')
         container = build_tree(container=container, filename=dataset.name, **kwargs)
 
         n_io.update_checkpoint(dataset, {'state': 'track', '_t_list': None}, filename=dataset.name)
         state = 'track'
 
     else:
+        set_state(state=f'Loading checkpoints')
         zephir = get_checkpoint(dataset, 'zephir', filename=dataset.name)
         zephod = get_checkpoint(dataset, 'zephod', filename=dataset.name)
 
@@ -220,13 +244,15 @@ def track_neurons(**kwargs):
     if state == 'track':
 
         print("Tracking all!")
-        container, results = track_all(
+        set_task(task="Tracking neurons", finish_last=True)
+        container, results = track(
             container=container, zephir=zephir, zephod=zephod, results=results,
             n_epoch_d=kwargs['n_epoch_d'] if kwargs['lambda_d'] > 0 else 0, _t_list=get_checkpoint(dataset, '_t_list'),
             filename=dataset.name, **kwargs
         )
 
     else:
+        set_task(task="Loading tracked neurons from checkpoint", finish_last=True)
         results = n_io.get_checkpoint(dataset, 'results', verbose=True, filename=dataset.name)
 
     if np.any(np.isnan(results)):
@@ -235,6 +261,7 @@ def track_neurons(**kwargs):
         results = np.where(np.isfinite(results), results, 0)
         n_io.update_checkpoint(dataset, {'results': results}, filename=dataset.name)
 
+    set_task(task="Saving tracks", finish_last=True)
     save_annotations(
         container=container,
         results=results,

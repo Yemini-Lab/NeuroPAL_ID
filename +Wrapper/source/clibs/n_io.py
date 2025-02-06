@@ -2,30 +2,19 @@
 This file collects key functions for preprocessing data and annotations.
 """
 
-import h5py.defs
-import h5py.utils
-import h5py.h5ac
-import h5py._proxy
-
 import datetime
 from functools import lru_cache, partial
-import h5py
 import importlib.util
-import json
-import numpy as np
 import pathlib
-from pathlib import Path
 import platform
 import torch
-from tqdm import tqdm
-from typing import Optional, Callable
+from typing import Callable
 from types import ModuleType
 
+from source.clibs.zephir.__version__ import __version__
 
-# from .getters import *
-import getters as default_getters
-from zephir.__version__ import __version__
-from getters import *
+from source.clibs.zephir.utils import getters as default_getters
+from source.clibs.zephir.utils.getters import *
 
 
 def _module_name_from_path(p: Path) -> str:
