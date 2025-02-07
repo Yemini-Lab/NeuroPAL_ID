@@ -1,4 +1,4 @@
-function open()
+function open(path)
     app = Program.app;
 
     % Are we already opening a file?
@@ -13,26 +13,12 @@ function open()
         app.SaveIDToFile();
     end
 
-    % Setup the file chooser's path.
-    %path = '../';
-    GUI_prefs = Program.GUIPreferences.instance();
-    path = GUI_prefs.image_dir;
+    if nargin == 0
+        % Setup the file chooser's path.
+        %path = '../';
+        GUI_prefs = Program.GUIPreferences.instance();
+        path = GUI_prefs.image_dir;
 
-    if isfield(event, 'file')
-        [path, name] = fileparts(event.file);
-        filename = event.file;
-
-        % Load the file.
-        d = uiprogressdlg(app.CELL_ID,'Title','Reloading processed file...',...
-    'Indeterminate','on');
-
-        if app.DisplayNeuronActivityMenu.Checked
-            app.DisplayNeuronActivityMenu.Checked = ~app.DisplayNeuronActivityMenu.Checked;
-            app.TabGroup4.SelectedTab = app.MaximumIntensityProjectionTab;
-        end
-
-        app.trigger_reload = 0;
-    else
         % Ask the user which file they want.
         file_info = [path ';*.mat;*.czi;*.nd2;*.tif;*.tiff;*.h5;*.nwb'];
         app.CELL_ID.Visible = 'off'; % Hack On! * Matlab can't seem to put the modal dialogue in the foreground
@@ -60,6 +46,17 @@ function open()
         if proc_code == 1
             return
         end
+    else
+        [path, name, fmt] = fileparts(path);
+        filename = [name, fmt];
+
+        % Load the file.
+        d = uiprogressdlg(app.CELL_ID,'Title','Reloading processed file...', 'Indeterminate','on');
+
+        if app.DisplayNeuronActivityMenu.Checked
+            app.DisplayNeuronActivityMenu.Checked = ~app.DisplayNeuronActivityMenu.Checked;
+            app.TabGroup4.SelectedTab = app.MaximumIntensityProjectionTab;
+        end
     end
 
     app.logEvent('Main',sprintf('Loading file from %s...', filename), 1)
@@ -67,6 +64,7 @@ function open()
     % Save the path in our preferences.
     GUI_prefs.image_dir = path;
     GUI_prefs.save();
+
     try                
         [data, info, prefs, worm, mp, neurons, np_file, id_file] = ...
             DataHandling.NeuroPALImage.open(filename);

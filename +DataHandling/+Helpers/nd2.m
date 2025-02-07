@@ -86,7 +86,6 @@ classdef nd2
             end
 
             info.bit_depth = bit_depth;
-            Program.Handlers.channels.set_references(info);
             
             % Determine the gamma.
             info.gamma = Program.Handlers.channels.config{'default_gamma'};     % Set gamma to default since we can't get it from ND2 hashtable.
