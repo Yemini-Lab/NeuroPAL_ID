@@ -11,10 +11,11 @@ Usage:
 Options:
     -h --help                           show this message and exit.
     -v --version                        show version information and exit.
+    -d --debug                          whether to enable debug prints.  [default: False]
+    -p --profile                        whether to profile the script. [default: False]
     --operation=<operation>             indicates which action is to be executed.
     --dataset=<dataset>                 path to data directory to analyze.
     --config=<config>                   path to config file.
-    --debug=<debug_mode>                whether to enable debug prints.  [default: False]
 """
 
 import cProfile
@@ -46,7 +47,7 @@ def get_engine():
         can_hook: Bool indicating whether the NeuroPAL_ID engine was found and hooked.
     """
 
-    if debug_mode:
+    if profile_mode:
         pr = cProfile.Profile()
         pr.enable()
 
@@ -67,7 +68,7 @@ def get_engine():
     # Update state so NeuroPAL_ID knows what's going on.
     set_state(target_engine=target_engine, state=state)
 
-    if debug_mode:
+    if profile_mode:
         pr.print_stats()
         pr.disable()
 
@@ -170,7 +171,7 @@ def execute(func: str, **kwargs):
 
 
 def main(**kwargs):
-    if debug_mode:
+    if profile_mode:
         pr.enable()
 
     set_state(state=f"Loading config")
@@ -198,7 +199,7 @@ def main(**kwargs):
         debug(e)
         engine.Program.Wrappers.core.signal(e)
 
-    if debug_mode:
+    if profile_mode:
         pr.print_stats()
         pr.disable()
 
@@ -209,10 +210,12 @@ raw_args = docopt(__doc__, version=f'NPAL Core {__version__}')
 debug_mode = bool(raw_args['--debug'])
 debug("Debug mode enabled...")
 
-engine, is_hooked = get_engine()
-
-if debug_mode:
+profile_mode = bool(raw_args['--profile'])
+if profile_mode:
+    debug("Profiling mode enabled...")
     pr = cProfile.Profile()
+
+engine, is_hooked = get_engine()
 
 for each_key in raw_args.keys():
     args[each_key.replace('--', '')] = raw_args[each_key]
