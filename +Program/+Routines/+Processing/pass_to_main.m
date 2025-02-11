@@ -3,12 +3,12 @@ function pass_to_main()
 
     switch app.VolumeDropDown.Value
         case 'Colormap'
-            Program.Routines.open(app.proc_image);
-            app.TabGroup.Selected = app.NeuroPALIDTab;
+            Program.Routines.open(app.proc_image.Properties.Source);
+            app.TabGroup.SelectedTab = app.NeuroPALIDTab;
 
         case 'Video'
-            Program.Routines.Videos.load();
-            app.TabGroup.Selected = app.VideoTrackingTab;
+            Program.Routines.Videos.load(app.video_info.file);
+            app.TabGroup.SelectedTab = app.VideoTrackingTab;
     end
 end
 
