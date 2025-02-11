@@ -47,10 +47,6 @@ def get_engine():
         can_hook: Bool indicating whether the NeuroPAL_ID engine was found and hooked.
     """
 
-    if profile_mode:
-        pr = cProfile.Profile()
-        pr.enable()
-
     # Look for existing MATLAB sessions.
     existing_sessions = matlab.engine.find_matlab()
     debug(f"Shared MATLAB sessions: {existing_sessions}")
@@ -59,9 +55,11 @@ def get_engine():
     can_hook = len(existing_sessions) > 0
     if can_hook:
         if 'NeuroPAL' in existing_sessions:
-            target_engine = matlab.engine.connect_matlab(existing_sessions.index('NeuroPAL'))
+            session = 'NeuroPAL'
         else:
-            target_engine = matlab.engine.connect_matlab(existing_sessions[0])
+            session = existing_sessions[0]
+
+        target_engine = matlab.engine.connect_matlab(session)
         state = f"Hooked NeuroPAL_ID engine..."
     else:
         target_engine = matlab.engine.start_matlab()
@@ -73,7 +71,6 @@ def get_engine():
 
     if profile_mode:
         pr.print_stats()
-        pr.disable()
 
     return target_engine, can_hook
 
