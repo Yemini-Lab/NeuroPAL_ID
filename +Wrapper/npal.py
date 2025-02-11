@@ -58,7 +58,10 @@ def get_engine():
     # If at least one session was found, hook into it. If not, create a new session.
     can_hook = len(existing_sessions) > 0
     if can_hook:
-        target_engine = matlab.engine.connect_matlab(existing_sessions[0])
+        if 'NeuroPAL' in existing_sessions:
+            target_engine = matlab.engine.connect_matlab(existing_sessions.index('NeuroPAL'))
+        else:
+            target_engine = matlab.engine.connect_matlab(existing_sessions[0])
         state = f"Hooked NeuroPAL_ID engine..."
     else:
         target_engine = matlab.engine.start_matlab()

@@ -79,7 +79,7 @@ classdef core
             Program.Wrappers.core.progress(d);
 
             if ~matlab.engine.isEngineShared
-                matlab.engine.shareEngine;
+                matlab.engine.shareEngine('NeuroPAL');
             end
 
             stack = dbstack;
