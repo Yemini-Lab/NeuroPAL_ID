@@ -73,7 +73,7 @@ classdef nd2
                 Program.Handlers.channels.add_reference(info.channel_names{duplicate_indices})
             end
 
-            info.RGBW = arrayfun(@(x) find(channels == x), 1:4);                    % Set RGBW indices.
+            info.RGBW = arrayfun(@(x) find(channels == x), 1:4, 'UniformOutput', false);                    % Set RGBW indices.
 
             info.DIC = find(ismember(channels, 5));                             % Set DIC if present, else set to 0.
             if isempty(info.DIC)
@@ -135,6 +135,10 @@ classdef nd2
 
         function names = get_channel_names(reader)
             names = {};
+
+            if isstring(reader) || ischar(reader)
+                reader = bfGetReader(reader);
+            end
 
             for c = 1:reader.getSizeC
                 names{end+1} = string(reader.getMetadataStore.getChannelName(0, c - 1));

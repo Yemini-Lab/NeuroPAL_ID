@@ -308,53 +308,69 @@ classdef channels
             app = Program.app;
             indices = Program.Handlers.channels.get_channel_idx();
             references = lower(app.(sprintf(Program.Handlers.channels.handles{'pp_ref'}, 4)).Items);
+            nc = length(app.proc_channel_grid.RowHeight);
 
             r = struct( ...
                 'idx', indices.r, ...
                 'bool', app.proc_c1_checkbox.Value, ...
                 'settings', Program.Handlers.channels.get_processing_info('r'));
 
-            g = struct( ...
-                'idx', indices.g, ...
-                'bool', app.proc_c2_checkbox.Value, ...
-                'settings', Program.Handlers.channels.get_processing_info('g'));
-
-            b = struct( ...
-                'idx', indices.b, ...
-                'bool', app.proc_c3_checkbox.Value, ...
-                'settings', Program.Handlers.channels.get_processing_info('b'));
-
-            white = struct('idx', indices.white, 'settings', Program.Handlers.channels.get_processing_info('white'));
-            if ismember('white', references)
-                white.bool = app.(sprintf(Program.Handlers.channels.handles{'pp_cb'}, Program.Helpers.decode_references('white'))).Value;
+            if nc > 2
+                g = struct( ...
+                    'idx', indices.g, ...
+                    'bool', app.proc_c2_checkbox.Value, ...
+                    'settings', Program.Handlers.channels.get_processing_info('g'));
             else
-                white.bool = 0;
+                g = struct('idx', indices.r, 'bool', 0);
             end
 
-            dic = struct('idx', indices.dic, 'settings', Program.Handlers.channels.get_processing_info('dic'));
-            if ismember('dic', references)
-                dic.bool = app.(sprintf(Program.Handlers.channels.handles{'pp_cb'}, Program.Helpers.decode_references('dic'))).Value;
+            if nc > 2
+                b = struct( ...
+                    'idx', indices.b, ...
+                    'bool', app.proc_c3_checkbox.Value, ...
+                    'settings', Program.Handlers.channels.get_processing_info('b'));
             else
-                dic.bool = 0;
+                b = struct('idx', indices.r, 'bool', 0);
             end
 
-            gfp = struct('idx', indices.gfp, 'settings', Program.Handlers.channels.get_processing_info('gfp'));
-            if ismember('gfp', references)
-                gfp.bool = app.(sprintf(Program.Handlers.channels.handles{'pp_cb'}, Program.Helpers.decode_references('gfp'))).Value;
+            if nc > 3
+                white = struct('idx', indices.white, 'settings', Program.Handlers.channels.get_processing_info('white'));
+                if ismember('white', references)
+                    white.bool = app.(sprintf(Program.Handlers.channels.handles{'pp_cb'}, Program.Helpers.decode_references('white'))).Value;
+                else
+                    white.bool = 0;
+                end
+    
+                dic = struct('idx', indices.dic, 'settings', Program.Handlers.channels.get_processing_info('dic'));
+                if ismember('dic', references)
+                    dic.bool = app.(sprintf(Program.Handlers.channels.handles{'pp_cb'}, Program.Helpers.decode_references('dic'))).Value;
+                else
+                    dic.bool = 0;
+                end
+    
+                gfp = struct('idx', indices.gfp, 'settings', Program.Handlers.channels.get_processing_info('gfp'));
+                if ismember('gfp', references)
+                    gfp.bool = app.(sprintf(Program.Handlers.channels.handles{'pp_cb'}, Program.Helpers.decode_references('gfp'))).Value;
+                else
+                    gfp.bool = 0;
+                end
+    
+                n_rows = length(app.proc_channel_grid.RowHeight);
+                n_max = Program.Handlers.channels.config{'max_channels'};
+                other = {};
+                for n=n_max+1:n_rows
+                    cb_handle = sprintf(Program.Handlers.channels.handles{'pp_cb'}, n);
+                    color_handle = sprintf(Program.Handlers.channels.handles{'pp_ref'}, n);
+                    other{end+1} = struct( ...
+                        'idx', indices.other(n-n_max), ...
+                        'bool', {app.(cb_handle).Value}, ...
+                        'color', {app.(color_handle).Value});
+                end
             else
-                gfp.bool = 0;
-            end
-
-            n_rows = length(app.proc_channel_grid.RowHeight);
-            n_max = Program.Handlers.channels.config{'max_channels'};
-            other = {};
-            for n=n_max+1:n_rows
-                cb_handle = sprintf(Program.Handlers.channels.handles{'pp_cb'}, n);
-                color_handle = sprintf(Program.Handlers.channels.handles{'pp_ref'}, n);
-                other{end+1} = struct( ...
-                    'idx', indices.other(n-n_max), ...
-                    'bool', {app.(cb_handle).Value}, ...
-                    'color', {app.(color_handle).Value});
+                white = struct('bool', 0);
+                dic = struct('bool', 0);
+                gfp = struct('bool', 0);
+                other = {};
             end
         end        
 

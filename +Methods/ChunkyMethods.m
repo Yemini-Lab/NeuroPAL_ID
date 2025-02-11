@@ -210,14 +210,15 @@ classdef ChunkyMethods
 
             % Calculate new video dimensions
             nt = app.video_info.nt;
-            new_dims = size(app.retrieve_frame(1));
+            p_frame = app.retrieve_frame(1);
+            new_dims = size(p_frame);
             for a=1:length(actions)
                 action = actions{a};
                 new_dims = Methods.ChunkyMethods.calc_pp_size(app, action, zeros(new_dims));
             end
 
             % Create the cache file we'll be writing to chunk-by-chunk.
-            h5create(temp_path, '/data', [new_dims(1:end) nt], "Chunksize", [new_dims(1:end) 1]);
+            h5create(temp_path, '/data', [new_dims(1:end) nt], "Chunksize", [new_dims(1:end) 1], "Datatype", class(p_frame));
 
             for t=1:nt
                 if exist('progress', 'var')
@@ -231,7 +232,7 @@ classdef ChunkyMethods
                 for a=1:length(actions)
                     if exist('progress', 'var')
                         progress.Message = sprintf("%s \n-> frame %.f/%.f %s \n-> (%s", dialog_message, t, nt, time_string, actions{a});
-                        progress.Value = dialog_progress + (dialog_progress/t)*(a/length(actions));
+                        progress.Value = min(dialog_progress + (dialog_progress/t)*(a/length(actions)), 1);
                         processed_frame = Methods.ChunkyMethods.apply_vol(app, actions{a}, processed_frame, progress);
                     else
                         processed_frame = Methods.ChunkyMethods.apply_vol(app, actions{a}, processed_frame);
@@ -241,7 +242,7 @@ classdef ChunkyMethods
                 % Ensure cache frame retains time dimension.
                 write_size = [size(processed_frame) 1];
                 processed_frame = reshape(processed_frame, write_size);
-
+                
                 % Write cache frame to cache file.
                 h5write(temp_path, '/data', processed_frame, [1 1 1 1 t], write_size);
             end
@@ -251,8 +252,8 @@ classdef ChunkyMethods
             end
 
             movefile(temp_path, processed_path);
-            app.video_info.file = processed_path;
-            app.proc_swap_video();
+            app.video_info.nt = nt;
+            Program.Routines.Videos.reload(processed_path);
         end
 
         function spectral_unmix(app, channel)
