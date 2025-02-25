@@ -4,6 +4,132 @@ classdef nwb
     end
     
     methods (Static)
+        %% Rework
+
+        function obj = get_reader(path)
+            if ~endsWith(path, '.nwb')
+                error('Non-nwb file passed to nwb get_reader function: \n%s', path)
+            end
+            
+            obj = nwbRead(path);
+        end
+
+        function arr = read(obj, varargin)
+            if ~isa(varargin{1}, 'Program.GUI.cursor')
+                p = inputParser();
+                addRequired(p, 'obj');
+                addParameter(p, 'cursor', Program.GUI.cursor);
+                addParameter(p, 'mode', 'chunk');
+                parse(p, obj, varargin{:});
+                cursor = rmfield(p.Results, {'mode', 'obj'});
+            end
+
+            if isa(obj, 'Program.volume')
+                obj = obj.read_obj.acquisition.get(obj.read_mod);
+            end
+
+            if strcmp(p.Results.mode, 'chunk')
+                arr = obj.data( ...
+                    cursor.x1:cursor.x2, ...
+                    cursor.y1:cursor.y2, ...
+                    cursor.z1:cursor.z2, ...
+                    cursor.c1:cursor.c2, ...
+                    cursor.t1:cursor.t2);
+            else
+                arr = obj.data.load();
+            end
+        end
+
+        function metadata = get_metadata(obj)
+            obj_class = class(obj);
+            if startsWith(obj_class, 'types.ndx_multichannel_volume')
+                native_dims = obj.data.internal.dims;
+                [~, dims] = Program.Helpers.interpret_dimensions(native_dims);
+
+                dtype_str = obj.data.dtype;
+                dtype = str2double(extract(dtype_str, digitsPattern));
+
+                metadata = struct( ...
+                    'nx', {dims.x}, ...
+                    'ny', {dims.y}, ...
+                    'nz', {dims.z}, ...
+                    'nc', {dims.c}, ...
+                    'nt', {dims.t}, ...
+                    'native_dims', {native_dims}, ...
+                    'dtype', {dtype}, ...
+                    'dtype_str', {dtype_str});
+                
+            else
+                switch obj_class
+                    case 'NwbFile'
+                        n_modules = size(obj.acquisition, 1);
+                        module_names = cellfun(@(x) num2str(x), obj.acquisition.keys(), 'UniformOutput', false);
+                        if n_modules > 1
+                            module_values = repmat({[]}, size(module_names));    % Same size, each entry empty
+                            metadata = cell2struct(module_values, module_names, 2);
+    
+                            for m=1:n_modules
+                                module_name = module_names{m};
+                                module_obj = obj.acquisition.get(module_name);
+                                metadata.(module_name) = DataHandling.Helpers.nwb.get_metadata(module_obj);
+    
+                                channels = {};
+                                rgb = [];
+                                channel_obj = module_obj.imaging_volume.deref(obj).opticalchannel;
+                                channel_names = channel_obj.keys();
+                                for c=1:length(channel_names)
+                                    ch = Program.channel(channel_names{c});
+                                    if ~ch.is_pseudocolor
+                                        rgb = [rgb c];
+                                    end
+                                    ch.set('index', c);
+                                    ch.assign_gui();
+                
+                                    this_channel = channel_obj.get(Program.get(ch, 'fluorophore'));
+                                    if isa(this_channel, 'types.untyped.SoftLink')
+                                        this_channel = channel_obj.get(Program.get(ch, 'fluorophore')).deref(obj);
+                                    end
+                
+                                    em_dictionary = dictionary( ...
+                                        'lambda', {this_channel.emission_lambda}, ...
+                                        'low', {this_channel.emission_range.load(1)}, ...
+                                        'high', {this_channel.emission_range.load(2)});
+                                    ch.set('emission', em_dictionary);
+                
+                                    ex_dictionary = dictionary( ...
+                                        'lambda', {this_channel.excitation_lambda}, ...
+                                        'low', {this_channel.excitation_range.load(1)}, ...
+                                        'high', {this_channel.excitation_range.load(2)});
+                                    ch.set('excitation', ex_dictionary);
+                                    channels{end+1} = ch;
+                                end
+
+                                metadata.(module_name).channels = channels;
+                                metadata.(module_name).rgb = rgb;
+                            end
+    
+                        else 
+                            module_obj = obj.acquisition.get(module_names{1});
+                            metadata = DataHandling.Helpers.nwb.get_metadata(module_obj);
+                        end
+    
+                    case 'Program.volume'
+                        metadata = DataHandling.Helpers.nwb.get_metadata(obj.read_obj);
+                        
+                    otherwise
+                        if ismember(obj_class, {'string', 'char'})
+                            obj = DataHandling.Helpers.nwb.get_reader(obj);
+                            metadata = DataHandling.Helpers.nwb.get_metadata(obj);
+    
+                        else
+                            error('Invalid object of class %s passed to nwb get_metadata function.', obj_class);
+                        end
+                end
+            end
+        end
+
+
+        %% Legacy
         function path = volume_path(new_path)
             persistent instance
 

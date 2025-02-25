@@ -11,7 +11,137 @@ classdef nd2
     end
     
     methods (Static, Access = public)
+        %% Rework
+        function obj = get_reader(path)
+            if ~endsWith(path, '.nd2')
+                error('Non-nd2 file passed to nd2 get_reader function: \n%s', path)
+            end
+            
+            obj = bfGetReader(path);
+        end
 
+        function arr = read(obj, varargin)
+            if nargin > 1 && ~isa(varargin{1}, 'Program.cursor')
+                p = inputParser();
+                addRequired(p, 'obj');
+                addParameter(p, 'cursor', []);
+                addParameter(p, 'mode', 'chunk');
+
+                addParameter(p, 'x',    []);
+                addParameter(p, 'y',    []);
+                addParameter(p, 'z',    []);
+                addParameter(p, 'c',    []);
+                addParameter(p, 't',    []);
+
+                parse(p, obj, varargin{:});
+                
+                cursor = p.Results.cursor;
+                if isempty(cursor)
+                    cursor = Program.GUI.cursor.generate(rmfield(p.Results, {'obj', 'cursor', 'mode'}));
+                elseif ~isa(cursor, 'Program.GUI.cursor')
+                    cursor = Program.GUI.cursor.generate(cursor);
+                else
+                    cursor = p.Results.cursor;
+                end
+            end            
+
+            if isa(obj, 'Program.volume')
+                obj = obj.read_obj;
+            end
+
+            arr = DataHandling.Helpers.nd2.get_plane( ...
+                obj, ...
+                'z', cursor.z1:cursor.z2, ...
+                'c', cursor.c1:cursor.c2, ...
+                'x', cursor.x1:cursor.x2, ...
+                'y', cursor.y1:cursor.y2);
+        end
+
+        function metadata = get_metadata(obj)
+            obj_class = class(obj);
+            switch obj_class
+                case 'loci.formats.ChannelSeparator'
+                    dimension_key = string(obj.getDimensionOrder);
+                    if ~isempty(dimension_key) && ~strcmp(dimension_key, 'XYZCT')
+                        dims = struct( ...
+                            'x', obj.getSizeX, ...
+                            'y', obj.getSizeY, ...
+                            'z', obj.getSizeZ, ...
+                            'c', obj.getSizeC, ...
+                            't', obj.getSizeT);
+                        native_dims = dims;
+                    else
+                        agnostic_dims = [...
+                            obj.getSizeX, ...
+                            obj.getSizeY, ...
+                            obj.getSizeZ, ...
+                            obj.getSizeC, ...
+                            obj.getSizeT];
+                        [~, dims] = Program.Helpers.interpret_dimensions(agnostic_dims, 'key', dimension_key);
+                        native_dims = dims;
+                    end
+
+                    rgb = [];
+                    channels = {};
+                    for c=1:dims.c
+                        null_idx = c-1;
+                        fluorophore = string(obj.getMetadataStore.getChannelName(0, null_idx));
+                        ch = Program.channel(fluorophore);
+                        if ~ch.is_pseudocolor
+                            rgb = [rgb c];
+                        end
+                        ch.set('index', c);
+                        ch.assign_gui();
+    
+                        em_dictionary = dictionary( ...
+                            'lambda', {obj.getMetadataStore.getChannelEmissionWavelength(0, null_idx).value}, ...
+                            'low', {[]}, ...
+                            'high', {[]});
+                        ch.set('emission', em_dictionary);
+    
+                        ex_dictionary = dictionary( ...
+                            'lambda', {obj.getMetadataStore.getChannelExcitationWavelength(0, null_idx)}, ...
+                            'low', {[]}, ...
+                            'high', {[]});
+                        ch.set('excitation', ex_dictionary);
+                        channels{end+1} = ch;
+                    end
+    
+                    dtype = obj.getMetadataStore.getPixelsSignificantBits(0).getValue();
+
+                    device = struct();
+                    device.manufacturer = obj.getMetadataStore().getObjectiveManufacturer(0, 0);
+                    device.voxel_resolution = [ ...
+                        obj.getMetadataStore().getPixelsPhysicalSizeX(0).value, ...
+                        obj.getMetadataStore().getPixelsPhysicalSizeY(0).value, ...
+                        obj.getMetadataStore().getPixelsPhysicalSizeZ(0).value];
+
+                    metadata = struct( ...
+                        'nx', {dims.x}, ...
+                        'ny', {dims.y}, ...
+                        'nz', {dims.z}, ...
+                        'nc', {dims.c}, ...
+                        'nt', {dims.t}, ...
+                        'device', {device}, ...
+                        'native_dims', {native_dims}, ...
+                        'channels', {channels}, ...
+                        'rgb', {rgb}, ...
+                        'dtype', {dtype});
+
+                case 'Program.volume'
+                    metadata = DataHandling.Helpers.nd2.get_metadata(obj.read_obj);
+
+                otherwise
+                    if ismember(obj_class, {'string', 'char'})
+                        obj = DataHandling.Helpers.nd2.get_reader(obj);
+                        metadata = DataHandling.Helpers.nd2.get_metadata(obj);
+                    else
+                        error('Invalid object of class %s passed to nwb get_metadata function.', obj_class);
+                    end
+            end
+        end
+
+        %% Legacy
         function [obj, metadata] = open(file)
             % OPEN Open an ND2 file, returning a reader object or image data and metadata.
             %
@@ -71,6 +201,8 @@ classdef nd2
             [~, has_duplicate, duplicate_indices] = Program.Validation.check_for_duplicate_fluorophores(channels);
             if has_duplicate && ~isempty(duplicate_indices)
                 Program.Handlers.channels.add_reference(info.channel_names{duplicate_indices})
+            else
+                Program.Routines.Processing.set_channels_from_file(info.channel_names, channels);
             end
 
             info.RGBW = arrayfun(@(x) find(channels == x), 1:4, 'UniformOutput', false);                    % Set RGBW indices.

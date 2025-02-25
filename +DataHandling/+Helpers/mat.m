@@ -8,6 +8,93 @@ classdef mat
     end
     
     methods (Static, Access = public)
+        %% New
+        function create(path, dims, dtype, metadata)
+            array = zeros(dims, dtype);
+            if exist('metadata', 'var')
+                fstruct = struct( ...
+                    'array', {array}, ...
+                    'metadata', {metadata});
+            else
+                fstruct = struct( ...
+                    'array', {array}, ...
+                    'metadata', {[]});
+            end
+            
+            save(path, '-struct', 'fstruct', '-v7.3');
+        end
+
+        function write(varargin)
+            p = inputParser();
+            addRequired(p, 'file');
+            addRequired(p, 'arr');
+            addParameter(p, 't',    []);  % default means "all"
+            addParameter(p, 'z',    []);
+            addParameter(p, 'mode', 'chunk'); % default read mode
+            parse(p, varargin{:});
+            cursor = rmfield(p.Results, {'mode', 'file', 'arr'});
+            array = p.Results.arr;
+
+            target_file = matfile(p.Results.file, 'Writable', true);
+            if isempty(cursor.t)
+                target_file.array(:, :, cursor.z, :) = array;
+            elseif isempty(cursor.z)
+                target_file.array(:, :, :, :, cursor.t) = array;
+            else
+                target_file.array(:, :, cursor.z, :, cursor.t) = array;
+            end
+        end
+
+        function obj = get_reader(path)
+            obj = matfile(path);
+        end
+
+        function metadata = get_metadata(obj)
+            metadata = obj.read_obj.metadata;
+        end
+
+        function arr = read(obj, varargin)
+            p = inputParser();
+            addRequired(p, 'obj');
+            addParameter(p, 't',    []);  % default means "all"
+            addParameter(p, 'z',    []);
+            addParameter(p, 'c',    []);
+            addParameter(p, 'x',    []);
+            addParameter(p, 'y',    []);
+            addParameter(p, 'mode', 'chunk'); % default read mode
+            parse(p, obj, varargin{:});
+            cursor = rmfield(p.Results, {'mode', 'obj'});
+            is_volume = isa(obj, 'volume');
+            
+            if strcmp(p.Results.mode, 'chunk') || ~all(structfun(@isempty, cursor))
+                if is_volume
+                    native_dims = obj.native_dims;
+                    obj = obj.read_obj;
+                else
+                    native_dims = size(obj, 'array');
+                end
+    
+                [order, dims] = Helpers.interpret_dimensions(native_dims);
+                parameters = fieldnames(cursor);
+    
+                for p=1:length(parameters)
+                    parameter = parameters{p};
+                    if isempty(cursor.(parameter)) && isfield(dims, parameter)
+                        cursor.(parameter) = 1:dims.(parameter);
+                    end
+                end
+    
+                fn = fieldnames(cursor);
+                idx_cell = cellfun(@(f) cursor.(f), fn, 'UniformOutput', false);
+                idx_cell = idx_cell(1:length(native_dims));
+                indices = idx_cell(flip(order));
+                arr = obj.array(indices{:});
+            else
+                arr = obj.array;
+            end
+        end
+
+        %% Legacy
         function [obj, metadata] = open(file)
             f = matfile(file);
             info = f.info;
