@@ -74,6 +74,9 @@ classdef nd2
             end
 
             info.RGBW = arrayfun(@(x) find(channels == x), 1:4, 'UniformOutput', false);                    % Set RGBW indices.
+            if iscell(info.RGBW)
+                info.RGBW = cell2mat(info.RGBW);
+            end
 
             info.DIC = find(ismember(channels, 5));                             % Set DIC if present, else set to 0.
             if isempty(info.DIC)
