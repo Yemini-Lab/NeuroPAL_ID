@@ -90,6 +90,8 @@ function render()
             render_volume = render_volume + other_channel;
         end
     end
+
+    render_volume(render_volume < app.ProcNoiseThresholdField.Value) = 0;
     
     % Adjust the gamma.
     % Note: the image only shows RGB. We added the other channels
