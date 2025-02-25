@@ -1,4 +1,5 @@
 function [new_indices, has_duplicate, duplicate_indices] = check_for_duplicate_fluorophores(indices)
+    indices = cell2mat(indices);
     has_duplicate = numel(indices) == numel(unique(indices));
     duplicate_indices = [];
     if has_duplicate
