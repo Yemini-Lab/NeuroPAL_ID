@@ -54,7 +54,7 @@ classdef ChunkyMethods
                             temp_arr = temp_arr(end:-1:1,:,:,:,:);
 
                         case 'rotate'
-                            temp_arr = imrotate(temp_arr, app.RotateSlider.Value);
+                            temp_arr = imrotate(temp_arr, app.proc_rot_spinner.Value);
                             
                     end
 
@@ -96,7 +96,7 @@ classdef ChunkyMethods
                     output_slice = slice(end:-1:1,:,end:-1:1,:,:);
 
                 case 'rotate'
-                    output_slice = imrotate(slice, app.RotateSlider.Value);
+                    output_slice = imrotate(slice, app.proc_rot_spinner.Value);
 
                 case 'cc'
                     temp_slice = permute(slice, [2,1,3,4]);
