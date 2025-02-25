@@ -19,7 +19,17 @@ function handle = app()
     if any(isempty(app_handle)) || ...
        (any(isa(app_handle, "handle")) && any(~isvalid(app_handle)))
         window_handle = Program.window();
-        app_handle = window_handle.RunningAppInstance;
+        if ~isempty(window_handle)
+            if isscalar(window_handle)
+                app_handle = window_handle.RunningAppInstance;
+            else
+                for n=1:length(window_handle)
+                    if ~isempty(window_handle(n).RunningAppInstance)
+                        app_handle = window_handle(n).RunningAppInstance;
+                    end
+                end
+            end
+        end
     end
 
     % Return the persistent handle

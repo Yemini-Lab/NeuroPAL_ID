@@ -8,8 +8,8 @@ function initialize()
     % mlapptools.getWebWindow (line 337)
     warning off MATLAB:ui:javaframe:PropertyToBeRemoved;
 
-    app = Program.GUIHandling.app;
-    window = Program.GUIHandling.window_fig;
+    app = Program.app;
+    window = Program.window;
 
     if ~isdeployed
         % If we're running in dev mode, add Data & External Dependencies to
@@ -22,6 +22,7 @@ function initialize()
     app.logEvent('Main','Starting NeuroPAL_ID...', 1);
     app.logEvent('Main','Resizing NeuroPAL_ID...', 1);
 
+    Program.Routines.load_config();
     Program.Helpers.resize_window();
     Program.Routines.GUI.toggle_buttons();
     Program.Handlers.dialogue.active([]);

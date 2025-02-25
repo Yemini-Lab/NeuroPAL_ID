@@ -1,6 +1,6 @@
 function move_channel(event)
     app = Program.app;
-    direction = -1+2*(any(ismember(event.Source.Text, [Program.GUI.handles.pp.down{:}])));
+    direction = -1+2*(any(ismember(event.Source.Text, [Program.Handlers.channels.handles{'pp_down'}{:}])));
     target_channel = event.Source.Layout.Row;
 
     if direction > 0

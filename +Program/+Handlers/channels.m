@@ -50,7 +50,8 @@ classdef channels
                 '#ffff00'}});                                               %   GFP     -> Yellow
     end
     
-    methods (Static)        
+    methods (Static)       
+
         function set_references(info)
             %  set_references   Updates item properties of reference dropdowns.
             % ┌─────────────────────────────────────────────────────────────┐
@@ -87,6 +88,8 @@ classdef channels
                     if ~isempty(related_fluos) && ...                       % If we don't know of fluorophores related to this reference...
                         ~any(ismember(related_fluos, lower(loaded_fluos)))  % ...or such a fluorophore is not currently loaded...
                         references{r-3} = '???';                            % Set the reference name to ???.
+                    else
+                        
                     end
                 end
             end
@@ -95,14 +98,11 @@ classdef channels
 
             % Update reference dropdowns.
             for r=length(app.proc_channel_grid.RowHeight):-1:4              % For every reference channel dropdown...
+                ref_handle = sprintf(ref_handle, r);
 
-                if r-3 <= length(references)                                 % If there is a reference for this dropdown...
-                    handle = sprintf(ref_handle, r);                        % Get the component handle.
-                    app.(handle).Items = references;                        % Update its items property.
-                    app.(handle).Value = references{r-3};                   % Set its value to the appropriate reference name.
-
-                else                                                        % If there isn't a reference for this dropdown...
-                    Program.Handlers.channels.delete(r);                    % Delete the excess channel.
+                if r-3 <= length(references)                                % If there is a reference for this dropdown...
+                    app.(ref_handle).Items = references;                        % Update its items property.
+                    app.(ref_handle).Value = references{r-3};                   % Set its value to the appropriate reference name.
                 end
             end
         end
@@ -146,7 +146,6 @@ classdef channels
                 app.(handle).Items{end+1} = name;                           % Append the new reference name to the Items property of that component.
             end
         end
-
 
         function remove_reference(name)
             %  remove_reference   Removes a specified reference name from UI elements.
@@ -192,7 +191,6 @@ classdef channels
             end
         end
 
-
         function delete(channel)
             %  Delete a channel from the processing tab.
             % ┌─────────────────────────────────────────────────────────────┐
@@ -232,6 +230,9 @@ classdef channels
                     end
                 end
             end
+
+            % Grab current dropdown value.
+            entry_to_remove = app.(sprintf(handles.dd, channel)).Value;
                                  
             % Transfer component properties if necessary, then delete.
             for n=1:length(components)                                      % For each component type...
@@ -245,10 +246,12 @@ classdef channels
                         this_component = app.( ...                          % Grab the component handle.
                             sprintf(handle, p));             
                         previous_component = app.( ...                      % Grab the handle of the component for the channel ahead of it.
-                            sprintf(components{n}, p-1));           
+                            sprintf(handle, p-1));           
                         for c=1:length(component_properties)                % Transfer property values of channel to that of the ahead of it.
                             property = component_properties{c};     
-                            if isprop(this_component, property)     
+                            if isprop(this_component, property) && ...
+                                    ~isa(previous_component, 'matlab.ui.control.colorpicker') && ...
+                                    ~isa(this_component, 'matlab.ui.control.colorpicker')
                                 previous_component.(property) = ... 
                                     this_component.(property);      
                             end                                     
@@ -259,13 +262,21 @@ classdef channels
                         sprintf(components{n}, n_channels));        
                     delete(last_component);                                 % Delete it.
                 end                                                 
-            end                                                     
+            end   
 
-            app.proc_channel_grid.RowHeight(channel) = [];
+            app.proc_channel_grid.RowHeight(end) = [];
+
+            % Remove previous dropdown value from all dropdown item lists.
+            for c=1:length(app.proc_channel_grid.RowHeight)
+                dd = app.(sprintf(handles.dd, c));
+                dd.Items = dd.Items(ismember(dd.Items, entry_to_remove));
+            end
         end
 
         function populate(order)
             app = Program.app;
+            order = Program.Validation.extract(order);
+
             names = order.names;
             indices = order.idx;
             nc = length(indices);
@@ -281,6 +292,7 @@ classdef channels
 
             for c=1:nc
                 dd_handle = sprintf(Program.Handlers.channels.handles{'pp_dd'}, c);
+                cb_handle = sprintf(Program.Handlers.channels.handles{'pp_cb'}, c);
 
                 if ~isempty(names)
                     app.(dd_handle).Items = names;
@@ -289,6 +301,10 @@ classdef channels
                 name = app.(dd_handle).Items{indices(c)};
                 if indices(c) ~= 0
                     app.(dd_handle).Value = name;
+                end
+
+                if ~strcmp(name, 'None') & c <= 3
+                    app.(cb_handle).Value = 1;
                 end
             end
         end
@@ -561,19 +577,6 @@ classdef channels
             del.Layout.Row = tc;
             del.Layout.Column = 6;
         end
-    end
-
-    methods (Static, Access = private)
-        function handles = get_handles()
-            handles = struct( ...
-                'ref', {Program.Handlers.channels.handles{'pp_ref'}}, ...
-                'dd', {Program.Handlers.channels.handles{'pp_dd'}}, ...
-                'cb', {Program.Handlers.channels.handles{'pp_cb'}}, ...
-                'ef', {Program.Handlers.channels.handles{'pp_ef'}}, ...
-                'up', {'proc_c%.f_up'}, ...
-                'down', {'proc_c%.f_down'}, ...
-                'delete', {'proc_c%.f_delete'});
-        end
         
         function [color, idx] = identify_color(name)
             fluorophore_keys = keys(Program.Handlers.channels.fluorophore_map);
@@ -591,6 +594,19 @@ classdef channels
             end
 
             color = 'none';
+        end
+    end
+
+    methods (Static, Access = private)
+        function handles = get_handles()
+            handles = struct( ...
+                'ref', {Program.Handlers.channels.handles{'pp_ref'}}, ...
+                'dd', {Program.Handlers.channels.handles{'pp_dd'}}, ...
+                'cb', {Program.Handlers.channels.handles{'pp_cb'}}, ...
+                'ef', {Program.Handlers.channels.handles{'pp_ef'}}, ...
+                'up', {'proc_c%.f_up'}, ...
+                'down', {'proc_c%.f_down'}, ...
+                'delete', {'proc_c%.f_delete'});
         end
 
         function idx = get_channel_idx(query)
