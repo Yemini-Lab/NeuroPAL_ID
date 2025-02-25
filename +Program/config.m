@@ -1,13 +1,53 @@
-classdef config
+classdef config < dynamicprops
     %CONFIG Summary of this class goes here
     %   Detailed explanation goes here
     
-    properties (Constant)
-        defaults = dictionary( ...
-            'class', {'uint16'});
+    properties
+        default = [];
+        fmts = dictionary( ...
+            'video', {';*.mat;*.nd2;*.h5;*.nwb'}, ...
+            'stack', {';*.mat;*.czi;*.nd2;*.tif;*.tiff;*.h5;*.nwb'});
+
+        rgb_channels = {'r', 'g', 'b', 1, 2, 3, 'red', 'green', 'blue'};
     end
     
-    methods (Static)
+    methods
+        function obj = config()
+            persistent loaded_config
+
+            if isempty(loaded_config)
+                class = 'uint16';
+
+                md_volume = { ...
+                    'nx', 'ny', 'nz', 'nc', 'nt', 'native_dims', ...
+                    'dtype', 'dtype_str', 'channels', 'rgb', ...
+                    'device'};
+
+                gui_subject = struct( ...
+                    'Sex', {{'XX', 'XO'}}, ...
+                    'Age', {{'Adult', 'L4', 'L3', ...
+                        'L2', 'L1', '3-Fold'}}, ...
+                    'Body', {{'Whole Worm', 'Head', ...
+                        'Midbody', 'Anterior Midbody', 'Central Midbody', ...
+                        'Posterior Midbody', 'Tail'}});
+
+                fields = struct( ...
+                    'md_volume', {md_volume}, ...
+                    'gui_subject', {gui_subject});
+
+                settings = struct('gamma', {1});
+
+
+                obj.default = struct( ...
+                    'class', {class}, ...
+                    'fields', {fields}, ...
+                    'settings', {settings});
+
+                loaded_config = obj;
+            end
+
+            obj = loaded_config;
+        end
     end
 end
 
