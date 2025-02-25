@@ -1,0 +1,484 @@
+classdef volume < handle
+    % VOLUME A class that encapsulates a volumetric (or possibly video) dataset.
+    %
+    % This class depends on helper classes in +DataHandling/+Helpers, one
+    % per file format. For example, +DataHandling/+Helpers/nwb.m, 
+    % +DataHandling/+Helpers/nd2.m, etc.
+    %
+    % Example usage:
+    %   vol = volume('C:\data\myImage.nwb');
+    %   vol.load();        % read metadata
+    %   dataSlice = vol.read('z',1);  % read 1st Z-slice
+    %   infoStruct = vol.info();
+    %
+    
+    properties
+        % References to helper classes for reading/writing the volume
+        read_class = [];    % (Not strictly required if we rely on read_obj below)
+        read_obj  = [];     % Reader object (e.g. returned by nwbRead, bfGetReader, etc.)
+        read_mod = [];      % Reader module returned by nwbRead.
+
+        % Path info
+        fmt  = '';          % Extension of the volume path (e.g. 'nwb', 'tiff')
+        name = '';          % Name of volume file
+        path = '';          % Complete volume path
+
+        % Metadata
+        device = [];        % The device used to capture this volume.
+        subject = [];       % The subject captured in this volume.
+        settings = [];      % NeuroPAL_ID settings for this volume.
+
+        % Cursor
+        x = -1;
+        y = -1;
+        z = -1;
+        c = -1;
+        t = -1;
+        cursor;
+
+        % Dimensionality
+        nx = -1;            % Width of the volume
+        ny = -1;            % Height of the volume
+        nz = -1;            % Depth of the volume
+        nc = -1;            % Number of channels
+        nt = -1;            % Number of timepoints (frames)
+        dims = [];          % Array of size (1,5): [nx, ny, nz, nc, nt]
+        native_dims = [];   % Dims as loaded from file
+
+        % Channels
+        channels = {};      % Cell array for the names of each channel
+        rgb = [];           % Indices of channels corresponding to [R,G,B] if relevant
+        
+        is_video = -1;      % Boolean indicating video vs. single-volume; -1 if uninitialized
+        processing_steps = {};
+        
+        dtype = 0;       % Datatype numeric code
+        dtype_max = [];  % Integer maximum for this volume's datatype.
+        dtype_str = '';  % Datatype string, e.g. 'uint8', 'double', etc.
+        is_valid_dtype = -1;
+    end
+
+    methods
+        function obj = volume(path)
+            % Constructor for the volume class
+            Program.states.now('Creating volume');
+            if nargin == 0
+                error('No path provided for volume class constructor.');
+            elseif isempty(path)
+                error('Empty path provided for volume class constructor.');
+            else
+                [~, ~, fmt] = fileparts(path);
+                fmt = fmt(2:end);
+                if ~isfile(sprintf("+DataHandling\\+Helpers\\%s.m", fmt))
+                    error('No helper script found for format %s.', fmt)
+                else
+                    obj.path = path;
+                    obj.is_video = Program.Validation.lineage() == 2;
+                    obj.load();
+                end
+            end
+        end
+        
+        function infoStruct = info(obj)
+            % INFO  Return a struct of the volume's public properties
+            %
+            % Example:
+            %   s = vol.info();
+            %
+            % 's' will contain fields such as 'nx', 'ny', 'nz', 'fmt', etc.
+            
+            propList = properties(obj);
+            infoStruct = struct();
+            for k = 1:numel(propList)
+                infoStruct.(propList{k}) = obj.(propList{k});
+            end
+        end
+        
+        function load(obj)
+            % LOAD  Read metadata from the file, fill in dimension properties, etc.
+            %
+            % Example:
+            %   vol = volume('myFile.nwb');
+            %   vol.load();  % sets vol.nx, vol.ny, vol.nz, vol.nt, etc.
+
+            [~, fname, ext] = fileparts(obj.path);
+            obj.name = fname;
+            if startsWith(ext, '.')
+                ext = ext(2:end);
+            end
+            obj.fmt = ext;
+            
+            % Dynamically instantiate or retrieve a helper for this file format
+            if DataHandling.Helpers.npal.is_npal_file(obj.path)
+                obj.read_class = DataHandling.Helpers.npal;
+                obj.read_obj = obj.read_class.get_reader(obj.path);
+            else
+                obj.read_class = DataHandling.Helpers.(obj.fmt);
+                obj.read_obj = obj.read_class.get_reader(obj.path);
+            end
+            
+            % The skeleton calls obj.read('metadata') to retrieve metadata
+            metadata = obj.read('metadata');
+            
+            obj.nx = metadata.nx;
+            obj.ny = metadata.ny;
+            obj.nz = metadata.nz;
+            obj.nc = metadata.nc;
+            obj.nt = metadata.nt;
+            obj.dims = [obj.nx, obj.ny, obj.nz, obj.nc, obj.nt];
+            obj.native_dims = metadata.native_dims;
+
+            if obj.is_video == -1
+                obj.is_video = (obj.nt > 1);
+            end
+            
+            if isfield(metadata, 'channels')
+                obj.channels = metadata.channels;
+                obj.rgb = metadata.rgb;
+            end
+
+            if isfield(metadata, 'device')
+                obj.device = metadata.device;
+            else
+                obj.device = struct();
+                obj.device.manufacturer = '';
+                obj.device.voxel_resolution = [1 1 1];
+            end
+            
+            if isfield(metadata, 'dtype')
+                obj.dtype = metadata.dtype;
+            end
+
+            if isfield(metadata, 'dtype_str')
+                obj.dtype_str = metadata.dtype_str;
+            end
+
+            [obj.is_valid_dtype, obj.dtype, obj.dtype_str, obj.dtype_max] = Program.Helpers.resolve_dtype(obj);
+
+            if isfield(metadata, 'subject')
+                obj.subject = Program.subject(metadata);
+            else
+                obj.subject = Program.subject();
+            end
+            
+            % Validate or do any additional initialization
+            obj.validate();
+        end
+        
+        function data = read(obj, varargin)
+            % READ  Read data (or metadata) from the volume.
+            %
+            %   data = read(obj, 'metadata') returns metadata.
+            %   data = read(obj, 'dims') returns [nx, ny, nz, nc, nt].
+            %
+            %   Otherwise you may pass parameter/value pairs:
+            %     't' (time index), 'z' (z-slice), 'c' (channel), 'x', 'y'
+            %     'mode' (e.g. 'chunk' vs. 'metadata')
+            %
+            % Example:
+            %   entireData = vol.read();                % read entire volume
+            %   singleZ = vol.read('z',1,'c',1,'t',1);  % read a single slice
+            
+            % If the only argument is 'metadata' or 'dims', handle those quickly
+            if nargin == 1
+                cursor = Program.GUI.cursor;
+            elseif isscalar(varargin) && ischar(varargin{1})
+                data = obj.read_metadata();
+                return;
+            elseif ~isa(varargin{1}, 'cursor')
+                % Otherwise parse optional arguments
+                p = inputParser();
+                addParameter(p, 't',    []);  % default means "all"
+                addParameter(p, 'z',    []);
+                addParameter(p, 'c',    []);
+                addParameter(p, 'x',    []);
+                addParameter(p, 'y',    []);
+                addParameter(p, 'mode', 'chunk'); % default read mode
+                parse(p, varargin{:});
+                cursor = Program.GUI.cursor.generate(p.Results);
+            end
+            
+            % We assume that read_obj has a method readData(...) that
+            % takes these inputs in a param/value style
+            data = obj.read_class.read(obj, ...
+                'cursor', cursor);
+        end
+
+        function mdata = read_metadata(obj)
+            config = Program.config;
+            mdata = obj.read_class.get_metadata(obj);
+            mdata_fields = fieldnames(mdata);
+            if any(~ismember( ...
+                    mdata_fields, ...
+                    config.default.fields.md_volume))
+
+                switch obj.fmt
+                    case 'nwb'
+                        if obj.is_video ~= -1
+                            if obj.is_video
+                                obj.read_mod = mdata_fields{ ...
+                                    contains(lower(mdata_fields), ...
+                                    'calcium')};
+                            else
+                                obj.read_mod = mdata_fields{ ...
+                                    ~contains(lower(mdata_fields), ...
+                                    'calcium')};
+                            end
+        
+                            mdata = mdata.(obj.read_mod);
+
+                        else
+                            choice = uiconfirm(Program.window, ...
+                                "Which volume would you like to load?", ...
+                                "NeuroPAL_ID", 'Options', mdata_fields);
+                            obj.is_video = contains(lower(choice), ...
+                                'calcium');
+
+                            obj.read_mod = choice;
+                            mdata = mdata.(choice);
+                        end
+
+                    otherwise
+                        wtf_idx = find(~ismember( ...
+                            mdata_fields, ...
+                            config.default.fields.md_volume));
+                        wtf_str = mdata_fields{wtf_idx};
+                        error("%s datahandling function returned " + ...
+                            "unexpected metadata fields in file %s:" + ...
+                            "\n%s", upper(obj.fmt), obj.name, ...
+                            join(wtf_str, ', '))
+                end
+            end
+        end
+
+        function array = render(obj, cursor)
+            if ~isa(cursor, 'cursor')
+                return
+            end
+
+            array = obj.render(cursor);
+
+            for c=1:obj.nc
+                channel = obj.channels{c};
+                if ~channel.is_rendered
+                    array(:, :, :, channel.index) = 0;
+                else
+                    array(:, :, :, channel.index) = imadjustn(array(:, :, :, channel.index), channel.lh_in, channel.lh_out, channel.gamma);
+                    if ~channel.is_rgb
+                        channel_array = array(:, :, :, channel.index);
+                        pseudocolor_array = Program.render.generate_pseudocolor(channel_array, channel);
+                        array(:, :, :, obj.rgb) = array(:, :, :, obj.rgb) + pseudocolor_array;
+                    end
+                end
+            end
+
+            array = array(:, :, :, obj.rgb);
+        end
+        
+        function draw(obj, ax, varargin)
+            % DRAW  Draw the chunk of the volume indicated by the "cursor" 
+            % onto the axes object, ax.
+            
+            if ~isempty(Program.app) && nargin <= 2
+                cursor = Program.GUI.cursor; 
+            else
+                p = inputParser();
+                addRequired(p, 'obj');
+                addRequired(p, 'ax');
+                addParameter(p, 't', 1);
+                addParameter(p, 'z', 1);
+                addParameter(p, 'c', []);
+                addParameter(p, 'x', []);
+                addParameter(p, 'y', []);
+                parse(p, obj, ax, varargin{:});
+                cursor = p.Results;
+            end
+
+            viewData = obj.read('t', cursor.t, 'z', cursor.z, 'c', cursor.c, ...
+                                'x', cursor.x, 'y', cursor.y);
+            
+            imshow(viewData, 'Parent', ax);
+        end
+        
+        function converted_instance = convert(obj, fmt)
+            % CONVERT  Create a new file of format fmt, chunk-write current volume's
+            % contents, and return a new volume instance referencing that file.
+            %
+            % Example:
+            %   newVol = vol.convert('tiff');
+            %
+
+            if strcmp(obj.fmt, fmt)
+                converted_instance = obj;
+            end
+
+            Program.states.now("Converting %s to %s format", obj.name, fmt);
+            
+            % Check if there's a helper for that format
+            helperFile = fullfile('+DataHandling', '+Helpers', [fmt, '.m']);
+            if ~isfile(helperFile)
+                error('No helper script found for format "%s".', fmt);
+            end
+            
+            % Construct new file path
+            if ~strcmp(fmt, 'npal')
+                newPath = strrep(obj.path, obj.fmt, fmt);
+            else
+                npal_name = sprintf('%s-NPAL', obj.name);
+                newPath = strrep(obj.path, obj.name, npal_name);
+                newPath = strrep(newPath, obj.fmt, 'mat');
+            end
+            
+            % Call create(...) from the new helper class to make the file
+            newHelper = feval(str2func(['DataHandling.Helpers.' fmt]));
+            newHelper.create(newPath, 'like', obj);
+            
+            % Now chunk-write from the current volume into the new file
+            if obj.is_video
+                Program.states.progress('start', obj.nt);
+                for t = 1:obj.nt
+                    Program.states.progress();
+                    Program.states.progress('start', obj.nz);
+                    for z = 1:obj.nz
+                        Program.states.progress();
+                        chunkData = obj.read('t', t, 'z', z);
+                        if numel(size(chunkData)) <= 4
+                            null_data = zeros(size(chunkData, 1), size(chunkData, 2), 1, size(chunkData, 3), 1, class(chunkData));
+                            null_data(:, :, 1, :, 1) = chunkData;
+                            chunkData = null_data;
+                        end
+
+                        newHelper.write('mode', 'chunk', ...
+                                        'file', newPath, ...
+                                        't', t, 'z', z, ...
+                                        'arr', chunkData);
+                    end
+                end
+            else
+                Program.states.progress('start', obj.nz);
+                for z = 1:obj.nz
+                    Program.states.progress();
+                    chunkData = obj.read('z', z);
+                    if numel(size(chunkData)) <= 3
+                        null_data = zeros(size(chunkData, 1), size(chunkData, 2), 1, size(chunkData, 3), class(chunkData));
+                        null_data(:, :, 1, :) = chunkData;
+                        chunkData = null_data;
+                    end
+
+                    newHelper.write('mode', 'chunk', ...
+                                    'file', newPath, ...
+                                    'z', z, ...
+                                    'arr', chunkData);
+                end
+            end
+            
+            % Finally, return a new volume instance referencing the new file
+            % (assuming Program.Data.volume is how you normally construct one)
+            converted_instance = Program.volume(newPath);
+            converted_instance.load(); % so that the new instance is ready to go
+        end
+        
+        function write(obj, varargin)
+            % WRITE  Writes a requested chunk to the volume file, using the 
+            % underlying helper's writer. This is the complement of read(...).
+            %
+            % Example:
+            %   vol.write('t',1, 'z',2, 'arr', some2Dmatrix);
+            
+            p = inputParser();
+            addParameter(p, 't', 1);
+            addParameter(p, 'z', 1);
+            addParameter(p, 'c', []);
+            addParameter(p, 'x', []);
+            addParameter(p, 'y', []);
+            addParameter(p, 'mode', 'chunk');
+            addParameter(p, 'arr', []);  % array to write
+            parse(p, varargin{:});
+            
+            if isempty(p.Results.arr)
+                error('You must supply the ''arr'' parameter with data to write.');
+            end
+            
+            % Now call the helper's write method
+            obj.read_obj.write('mode', p.Results.mode, ...
+                               't', p.Results.t, ...
+                               'z', p.Results.z, ...
+                               'c', p.Results.c, ...
+                               'x', p.Results.x, ...
+                               'y', p.Results.y, ...
+                               'arr', p.Results.arr);
+        end
+
+        function update_channels(obj)
+            rgb = [];
+            for tc=1:obj.nc
+                channel = obj.channels{tc};
+
+                dd = channel.gui{'dropdown'};
+                channel.fluorophore = dd.Value;
+                channel.index = find(dd.Items, dd.Value);
+
+                channel.identify();
+
+                channel.is_rendered = channel.gui{'checkbox'}.Value;
+            end
+
+            obj.nc = length(obj.channels);
+            Program.render();
+        end
+
+        function out = get(obj, query)
+            query = lower(query);
+            out = [];
+            switch query
+                case 'rgbw'
+                    out = cell2mat(cellfun(@(x)(x.index*x.is_rgb), obj.channels,'UniformOutput', false));
+
+                case {'gfp', 'dic'}
+                    found = cell2mat(cellfun(@(x)(x.index*strcmp(x.color, query)), obj.channels,'UniformOutput', false));
+                    if any(found)
+                        found = found(found~=0);
+                    end
+
+                case 'gamma'
+                    out = cell2mat(cellfun(@(x)(x.gamma), obj.channels,'UniformOutput', false));
+                    
+                otherwise
+            end
+        end
+    end
+
+    methods (Access = private)
+        function validate(obj)
+            % VALIDATE  Ensure the volume properties have valid values.
+            % Return true (logical) if all is valid, otherwise false.
+            
+            % Basic checks
+            if obj.nx <= 1 || obj.ny <= 1 || obj.nz <= 1 || obj.nc < 1
+                error(['Invalid volume dimension(s):' ...
+                    '\n- nx = %.1f' ...
+                    '\n- ny = %.1f' ...
+                    '\n- nz = %.1f' ...
+                    '\n- nc = %.1f' ...
+                    '\n- nt = %.1f'], ...
+                    obj.nx, obj.ny, obj.nz, obj.nc, obj.nt);
+            end
+            
+            if obj.is_video == 1 && obj.nt <= 1
+                error('Video volume is flagged, but nt (%.1f) <= 1.', ...
+                    obj.nt);
+            end
+
+            if obj.nc == length(obj.channels)
+                for c=1:obj.nc
+                    obj.channels{c}.set('parent', obj);
+                end
+            else
+                error( ...
+                    ['Volume has %.f specified channel dimensions, ' ...
+                    'but only %.f channels.'], ...
+                    obj.nc, length(obj.channels));
+            end
+        end
+    end
+end
