@@ -64,7 +64,7 @@ classdef states < dynamicprops
 
         function obj = draw_progress(obj)
             have_active_tasks = ~isempty(obj.active_tasks);
-            have_open_dlg = ~isempty(obj.active_dlg) && isgraphics(obj.active_dlg);
+            have_open_dlg = ~isempty(obj.active_dlg);
             
             if have_active_tasks
                 active_task = obj.active_tasks{end};
@@ -124,6 +124,7 @@ classdef states < dynamicprops
                 case 0
                     obj.active_tasks{end}.now = obj.active_tasks{end}.now + ...
                         obj.active_tasks{end}.steps;
+                    
 
                 case 1
                     if varargin{1} == obj.active_tasks{end}.max
@@ -135,11 +136,15 @@ classdef states < dynamicprops
                 case 2
                     if strcmp(varargin{1}, 'start')
                         if isempty(obj.active_tasks)
+                            label = sprintf('%s...', obj.current_task);
                             max = varargin{2};
                             steps = 1;
                         else
-                            max = 1;
-                            steps = obj.active_tasks{end}.steps/varargin{2};
+                            previous_task = obj.active_tasks{end};
+                            label = sprintf('%s...', obj.current_task);
+                            max = previous_task.now + previous_task.steps;
+                            steps = previous_task.steps/varargin{2};
+                            now = previous_task.now;
                         end
 
                         obj.active_tasks{end+1} = struct( ...
