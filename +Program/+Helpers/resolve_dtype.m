@@ -8,7 +8,8 @@ function [is_valid_dtype, bit_depth, dtype_str, dtype_max] = resolve_dtype(bit_d
             if ~isempty(bit_depth.dtype) && bit_depth.dtype ~= 0
                 bit_depth = bit_depth.dtype;
             elseif ~isempty(bit_depth.dtype_str)
-                Program.Helpers.resolve_dtype(bit_depth.dtype_str)
+                [is_valid_dtype, bit_depth, dtype_str, dtype_max] = Program.Helpers.resolve_dtype(bit_depth.dtype_str);
+                return
             end
 
         case ~isinteger(bit_depth)
