@@ -43,7 +43,9 @@ classdef channel_editor < handle
         function obj = channel_editor()
             persistent component_instance
 
-            if isempty(component_instance)
+            if isempty(component_instance) || ...
+                    ~isgraphics(component_instance.grid) || ...
+                    isempty(component_instance.rows)
                 app = Program.app;
                 obj.grid = app.proc_channel_grid;
 
@@ -58,9 +60,6 @@ classdef channel_editor < handle
                 end
 
                 component_instance = obj;
-            elseif ~isgraphics(component_instance.grid)
-                app = Program.app;
-                obj.grid = app.proc_channel_grid;
             end
 
             obj = component_instance;
@@ -181,7 +180,7 @@ classdef channel_editor < handle
                 case 'add'
                     obj.add('fluorophore', pck.name);
                 case 'delete'
-                    obj.delete('fluorophore', pck.name);
+                    obj.delete_entry('fluorophore', pck.name);
                 case 'set'
                     obj.set('fluorophore', pck.name);
                 case {'get', 'read'}
@@ -207,7 +206,7 @@ classdef channel_editor < handle
                 case 'add'
                     obj.add('color', pck.name);
                 case 'delete'
-                    obj.delete('color', pck.name);
+                    obj.delete_entry('color', pck.name);
                 case 'set'
                     obj.set('color', pck.name);
                 case {'get', 'read'}
@@ -270,7 +269,7 @@ classdef channel_editor < handle
                 obj = Program.GUI.channel_editor;
             end
 
-            if ~isgraphics(obj.grid)
+            if isempty(obj.rows) || ~isgraphics(obj.grid)
                 obj = Program.GUI.channel_editor;
             end
 
@@ -405,7 +404,7 @@ classdef channel_editor < handle
             end
         end
 
-        function obj = delete(obj, keyword, value)
+        function obj = delete_entry(obj, keyword, value)
             switch keyword
                 case 'fluorophore'
                     c_handle = 'dd';
