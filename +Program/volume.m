@@ -312,7 +312,7 @@ classdef volume < handle
                 converted_instance = obj;
             end
 
-            Program.states.now("Converting %s to %s format", obj.name, fmt);
+            Program.states.now("Converting %s.%s to %s format", obj.name, obj.fmt, fmt);
             
             % Check if there's a helper for that format
             helperFile = fullfile('+DataHandling', '+Helpers', [fmt, '.m']);
