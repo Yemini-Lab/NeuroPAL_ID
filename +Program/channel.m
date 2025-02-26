@@ -67,7 +67,7 @@ classdef channel < dynamicprops
             obj.gui = Program.GUI.channel_editor.get_components(obj.index);
         end
 
-        function delete(obj)
+        function delete_channel(obj)
             Program.states.now('Deleting %s channel (%s)', obj.color, obj.fluorophore);
             Program.GUI.channel_editor.fluorophores('delete', 'name',  obj.fluorophore);
             Program.GUI.channel_editor.colors('delete', 'name',  obj.color);
@@ -122,13 +122,32 @@ classdef channel < dynamicprops
                         is_dict = 1;
                         is_valid = isa(value, 'dictionary') || isinteger(uint8(value));
                     elseif startsWith(keyword, 'is')
-                        is_valid = isa(value, 'logical');
+                        is_valid = isa(value, 'logical') || ismember(value, [0, 1]);
                     end
             end
         end
 
         function bool = is_pseudocolor(obj)
             bool = ~obj.is_rgb;
+        end
+
+        function frozen_instance = freeze(obj)
+            frozen_instance = Program.channel(obj.fluorophore);
+            props = ?Program.channel;
+            for n=1:length(props.PropertyList)
+                p = props.PropertyList(n);
+                p_label = p.Name;
+                p_default = p.DefaultValue; 
+
+                can_be_frozen = ~ismember(p_label, {'gui', 'parent'});
+                if can_be_frozen
+                    live_value = obj.(p_label);
+
+                    if ~isequal(p_default, live_value)
+                        frozen_instance.set(p_label, live_value);
+                    end                    
+                end
+            end
         end
     end
 end
