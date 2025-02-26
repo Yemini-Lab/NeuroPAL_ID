@@ -1,17 +1,18 @@
 function load(mode, path)
+    state = Program.states;
+    state.now('Initializing processing tab')
+    state.progress('start', 5);
+
     app = Program.app;
     window = Program.window;
+    state.now('Building volume')
+    state.progress();
     volume = Program.volume(path);
-    Program.states.set('active_volume', volume);
-
-    d = uiprogressdlg(window, "Title", "NeuroPAL ID", ...
-        "Message", "Initializing Processing Tab...", ...
-        'Indeterminate', 'off');    
+    state.set('active_volume', volume);
     
     app.flags = struct();
     app.rotation_stack.cache = struct('Colormap', {{}}, 'Video', {{}});
-    [filepath, name, ~] = fileparts(path);
-
+    
     if volume.is_video
         app.video_path = path;
         Program.GUI.enable_video();
@@ -34,47 +35,42 @@ function load(mode, path)
         app.data_flags.('Video_Volume') = 1;
 
         set(app.PlaceholderProcTimeline, 'Visible', 'on');
-        Program.Routines.GUI.toggle_video();
+        Program.GUI.Toggles.video;
 
     else
         Program.GUI.enable_cstack();
 
-        if ~isfile(strrep(volume.path, volume.fmt, 'mat'))
+        npal_file = strrep(volume.path, volume.fmt, 'mat');
+        if ~isfile(npal_file)
             volume.convert('npal');
-            [app.image_data, app.image_info, app.image_prefs, ~, ~, ~, ~, ~] = DataHandling.NeuroPALImage.open(path);
+            %[app.image_data, app.image_info, app.image_prefs, ~, ~, ~, ~, ~] = DataHandling.NeuroPALImage.open(path);
         end
 
-        app.proc_image = matfile(mat_file);
-
-        % Using intmax is faster as it avoids
-        % loading the entire variable, but it also
-        % distorts the histograms.
-        % max_val = double(intmax(class(app.proc_image.data(1, 1, 1, 1))));
-        max_val = double(max(app.proc_image.data, [], 'all'));
+        app.proc_image = matfile(npal_file);
 
         app.VolumeDropDown.Value = 'Colormap';
         app.data_flags.('NeuroPAL_Volume') = 1;
-        Program.Routines.GUI.toggle_colormap();
+        Program.GUI.Toggles.colorstack;
     end
     
-    d.Value = 2 / 5;
-    d.Message = sprintf('Calculating threshold...');
-    Program.GUIHandling.set_thresholds(app, volume.datatype_max);
+    state.progress();
+    state.now('Setting threshold');
+    Program.GUI.Settings.thresholds(volume.dtype_max);
     
-    d.Value = 3 / 5;
-    d.Message = sprintf('Mapping channels...');
+    state.progress();
+    state.now('Mapping channels');
     Program.GUI.channel_editor.populate(volume);
     %Program.Routines.Processing.set_channels_from_file(channel.names, channel.idx);
     
-    d.Value = 4 / 5;
-    d.Message = sprintf('Configuring GUI...');
+    state.progress();
+    state.now('Configuring view');
     daspect(app.proc_xyAxes, [1 1 1]);
     
     if volume.nc < 4
         app.ProcHistogramGrid.RowHeight = {'1x'};
     end
     
-    Program.GUI.set_processing_bounds('volume', volume);
+    Program.GUI.Settings.bounds('volume', volume);
     app.ProcXYFactorEditField.Enable = 'on';
     app.ProcZSlicesEditField.Enable = 'on';
     app.proc_xEditField.Enable = 'off';
@@ -82,8 +78,8 @@ function load(mode, path)
     
     Program.GUI.set_gammas(volume);
     
-    d.Value = 5 / 5;
-    d.Message = sprintf('Drawing image...');
+    state.progress();
+    state.now('Rendering volume');
     Program.Routines.Processing.render();
     
     app.ImageProcessingTab.Tag = 'rendered';
