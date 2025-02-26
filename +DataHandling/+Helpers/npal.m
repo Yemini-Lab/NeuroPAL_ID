@@ -29,8 +29,11 @@ classdef npal
                     fstruct.channels = template.channels;
                 else
                     fstruct.version = 2.0;
-    
-                    fstruct.channels = template.channels;
+   
+                    fstruct.channels = {};
+                    for c=1:length(template.channels)
+                        fstruct.channels{end+1} = template.channels{c}.freeze();
+                    end
                     rgbw = template.get('rgbw');
                     dic = template.get('dic');
                     gfp = template.get('gfp');
@@ -95,7 +98,18 @@ classdef npal
                             metadata.nt = native_dims(5);
                         else
                             metadata.nt = 1;
-                        end 
+                        end
+
+                        if ismember('channels', fieldnames(obj))
+                            metadata.rgb = [];
+                            metadata.channels = obj.channels;
+                            for c=1:length(metadata.channels)
+                                metadata.channels{c}.assign_gui();
+                                if metadata.channels{c}.is_rgb
+                                    metadata.rgb = [metadata.rgb c];
+                                end
+                            end
+                        end
                     end
 
                 case 'Program.volume'
