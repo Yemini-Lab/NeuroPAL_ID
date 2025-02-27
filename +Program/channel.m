@@ -33,9 +33,9 @@ classdef channel < dynamicprops
             'sliders', {[]}, ...          % app.proc_cX_sliders
             'gamma_field', {[]});         % app.proc_cX_gamma
 
-        styling = dictionary( ...               % Dictionary describing styling guides for all plotting related to this channel.
-            'background-color', {'#fff'}, ...   % Program.Handlers.channels.config{'channel_colors'} is a cell array containing, in order, the background color for red, green, blue, white, dic, and gfp.
-            'label-color', {'#000'});           % Program.Handlers.channels.config{'label_colors'} is a cell array containing, in order, the background color for red, green, blue, white, dic, and gfp.
+        styling = struct( ...               % Dictionary describing styling guides for all plotting related to this channel.
+            'background', {'#fff'}, ...   % Program.Handlers.channels.config{'channel_colors'} is a cell array containing, in order, the background color for red, green, blue, white, dic, and gfp.
+            'font', {'#000'});           % Program.Handlers.channels.config{'label_colors'} is a cell array containing, in order, the background color for red, green, blue, white, dic, and gfp.
     end
 
     methods
@@ -64,7 +64,7 @@ classdef channel < dynamicprops
         end
 
         function obj = assign_gui(obj)
-            obj.gui = Program.GUI.channel_editor.get_components(obj.index);
+            obj.gui = Program.GUI.channel_editor.request_row(obj.index);
         end
 
         function delete_channel(obj)
