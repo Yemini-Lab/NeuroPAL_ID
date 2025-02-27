@@ -10,7 +10,7 @@ classdef render
             if nargin == 0
                 volume = Program.states.active_volume;
             end
-
+            
             switch Program.states.interface
                 case "NeuroPAL ID"
                     obj.stack(volume);
@@ -82,6 +82,7 @@ classdef render
 
     methods (Access = private)
         function array = calculate_channels(volume)
+            cursor = Program.cursor();
             array = volume.read(cursor);
 
             for c=1:volume.nc
