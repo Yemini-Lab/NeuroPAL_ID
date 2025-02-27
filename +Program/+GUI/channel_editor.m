@@ -17,28 +17,6 @@ classdef channel_editor < handle
             'delete', 'proc_c%.f_delete');
     end
 
-    methods (Static, Access = public)
-        function n = n_rows()
-            obj = Program.GUI.channel_editor;
-            n = length(obj.rows);
-        end
-
-        function out = channels(varargin)
-            obj = Program.GUI.channel_editor;
-            out = obj.handle_channels(varargin{:});
-        end
-
-        function out = fluorophores(varargin)
-            obj = Program.GUI.channel_editor;
-            out = obj.handle_fluorophores(varargin{:});
-        end
-
-        function out = colors(varargin)
-            obj = Program.GUI.channel_editor;
-            out = obj.handle_colors(varargin{:});
-        end
-    end
-
     methods (Access = public)
         function obj = channel_editor()
             persistent component_instance
@@ -64,211 +42,130 @@ classdef channel_editor < handle
 
             obj = component_instance;
         end
-
-        function move(obj, direction, idx)
-            app = Program.app;
-
-            if ~isnumeric(direction)
-                direction = -1+2*(any(ismember(direction, [Program.GUI.handles.pp.ch_down{:}])));
-            end
-        
-            if direction > 0
-                can_move = idx < obj.n_rows;
-            else
-                can_move = idx > 1;
-            end
-        
-            if can_move
-                dd_pattern = Program.GUI.handles.pp.ch_dd;
-                target_dd = app.(sprintf(dd_pattern, idx));
-                neighbor_dd = app.(sprintf(dd_pattern, idx + direction));
-        
-                old_value = target_dd.Value;
-                new_value = neighbor_dd.Value;
-        
-                target_dd.Value = new_value;
-                neighbor_dd.Value = old_value;
-            end
-        
-            Program.states.active_volume.update_channels();
-        end
-
-        function out = read(obj, varargin)
-            p = inputParser();
-            addParameter(p, 'idx', []);
-            addParameter(p, 'bool', []);
-            addParameter(p, 'fluorophore', {});
-            addParameter(p, 'color', {});
-            parse(p, obj, varargin{:});
-            query = p.Results;
-
-            if isempty(query.idx)
-                if ~isempty(query.bool)
-                    query.idx = find(obj.bools == 1);
-                elseif ~isempty(query.fluorophore)
-                    fluorophores = obj.fluorophores('get');
-                    query.idx = find(ismember(query.fluorophore, fluorophores));
-                elseif ~isempty(query.color)
-                    colors = obj.colors('get');
-                    query.idx = find(ismember(query.color, colors));
-                end
-            end
-
-            out = obj.find_channel('idx', query.idx);
-            components = fieldnames(out);
-            for n=1:length(components)
-                out.(components{n}) = out.(components{n}).Value;
-            end
-        end
-
-        function obj = populate(obj, volume, varargin)
-            if isa(obj, 'volume')
-                Program.GUI.channel_editor.populate_from_volume(volume);
-            else
-                p = inputParser();
-                addParameter(p, 'names', {});
-                addParameter(p, 'indices', []);
-                parse(p, obj, volume, varargin{:});
-                pck = p.Results;
-
-                if isempty(pck.names) && isempty(pck.indices)
-                    obj.populate_from_defaults();
-                else
-                    obj.populate_from_parameters(pck.names, pck.indices);
-                end
-            end
-
-            obj.is_initialized = 1;
-        end
-
-        function out = handle_channels(obj, cmd, varargin)
-            p = inputParser();
-            addRequired(p, 'cmd');
-            addParameter(p, 'fluorophore', '');
-            addParameter(p, 'color', '');
-            addParameter(p, 'idx', []);
-            parse(p, cmd, varargin{:});
-            pck = p.Results;
-            out = [];
-
-            if isempty(pck.idx)
-                pck.idx = obj.find_channel(varargin{:});
-            end
-
-            switch p.Results.cmd
-                case 'add'
-                    obj.add_channel(pck.idx);
-                case 'delete'
-                    obj.delete_channel(pck.idx);
-                case 'read'
-                    obj.read_channel(pck.idx);
-                case 'find'
-                    out = obj.find_channel(pck{:});
-            end
-        end
-
-        function out = handle_fluorophores(obj, cmd, varargin)
-            p = inputParser();
-            addRequired(p, 'cmd');
-            addParameter(p, 'name', '');
-            addParameter(p, 'idx', []);
-            parse(p, cmd, varargin{:});
-            pck = p.Results;
-            out = [];
-
-            switch p.Results.cmd
-                case 'add'
-                    obj.add('fluorophore', pck.name);
-                case 'delete'
-                    obj.delete_entry('fluorophore', pck.name);
-                case 'set'
-                    obj.set('fluorophore', pck.name);
-                case {'get', 'read'}
-                    out = obj.get_all_fluorophores();
-                    if ~isempty(pck.idx)
-                        out = out{pck.idx};
-                    elseif ~isempty(pck.name)
-                        out = out{ismember(out, pck.name)};
-                    end
-            end
-        end
-
-        function out = handle_colors(obj, cmd, varargin)
-            p = inputParser();
-            addRequired(p, 'cmd');
-            addParameter(p, 'name', '');
-            addParameter(p, 'idx', []);
-            parse(p, cmd, varargin{:});
-            pck = p.Results;
-            out = [];
-
-            switch p.Results.cmd
-                case 'add'
-                    obj.add('color', pck.name);
-                case 'delete'
-                    obj.delete_entry('color', pck.name);
-                case 'set'
-                    obj.set('color', pck.name);
-                case {'get', 'read'}
-                    out = obj.get_all_colors();
-                    if ~isempty(pck.idx)
-                        out = out{pck.idx};
-                    elseif ~isempty(pck.name)
-                        out = out{ismember(out, pck.name)};
-                    end
-            end
-        end
     end
 
     methods (Static, Access = public)
-        function components = get_components(idx)
-            %GET_COMPONENTS(idx)
-            % Returns struct of channel editor's child component handles
-            % given a target row index. If no index is passed, get all
-            % component handles.
-            % Args: idx --> (integer | numeric array)
-            
-            % Validate inputs
-            if ~boolean(nargin)                                             % If no input, use all possible inputs.
-                idx = 1:Program.GUI.channel_editor.n_rows;
-            elseif isnumeric(idx) && ~isscalar(idx)                         % If input is numeric non-scalar, run function for each element.
-                components = arrayfun( ...
-                    @Program.GUI.channel_editor.get_components, idx);
-                return
-            elseif ~isnumeric(idx) || mod(idx, 1) ~= 0 || idx < 0           % If invalid input, raise error.
-                error(['Invalid input arguments passed to ' ...             
-                    'get_component:\n- idx = %s --> %s'], idx, class(idx));
+        function n = n_rows()
+            obj = Program.GUI.channel_editor;
+            n = length(obj.rows);
+        end
+
+        function array = fluorophores()
+            obj = Program.GUI.channel_editor;
+            array = cellfun(@(x)(x.dd.Value), obj.rows);
+        end
+
+        function array = colors()
+            obj = Program.GUI.channel_editor;
+            array = cellfun(@(x)(x.ref.Value), obj.rows);
+        end
+
+        function array = bools()
+            obj = Program.GUI.channel_editor;
+            array = cellfun(@(x)(x.cb.Value), obj.rows);
+        end
+
+        function channel = read(index)
+            components = obj.rows{index};
+
+            channel = struct();
+            channel.is_rendered = components.cb.Value;
+            channel.fluorophore = components.dd.Value;
+            channel.color = components.ref.Value;
+        end
+
+        function move(channel, direction)
+            obj = Program.GUI.channel_editor;
+            obj.swap_rows(channel, direction);
+            app.state.active_volume.update_channels();
+        end
+
+        function populate(volume)
+            nc = volume.nc;
+            channels = volume.channels;
+
+            obj = Program.GUI.channel_editor;
+            obj.set_row_count(nc);
+            obj.set_fluorophores(cellfun(@(x)(x.fluorophore), channels));
+            obj.set_colors(cellfun(@(x)(x.color), channels, 'UniformOutput', false));
+
+            for c=1:nc
+                channel = channels{c};
+                channel_style = uistyle( ...
+                    "BackgroundColor", channel.styling.background, ...
+                    "FontColor", channel.styling.font);
+
+                components = obj.rows{c};
+                components.cb.Value = channel.is_rgb;
+
+                components.dd.Value = channel.fluorophore;
+                addStyle(components.dd, channel_style, "item", c)
+
+                switch class(components.ref)
+                    case 'matlab.ui.control.ColorPicker'
+                        components.ref.Value = channel.styling.background;
+                    case 'matlab.ui.control.DropDown'
+                        components.ref.Value = channel.color;
+                        addStyle(components.ref, channel_style, ...
+                            "item", find(ismember( ...
+                            components.ref.Items, channel.color)))
+                end
             end
+        end
 
-            % Retrieve required handles & variables.
-            app = Program.app;                                              % RunningAppInstance.
-            gui = Program.GUI.channel_editor;                               % Active gui manager.
-            component_types = keys(gui.default_handles);                    % Get array of relevant component types.
+        function channels = query(varargin)
+            p = inputParser();
+            addParameter(p, 'bool', []);
+            addParameter(p, 'fluorophore', {});
+            addParameter(p, 'color', {});
+            parse(p, varargin{:});
 
-            % Initialize & populate struct of component handles.
-            components = struct();                                          % Initialize empty struct.
-            for n=1:gui.default_handles.numEntries                          % For each component type, ...
-                type = component_types{n};                                  % ... grab the type name, 
-                pattern = gui.default_handles(type);                        % ... grab the handle pattern,
+            obj = Program.GUI.channel_editor;
 
-                handle = sprintf(pattern, idx);
-                if ~isprop(app, handle) || (isempty(app.(handle)) || ~isgraphics(app.(handle)))
-                    handle = gui.add_channel();
-                else
-                    handle = app.(handle);
+            filtered = ones(size(obj.rows));
+            n_filters = length(varargin)/2;
+            for n=1:2:n_filters
+                filter_type = varargin{n};
+                filter_value = p.Results.(filter_type);
+
+                switch filter_type
+                    case 'bool'
+                        filter_func = @(x)(x.cb.Value);
+                    case 'fluorophore'
+                        filter_func = @(x)(strcmp(x.dd.Value, filter_value));
+                    case 'color'
+                        filter_func = @(x)(x.cb.Value);
                 end
 
-                components.(type) = handle;                                 % ... using the pattern & index, retrieve application property.
+                filtered = filtered .* [cellfun(filter_func, obj_rows)];
+            end
+            
+            channels = obj.rows{filtered};
+        end
+
+        function row = request_row(idx)
+            stack = dbstack;
+            source = stack(2).name;
+            valid_source = 'channel.assign_gui';
+            if strcmp(source, valid_source)
+                gui = Program.GUI.channel_editor;
+
+                if idx > gui.n_rows
+                    gui.add_channel();
+                end
+
+                row = gui.rows{idx};
+            else
+                error("Protected property %s from class %s may " + ...
+                    "only be accessed from within %s, but was" + ...
+                    "accessed from within %s.", ...
+                    'rows', 'channel_editor', valid_source, source);
             end
         end
     end
 
-    methods (Static, Access = private)
-        function handles = add_channel(obj)
-            if nargin == 0
-                obj = Program.GUI.channel_editor;
-            end
-
+    methods(Access = private)
+        function add_channel(obj)
             if isempty(obj.rows) || ~isgraphics(obj.grid)
                 obj = Program.GUI.channel_editor;
             end
@@ -318,60 +215,15 @@ classdef channel_editor < handle
             obj.rows{end+1} = handles;
         end
 
-        function array = get_all_fluorophores()
-            current_rows = Program.GUI.channel_editor.rows;
-            n_rows = length(current_rows);
-            array = {};
-            for n=1:n_rows
-                array{end+1} = current_rows{n}.dd.Value;
-            end
-        end
-
-        function array = get_all_colors()
-            current_rows = Program.GUI.channel_editor.rows;
-            n_rows = length(current_rows);
-            array = {};
-            for n=1:n_rows
-                array{end+1} = current_rows{n}.ref.Value;
-            end
-        end
-
-        function array = bools()
-            current_rows = Program.GUI.channel_editor.rows;
-            n_rows = length(current_rows);
-            array = zeros(1, n_rows);
-            for n=1:n_rows
-                array(n) = current_rows{n}.cb.Value;
-            end
-        end
-    end
-
-    methods (Access = private)
-        function idx = find_channel(obj, varargin)
-            p = inputParser();
-            addParameter(p, 'fluorophore', '');
-            addParameter(p, 'color', '');
-            parse(p, varargin{:});
-            pck = p.Results;
-
-            for c=1:obj.n_rows
-                gui = obj.rows{c};
-                if ~isempty(pck.fluorophore)
-                    this_channel = strcmp(pck.fluorophore, gui.dd.Value);
-                elseif ~isempty(pck.color)
-                    this_channel = strcmp(pck.fluorophore, gui.ref.Value);
-                else
-                    this_channel = 0;
-                end
-
-                if this_channel
-                    idx = c;
-                    return
-                end
-            end
-        end
-
         function obj = delete_channel(obj, idx)
+            if ~isscalar(idx)
+                for n=1:length(idx)
+                    obj.delete_channel(idx(n));
+                end
+
+                return
+            end
+
             % Grab target row.
             gui = obj.rows{idx};
 
@@ -390,115 +242,92 @@ classdef channel_editor < handle
             obj.validate();
         end
 
-        function add(keyword, value)
-            switch keyword
-                case 'fluorophore'
-                    c_handle = 'dd';
-                case 'color'
-                    c_handle = 'ref';
-            end
-
-            for c=1:Program.GUI.channel_editor.n_rows
-                component = Program.GUI.channel_editor.rows{c}.(c_handle);
-                component.Items{end+1} = value;
-            end
-        end
-
-        function obj = delete_entry(obj, keyword, value)
-            switch keyword
-                case 'fluorophore'
-                    c_handle = 'dd';
-                case 'color'
-                    c_handle = 'ref';
-            end
-
+        function set_fluorophores(obj, array)
             for c=1:obj.n_rows
-                row = obj.rows{c};
-                component = row.(c_handle);
-                if isprop(component, 'Items')
-                    component.Items(~ismember(component.Items, value));
-                elseif isprop(component, 'Text') && strcmp(component.Text, value)
-                    component.Text = '';
+                obj.rows{c}.dd.Items = array;
+            end
+        end
+
+        function set_colors(obj, array)
+            for c=1:obj.n_rows
+                if isa(obj.rows{c}.ref, 'matlab.ui.control.DropDown')
+                    obj.rows{c}.ref.Items = array;
                 end
             end
         end
 
-        function set(keyword, value)
-            switch keyword
-                case 'fluorophore'
-                    c_handle = 'dd';
-                case 'color'
-                    c_handle = 'ref';
-            end
-
-            for c=1:Program.GUI.channel_editor.n_rows
-                component = Program.GUI.channel_editor.rows{c}.(c_handle);
-                component.Items = value;
+        function add_fluorophore(obj, fluorophore)
+            existing_fluorophores = obj.rows{1}.dd.Items;
+            existing_fluorophores{end+1} = fluorophore;
+            for c=1:obj.n_rows
+                obj.rows{c}.dd.Items = existing_fluorophores;
             end
         end
 
-        function populate_from_volume(obj)
-            Program.GUI.channel_editor.fluorophores('set', 'name', obj.channels.fluorophores);
-            Program.GUI.channel_editor.colors('set', 'name', obj.channels.colors);
-
-            % Add any missing channel components.
-            for c=obj.nc:Program.GUI.channel_editor.n_rows
-                Program.GUI.channel_editor.channels('add');
+        function delete_fluorophore(obj, fluorophore)
+            new_items = obj.fluorophores;
+            new_items = new_items(~ismember(new_items, fluorophore));
+            for c=1:obj.n_rows
+                obj.rows{c}.dd.Items = new_items;
             end
+        end
 
-            % Delete any excess channel components.
-            for c=Program.GUI.channel_editor.n_rows:-1:obj.nc
-                Program.GUI.channel_editor.channels('delete', 'idx', c)
-            end
-
-            for c=1:length(obj.channels)
-                channel = obj.channels{c};
-                
-                if channel.is_known
-                    graphical_index = find(channel.color, {'red', 'green', 'blue', 'white', 'dic', 'gfp'});
-                else
-                    graphical_index = Program.GUI.channel_editor.n_rows;
+        function add_color(obj, color)
+            for c=1:obj.n_rows
+                if isa(obj.rows{c}.ref, 'matlab.ui.control.DropDown')
+                    existing_colors = obj.rows{c}.ref.Items;
+                    existing_colors{end+1} = color;
+                    obj.rows{c}.ref.Items = existing_colors;
                 end
-
-                components = Program.GUI.channel_editor.rows{graphical_index};
-                components.cb.Value = channel.is_rgb;
-                components.ref.Value = channel.color;
-                components.dd.Value = channel.fluorophore;
             end
         end
 
-        function [names, indices] = get_defaults(names, indices)
-            if nargin == 0
-                has_names = 0;
-                has_indices = 0;
+        function delete_color(obj, color)
+            new_items = obj.colors;
+            new_items = new_items(~ismember(new_items, color));
+            for c=1:obj.n_rows
+                if isa(obj.rows{c}.ref, 'matlab.ui.control.DropDown')
+                    obj.rows{c}.ref.Items = new_items;
+                end
+            end
+        end
+
+        function set_row_count(obj, n)
+            if obj.n_rows == n
+                return
+            elseif obj.n_rows < n
+                missing_channels = n:obj.n_rows;
+                obj.add_channel(length(missing_channels));
             else
-                has_names = ~isempty(names);
-                has_indices = ~isempty(indices);
-            end
-
-            if ~has_names && ~has_indices
-                indices = 1:Program.active.volume.nc;
-                names = arrayfun(@(x) sprintf('Fluo #%d', x), indices, 'UniformOutput', false);
-
-            elseif ~has_names && has_indices
-                names = arrayfun(@(x) sprintf('Fluo #%d', x), 1:length(indices), 'UniformOutput', false);
-
-            elseif has_names && ~has_indices
-                indices = 1:length(names);
+                excess_channels = obj.n_rows:-1:n;
+                obj.delete_channel(excess_channels);
             end
         end
 
-        function obj = validate(obj)
-            for c=1:obj.n_rows
-                row = obj.rows{c};
-                handles = fieldnames(row);
-                invalid_handles = structfun(@(x) ...
-                    (all(~isgraphics(x)|isempty(x))), row);
-                obj.rows{c} = rmfield(row, handles(invalid_handles));
+        function swap_rows(obj, idx, direction)
+            app = Program.app;
+
+            if ~isnumeric(direction)
+                direction = -1+2*(any(ismember(direction, [Program.GUI.handles.pp.ch_down{:}])));
             end
-
-            obj.rows(cellfun(@isempty, obj.rows)) = [];
+        
+            if direction > 0
+                can_move = idx < obj.n_rows;
+            else
+                can_move = idx > 1;
+            end
+        
+            if can_move
+                dd_pattern = Program.GUI.handles.pp.ch_dd;
+                target_dd = app.(sprintf(dd_pattern, idx));
+                neighbor_dd = app.(sprintf(dd_pattern, idx + direction));
+        
+                old_value = target_dd.Value;
+                new_value = neighbor_dd.Value;
+        
+                target_dd.Value = new_value;
+                neighbor_dd.Value = old_value;
+            end
         end
-
     end
 end
