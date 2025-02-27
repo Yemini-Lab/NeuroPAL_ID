@@ -47,7 +47,7 @@ classdef channel < dynamicprops
         function identify(obj)
             fluorophore_map = Program.Handlers.channels.fluorophore_map;
             known_fluorophores = keys(fluorophore_map);
-            obj.color = '???';
+            obj.color = 'Unknown';
             obj.is_rgb = 0;
 
             for c=1:length(known_fluorophores)
