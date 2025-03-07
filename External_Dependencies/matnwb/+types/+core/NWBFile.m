@@ -836,9 +836,6 @@ methods
     end
     %% EXPORT
     function refs = export(obj, fid, fullpath, refs)
-        disp('export function types.core.NWBFile starting')
-        disp(fullpath)
-        disp(fid)
         refs = export@types.core.NWBContainer(obj, fid, fullpath, refs);
         if any(strcmp(refs, fullpath))
             return;
@@ -962,10 +959,6 @@ methods
         end
         io.writeGroup(fid, [fullpath '/general']);
         if ~isempty(obj.general_optophysiology)
-            disp('types.core.NWBFile')
-            fullpath
-            fid
-          
             refs = obj.general_optophysiology.export(fid, [fullpath '/general/optophysiology'], refs);
         end
         io.writeGroup(fid, [fullpath '/general']);

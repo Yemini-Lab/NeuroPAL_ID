@@ -21,7 +21,7 @@ function saveButtonFunction(app)
         path = fullfile(GUI_prefs.image_dir, [og_name, '.nwb']);
     end 
 
-    disp(['Selected path: ', path]);
+   
 
 
     % Call the writeNWB function

@@ -26,10 +26,15 @@ classdef writeNWB
             progress.Message = 'Loading volume data...';
             ctx.colormap.data = Program.GUIHandling.global_grab('NeuroPAL ID', 'image_data');
             ctx.video.info = Program.GUIHandling.global_grab('NeuroPAL ID', 'video_info');
-            % disp(ctx.video.info);
-            % disp(class(ctx.video.info));
+            disp("ctx.video.info =")
+            disp(ctx.video.info);
+            disp(class(ctx.video.info));
             ctx.neurons.colormap = Program.GUIHandling.global_grab('NeuroPAL ID', 'image_neurons');
-            % ctx.neurons.video = Methods.ChunkyMethods.stream_neurons('annotations');
+            if ~isempty(ctx.video.info)
+                 ctx.neurons.video = Methods.ChunkyMethods.stream_neurons('annotations');
+            end
+
+            %ctx.neurons.video = Methods.ChunkyMethods.stream_neurons('annotations');
             ctx.neurons.activity_data = Program.GUIHandling.global_grab('NeuroPAL ID', 'activity_table');
 
             % Build nwb file.
@@ -197,6 +202,9 @@ classdef writeNWB
 
             else
                 % If it does, save file after appending a "-new" suffix.
+                disp('line 200')
+                disp(path)
+                nwbfile = DataHandling.writeNWB.create_file(ctx);
                 existing_nwb = nwbRead(path);
                 existing_nwb.acquisition = types.untyped.Set(existing_nwb.acquisition, nwbfile.acquisition);
                 existing_nwb.processing = types.untyped.Set(existing_nwb.processing, nwbfile.processing);

@@ -83,9 +83,9 @@ classdef NwbFile < types.core.NWBFile
             catch ME
                 obj.file_create_date(end) = [];
                 H5F.close(output_file_id);
-                % if ~isEditingFile
-                %     delete(filename);
-                % end
+                if ~isEditingFile
+                   delete(filename);
+                end
                 rethrow(ME);
             end
         end

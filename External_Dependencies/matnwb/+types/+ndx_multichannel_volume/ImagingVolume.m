@@ -49,10 +49,6 @@ methods
     end
     %% EXPORT
     function refs = export(obj, fid, fullpath, refs)
-        disp('types')
-        disp(fullpath)
-        disp(fid)
-        disp(refs)
         refs = export@types.core.ImagingPlane(obj, fid, fullpath, refs);
         if any(strcmp(refs, fullpath))
             return;
