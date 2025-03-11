@@ -3,8 +3,8 @@ function pass_to_main()
 
     switch app.VolumeDropDown.Value
         case 'Colormap'
-            DataHandling.Helpers.npal.create_neurons('matfile', app.proc_image);
             Program.Routines.open(app.proc_image.Properties.Source);
+            app.id_file = DataHandling.Helpers.npal.create_neurons('matfile', app.proc_image);
             app.TabGroup.SelectedTab = app.NeuroPALIDTab;
 
         case 'Video'
