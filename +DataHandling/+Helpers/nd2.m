@@ -366,39 +366,90 @@ classdef nd2
         function write_data(np_file, nd2_reader)
             Program.Handlers.dialogue.add_task('Writing data...');
             np_write = matfile(np_file, "Writable", true);
-
+        
             nx = nd2_reader.getSizeX;
             ny = nd2_reader.getSizeY;
             nz = nd2_reader.getSizeZ;
             nc = nd2_reader.getSizeC;
             nt = nd2_reader.getSizeT;
-
-            np_write.data = zeros( ...
-                ny, nx, ...
-                nz, nc, nt, ...
-                Program.config.defaults{'class'});
-
+        
+            % Maximum memory to use for a single chunk:
+            max_arr = memory().MaxPossibleArrayBytes * 0.95;
+        
+            % Determine the data class from config:
+            dclass = Program.config.defaults{'class'};
+            
+            % Pre-allocate the entire output in the MAT-file:
+            np_write.data = zeros(ny, nx, nz, nc, nt, dclass);
+        
+            switch dclass
+                case 'single'
+                    bytes_per_el = 4;
+                case 'double'
+                    bytes_per_el = 8;
+                otherwise
+                    bytes_per_el = str2double(dclass(5:end))/8;
+            end
+        
             if nt > 1
-                for t=1:nt
-                    Program.Handlers.dialogue.set_value(t/nt);
-                    this_frame = DataHandling.Helpers.nd2.get_plane( ...
+                % --- For movies (nt > 1), chunk along the time dimension. ---
+        
+                % Number of bytes in one full frame: (ny x nx x nz x nc)
+                bytes_per_frame = ny * nx * nz * nc * bytes_per_el;
+                % Calculate how many frames to process at once:
+                chunk_size_t = max(1, floor(max_arr / bytes_per_frame));
+        
+                t_start = 1;
+                while t_start <= nt
+                    t_end = min(t_start + chunk_size_t - 1, nt);
+        
+                    % Read multiple frames in one go:
+                    this_chunk = DataHandling.Helpers.nd2.get_plane( ...
                         nd2_reader, ...
                         'x', 1:nx, 'y', 1:ny, 'z', 1:nz, ...
-                        'c', 1:nc, 't', t);
-                    np_write.data(:, :, :, :, t) = DataHandling.Types.to_standard(this_frame);
+                        'c', 1:nc, 't', t_start:t_end);
+        
+                    % Convert class and assign to MAT-file:
+                    np_write.data(:,:,:,:, t_start:t_end) = ...
+                        DataHandling.Types.to_standard(this_chunk);
+        
+                    % Update progress and move chunk window:
+                    Program.Handlers.dialogue.set_value(t_end/nt);
+                    t_start = t_end + 1;
                 end
-                
+        
             else
-                for z=1:nz
-                    Program.Handlers.dialogue.set_value(z/nz);
-                    this_slice = DataHandling.Helpers.nd2.get_plane( ...
-                        nd2_reader, 'x', 1:nx, 'y', 1:ny, 'z', z, 'c', 1:nc);
-                    np_write.data(:, :, z, :) = DataHandling.Types.to_standard(this_slice);
+                % --- Single time point: chunk along the z dimension. ---
+        
+                % Number of bytes in one z-slab: (ny x nx x nc)
+                bytes_per_z_slab = ny * nx * nc * bytes_per_el;
+                % Calculate how many z-planes we can process at once:
+                chunk_size_z = max(1, floor(max_arr / bytes_per_z_slab));
+        
+                z_start = 1;
+                while z_start <= nz
+                    z_end = min(z_start + chunk_size_z - 1, nz);
+        
+                    % Read a chunk of z-slices:
+                    this_chunk = DataHandling.Helpers.nd2.get_plane( ...
+                        nd2_reader, ...
+                        'x', 1:nx, 'y', 1:ny, 'z', z_start:z_end, ...
+                        'c', 1:nc);
+        
+                    % Convert class and assign to MAT-file:
+                    np_write.data(:,:, z_start:z_end, :) = ...
+                        DataHandling.Types.to_standard(this_chunk);
+        
+                    % Update progress and move chunk window:
+                    Program.Handlers.dialogue.set_value(z_end/nz);
+                    z_start = z_end + 1;
                 end
             end
-
+        
             Program.Handlers.dialogue.resolve();
         end
+
+
 
         function scale = parse_scale(reader, pfx)
             key_map = DataHandling.Helpers.nd2.key_map;
