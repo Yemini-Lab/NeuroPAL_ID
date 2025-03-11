@@ -5,7 +5,7 @@ classdef npal
     properties
     end
     
-    methods
+    methods (Static)
         function id_path = create_neurons(varargin)
             p = inputParser();
             addParameter(p, 'file', []);
@@ -48,7 +48,7 @@ classdef npal
             end
 
             neurons = Neurons.Image([], worm.body, 'scale', scale);
-            version = ProgramInfo.version;
+            version = Program.ProgramInfo.version;
 
             mp_params = [];
             mp_params.hnsz = round(round(3./info.scale')/2)*2+1;
