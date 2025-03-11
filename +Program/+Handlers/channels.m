@@ -280,6 +280,9 @@ classdef channels
             end
 
             for c=1:nc
+                cb_handle = sprintf(Program.Handlers.channels.handles{'pp_cb'}, c);
+                app.(cb_handle).Value = c <= 3;
+
                 dd_handle = sprintf(Program.Handlers.channels.handles{'pp_dd'}, c);
 
                 if ~isempty(names)
