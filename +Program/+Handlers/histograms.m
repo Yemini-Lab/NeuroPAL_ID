@@ -31,6 +31,10 @@ classdef histograms
             raw = Program.GUIHandling.get_active_volume(app, 'request', 'array');
 
             Program.Handlers.histograms.reset();
+            rheight = app.ProcHistogramGrid.RowHeight;
+            rheight{2} = 0;
+            app.ProcHistogramGrid.RowHeight = rheight;
+
             for c=1:length(app.proc_channel_grid.RowHeight)
                 checkbox = Program.Routines.GUI.get_component('pp_cb', c);
                 if checkbox.Value
@@ -61,6 +65,10 @@ classdef histograms
 
                     n_max = Program.Handlers.channels.config{'max_channels'};
                     if c >= 4
+                        rheight = app.ProcHistogramGrid.RowHeight;
+                        rheight{2} = '1x';
+                        app.ProcHistogramGrid.RowHeight = rheight;
+
                         h_panel.Parent = app.ProcHistogramGrid;
                         h_panel.Layout.Row = 2;
 
