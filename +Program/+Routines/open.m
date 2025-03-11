@@ -10,7 +10,10 @@ function open(path)
     % Unselect any neurons.
     Program.Handlers.neurons.unselect_neuron();
     if ~isempty(app.id_file) && exist(app.id_file, 'file')
-        app.SaveIDToFile();
+        source = dbstack();
+        if ~contains(source(2).name, 'pass_to_main')
+            app.SaveIDToFile();
+        end
     end
 
     GUI_prefs = Program.GUIPreferences.instance();
