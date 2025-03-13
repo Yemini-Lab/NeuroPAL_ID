@@ -375,7 +375,7 @@ classdef nd2
         end
 
         function write_data(np_file, nd2_reader)
-            Program.Handlers.dialogue.add_task('Writing data...');
+            Program.Handlers.dialogue.add_task('Performing pre-write memory analysis...');
             np_write = matfile(np_file, "Writable", true);
         
             nx = nd2_reader.getSizeX;
@@ -403,23 +403,30 @@ classdef nd2
             end
 
             ttl_bytes = ny * nx * nz * nc * nt * bytes_per_el;
+            Program.Handlers.dialogue.resolve();
+            dlg = Program.Handlers.dialogue.add_task('Writing data...');
+            ptask = dlg.Message;
+
             if ttl_bytes <= max_arr
                 d_cell = bfopen(char(nd2_reader.getCurrentFile));
                 d_cell = d_cell{1};
                 n_planes = length(d_cell);
                 data = zeros(ny, nx, nz, nc, nt, dclass);
+
                 for pidx = 1:n_planes
                     [~, z, c, t] = DataHandling.Helpers.nd2.parse_plane_idx(d_cell{pidx, 2});
+                    dlg.Message = sprintf( ...
+                        '%s\nPlane %.f/%.f (z = %.f, c = %.f, t = %.f)...', ...
+                        ptask, pidx, n_planes, z, c, t);
+                    dlg.Value = pidx/n_planes;
                     
-                    %Program.Handlers.dialogue.add_task(sprintf( ...
-                    %    'Plane %.f/%.f (z = %.f, c = %.f, t = %.f)...', ...
-                    %    pidx, n_planes, z, c, t));
-                    
-                    Program.Handlers.dialogue.set_value(pidx/n_planes);
-                    data(:, :, z, c, t) = d_cell{pidx, 1};
-                    
-                    %Program.Handlers.dialogue.resolve();
+                    if ~isempty(t)
+                        data(:, :, z, c, t) = d_cell{pidx, 1};
+                    else
+                        data(:, :, z, c) = d_cell{pidx, 1};
+                    end
                 end
+
                 np_write.data = data;
             else
                 if nt > 1
