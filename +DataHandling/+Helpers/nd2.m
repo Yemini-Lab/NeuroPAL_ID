@@ -403,46 +403,58 @@ classdef nd2
             end
 
             ttl_bytes = ny * nx * nz * nc * nt * bytes_per_el;
-            Program.Handlers.dialogue.resolve();
-            dlg = Program.Handlers.dialogue.add_task('Writing data...');
-            ptask = dlg.Message;
 
             if ttl_bytes <= max_arr
                 d_cell = bfopen(char(nd2_reader.getCurrentFile));
+
+                Program.Handlers.dialogue.resolve();
+                dlg = Program.Handlers.dialogue.add_task('Writing data...');
+                ptask = dlg.Message;
+
                 d_cell = d_cell{1};
                 n_planes = length(d_cell);
                 data = zeros(ny, nx, nz, nc, nt, dclass);
 
                 for pidx = 1:n_planes
-                    [~, z, c, t] = DataHandling.Helpers.nd2.parse_plane_idx(d_cell{pidx, 2});
-                    dlg.Message = sprintf( ...
-                        '%s\nPlane %.f/%.f (z = %.f, c = %.f, t = %.f)...', ...
-                        ptask, pidx, n_planes, z, c, t);
                     dlg.Value = pidx/n_planes;
+                    [~, z, c, t] = DataHandling.Helpers.nd2.parse_plane_idx(d_cell{pidx, 2});
                     
-                    if ~isempty(t)
+                    if nt > 1 
+                        dlg.Message = sprintf( ...
+                            '%s\n└─{ %sPlane %.f/%.f (z = %.f, c = %.f)... }', ...
+                            ptask, pidx, n_planes, z, c);
                         data(:, :, z, c, t) = d_cell{pidx, 1};
+
                     else
+                        dlg.Message = sprintf( ...
+                            '%s\n└─{ %sPlane %.f/%.f (z = %.f, c = %.f, t = %.f)... }', ...
+                            ptask, pidx, n_planes, z, c, t);
                         data(:, :, z, c) = d_cell{pidx, 1};
                     end
                 end
 
                 np_write.data = data;
             else
+                Program.Handlers.dialogue.resolve();
+                dlg = Program.Handlers.dialogue.add_task('Writing data...');
+                ptask = dlg.Message;
+                
                 if nt > 1
                     % --- For movies (nt > 1), chunk along the time dimension. ---
             
                     % Number of bytes in one full frame: (ny x nx x nz x nc)
                     bytes_per_frame = ttl_bytes / nt;
+
                     % Calculate how many frames to process at once:
                     chunk_size_t = max(1, floor(max_arr / bytes_per_frame));
             
                     t_start = 1;
                     while t_start <= nt
                         t_end = min(t_start + chunk_size_t - 1, nt);
-                        Program.Handlers.dialogue.add_task(sprintf( ...
-                            'Frames %.f-%.f (out of %.f)...', ...
-                            t_start, t_end, nt));
+                        dlg.Value = t_end/nt;
+                        dlg.Message = sprintf( ...
+                            '%s\n└─{ %sFrames %.f-%.f (out of %.f)... }', ...
+                            ptask, t_start, t_end, nt);
             
                         % Read multiple frames in one go:
                         this_chunk = DataHandling.Helpers.nd2.get_plane( ...
@@ -454,10 +466,8 @@ classdef nd2
                         np_write.data(:,:,:,:, t_start:t_end) = ...
                             DataHandling.Types.to_standard(this_chunk);
             
-                        % Update progress and move chunk window:
-                        Program.Handlers.dialogue.set_value(t_end/nt);
+                        % Move chunk window
                         t_start = t_end + 1;
-                        Program.Handlers.dialogue.resolve();
                     end
             
                 else
@@ -471,9 +481,11 @@ classdef nd2
                     z_start = 1;
                     while z_start <= nz
                         z_end = min(z_start + chunk_size_z - 1, nz);
-                        Program.Handlers.dialogue.add_task(sprintf( ...
-                            'Slices %.f-%.f (out of %.f)...', ...
-                            z_start, z_end, nz));
+
+                        dlg.Value = z_end/nt;
+                        dlg.Message = sprintf( ...
+                            '%s\n└─{ %sSlices %.f-%.f (out of %.f)... }', ...
+                            ptask, z_start, z_end, nz);
             
                         % Read a chunk of z-slices:
                         this_chunk = DataHandling.Helpers.nd2.get_plane( ...
@@ -485,10 +497,8 @@ classdef nd2
                         np_write.data(:,:, z_start:z_end, :) = ...
                             DataHandling.Types.to_standard(this_chunk);
             
-                        % Update progress and move chunk window:
-                        Program.Handlers.dialogue.set_value(z_end/nz);
+                        % Move chunk window
                         z_start = z_end + 1;
-                        Program.Handlers.dialogue.resolve();
                     end
                 end
             end
