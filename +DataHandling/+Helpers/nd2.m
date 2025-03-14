@@ -133,6 +133,7 @@ classdef nd2
             % nd2_file = the ND2 file to convert
             % np_file = the NeuroPAL format file
 
+            Program.Handlers.dialogue.add_task('Reading Nikon metadata...');
             f = bfGetReader(file);                                              % Get reader object.
 
             nx = f.getSizeX;                                                    % Get width.
@@ -198,9 +199,15 @@ classdef nd2
             % Save the ND2 file to our MAT file format.
             np_file = strrep(file, 'nd2', 'mat');
             version = Program.information.version;
-            save(np_file, 'version', 'data', 'info', 'prefs', 'worm', '-v7.3');
+            Program.Handlers.dialogue.resolve();
 
+            Program.Handlers.dialogue.add_task('Writing metadata...');
+            save(np_file, 'version', 'data', 'info', 'prefs', 'worm', '-v7.3');
+            Program.Handlers.dialogue.resolve();
+
+            Program.Handlers.dialogue.add_task('Running Nikon write routine...');
             DataHandling.Helpers.nd2.write_data(np_file, f);
+            Program.Handlers.dialogue.resolve();
         end
 
         function dimension_struct = get_dimensions(file)
@@ -375,7 +382,7 @@ classdef nd2
         end
 
         function write_data(np_file, nd2_reader)
-            Program.Handlers.dialogue.add_task('Performing pre-write memory analysis...');
+            Program.Handlers.dialogue.step('Performing pre-write memory analysis...');
             np_write = matfile(np_file, "Writable", true);
         
             nx = nd2_reader.getSizeX;
@@ -405,40 +412,36 @@ classdef nd2
             ttl_bytes = ny * nx * nz * nc * nt * bytes_per_el;
 
             if ttl_bytes <= max_arr
+                Program.Handlers.dialogue.step('Reading entire Nikon volume...');
                 d_cell = bfopen(char(nd2_reader.getCurrentFile));
-
-                Program.Handlers.dialogue.resolve();
-                dlg = Program.Handlers.dialogue.add_task('Writing data...');
-                ptask = dlg.Message;
 
                 d_cell = d_cell{1};
                 n_planes = length(d_cell);
                 data = zeros(ny, nx, nz, nc, nt, dclass);
 
                 for pidx = 1:n_planes
-                    dlg.Value = pidx/n_planes;
+                    Program.Handlers.dialogue.set_value(pidx/n_planes);
                     [~, z, c, t] = DataHandling.Helpers.nd2.parse_plane_idx(d_cell{pidx, 2});
                     
                     if nt > 1 
-                        dlg.Message = sprintf( ...
-                            '%s\n└─{ %sPlane %.f/%.f (z = %.f, c = %.f)... }', ...
-                            ptask, pidx, n_planes, z, c);
+                        Program.Handlers.dialogue.step(sprintf( ...
+                            'Caching plane %.f/%.f (z = %.f, c = %.f, t = %.f)', ...
+                            pidx, n_planes, z, c, t));
                         data(:, :, z, c, t) = d_cell{pidx, 1};
 
                     else
-                        dlg.Message = sprintf( ...
-                            '%s\n└─{ %sPlane %.f/%.f (z = %.f, c = %.f, t = %.f)... }', ...
-                            ptask, pidx, n_planes, z, c, t);
+                        Program.Handlers.dialogue.step(sprintf( ...
+                            'Caching plane %.f/%.f (z = %.f, c = %.f)', ...
+                            pidx, n_planes, z, c));
                         data(:, :, z, c) = d_cell{pidx, 1};
                     end
                 end
 
+                Program.Handlers.dialogue.step(sprintf( ...
+                    'Writing %.f planes to file...', n_planes));
                 np_write.data = data;
-            else
-                Program.Handlers.dialogue.resolve();
-                dlg = Program.Handlers.dialogue.add_task('Writing data...');
-                ptask = dlg.Message;
                 
+            else                
                 if nt > 1
                     % --- For movies (nt > 1), chunk along the time dimension. ---
             
@@ -451,10 +454,10 @@ classdef nd2
                     t_start = 1;
                     while t_start <= nt
                         t_end = min(t_start + chunk_size_t - 1, nt);
-                        dlg.Value = t_end/nt;
-                        dlg.Message = sprintf( ...
-                            '%s\n└─{ %sFrames %.f-%.f (out of %.f)... }', ...
-                            ptask, t_start, t_end, nt);
+                        Program.Handlers.dialogue.set_value(t_end/nt);
+                        Program.Handlers.dialogue.step(sprintf( ...
+                            'Frames %.f-%.f (out of %.f)', ...
+                            t_start, t_end, nt));
             
                         % Read multiple frames in one go:
                         this_chunk = DataHandling.Helpers.nd2.get_plane( ...
@@ -482,10 +485,10 @@ classdef nd2
                     while z_start <= nz
                         z_end = min(z_start + chunk_size_z - 1, nz);
 
-                        dlg.Value = z_end/nt;
-                        dlg.Message = sprintf( ...
-                            '%s\n└─{ %sSlices %.f-%.f (out of %.f)... }', ...
-                            ptask, z_start, z_end, nz);
+                        Program.Handlers.dialogue.set_value(z_end/nt);
+                        Program.Handlers.dialogue.step(sprintf( ...
+                            'Slices %.f-%.f (out of %.f)', ...
+                            z_start, z_end, nz));
             
                         % Read a chunk of z-slices:
                         this_chunk = DataHandling.Helpers.nd2.get_plane( ...
@@ -502,8 +505,6 @@ classdef nd2
                     end
                 end
             end
-        
-            Program.Handlers.dialogue.resolve();
         end
 
 
@@ -547,7 +548,6 @@ classdef nd2
             %
             % Returns:
             %   obj - Metadata values corresponding to the queried keys.
-            Program.Handlers.dialogue.add_task('Retrieving keys from hashtable...');
 
             if iscell(query)
                 query = query{1};
@@ -581,8 +581,6 @@ classdef nd2
 
             % Filter out any "NA" values
             obj = values(values ~= "NA");
-
-            Program.Handlers.dialogue.resolve();
         end
 
         function [globals, series] = parse_keys(reader)
@@ -598,8 +596,6 @@ classdef nd2
             persistent g_table % Persistent global metadata table
             persistent s_table % Persistent series metadata table
 
-            Program.Handlers.dialogue.add_task('Parsing hash keys...');
-
             % Parse global metadata only if not already done
             if isempty(g_table)
                 g_table = DataHandling.Helpers.java.parse_hashtable(reader.getGlobalMetadata);
@@ -612,8 +608,6 @@ classdef nd2
 
             globals = g_table;
             series = s_table;
-
-            Program.Handlers.dialogue.resolve();
         end
     end
 end
