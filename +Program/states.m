@@ -3,6 +3,8 @@ classdef states < dynamicprops
     properties
         active_tasks = {};
         active_dlg = [];
+        
+        projection = 'z';
         interface = [];
 
         loaded_volumes = {};
@@ -17,6 +19,7 @@ classdef states < dynamicprops
         is_loading_file = 0;
 
         debug_mode = 0;
+        child_symbols = {'└🢒', '├🢒', '└─{'};
     end
     
     methods (Access = public)        
@@ -28,17 +31,20 @@ classdef states < dynamicprops
             elseif isempty(state_obj)
                 obj.initialize();
                 state_obj = obj;
+            elseif isempty(state_obj.interface)
+                state_obj.interface = Program.GUI.Parse.interface();
             end
 
             obj = state_obj;
         end
-    end
+    end 
 
     methods (Access = private)
         function obj = initialize(obj)
             app = Program.app;
             if ~isempty(app) && isgraphics(app)
-                obj.interface = app.TabGroup.SelectedTab;
+                obj.mip = 0;
+                obj.interface = Program.GUI.Parse.interface();
             end
         end
 
@@ -90,6 +96,14 @@ classdef states < dynamicprops
     end
 
     methods (Static, Access = public)
+        function toggle(keyword)
+            obj = Program.states;
+            value = obj.(keyword);
+            if islogical(value)
+                obj.(keyword) = ~value;
+            end
+        end
+
         function set(keyword, value)
             obj = Program.states;
             obj.set_prop(keyword, value);
@@ -113,46 +127,55 @@ classdef states < dynamicprops
             obj = Program.states;
             if obj.debug_mode
                 disp(msg);
+                Program.Handlers.loading.start(msg);
             end
 
             obj.set('current_task', msg);
         end
 
+        function done()
+            obj = Program.states;
+            delete(obj.active_dlg);
+            obj.active_dlg = [];
+        end
+
         function progress(varargin)
             obj = Program.states;
-            switch nargin
-                case 0
-                    obj.active_tasks{end}.now = obj.active_tasks{end}.now + ...
-                        obj.active_tasks{end}.steps;
-                    
+            
+            if nargin == 0
+                obj.active_tasks{end}.now = obj.active_tasks{end}.now + ...
+                    obj.active_tasks{end}.steps;
 
-                case 1
-                    if varargin{1} == obj.active_tasks{end}.max
-                        obj.active_tasks{end} = [];
-                    else
-                        obj.active_tasks{end}.now = varargin{1};
-                    end
+            elseif nargin == 1
+                if varargin{1} == obj.active_tasks{end}.max
+                    obj.active_tasks{end} = [];
+                else
+                    obj.active_tasks{end}.now = varargin{1};
+                end
 
-                case 2
-                    if strcmp(varargin{1}, 'start')
-                        if isempty(obj.active_tasks)
-                            label = sprintf('%s...', obj.current_task);
-                            max = varargin{2};
-                            steps = 1;
-                        else
-                            previous_task = obj.active_tasks{end};
-                            label = sprintf('%s...', obj.current_task);
-                            max = previous_task.now + previous_task.steps;
-                            steps = previous_task.steps/varargin{2};
-                            now = previous_task.now;
-                        end
+            else                
+                if isempty(obj.active_tasks)
+                    label = sprintf('%s...', obj.current_task);
+                    cap = varargin{2};
+                    steps = 1;
+                    now = 0;
+                else
+                    previous_task = obj.active_tasks{end};
+                    label = sprintf('%s\n%s %s...', ...
+                        previous_task.label, ...
+                        obj.child_symbols{ ...
+                        min(3, length(obj.active_tasks))}, ...
+                        obj.current_task);
+                    cap = previous_task.now + previous_task.steps;
+                    steps = previous_task.steps/varargin{2};
+                    now = previous_task.now;
+                end
 
-                        obj.active_tasks{end+1} = struct( ...
-                            'label', {sprintf('%s...', obj.current_task)}, ...
-                            'max', {max}, ...
-                            'steps', {steps}, ...
-                            'now', {0});
-                    end
+                obj.active_tasks{end+1} = struct( ...
+                    'label', {label}, ...
+                    'max', {cap}, ...
+                    'steps', {steps}, ...
+                    'now', {now});
             end
 
             obj.draw_progress();
