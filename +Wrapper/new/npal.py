@@ -25,6 +25,7 @@ from typing import Any, Optional
 
 import matlab.engine
 
+import source.routines.nd2_wrapper as nikon
 import source.routines.zephir_wrapper as zephir
 from source.data_loader import load_config
 from source.helpers.formats import *
@@ -151,6 +152,15 @@ def execute(func: str, **kwargs):
 
     set_state(state="Running execution manager")
     match func:
+        case "nikon_import":
+            result_label, result = nikon.read(**kwargs)
+
+        case "nikon_convert":
+            result_label, result = nikon.convert(**kwargs)
+
+        case "nikon_framedata":
+            result_label, result = nikon.framedata(**kwargs)
+
         case "zephir_convert":
             result_label, result = zephir.convert(**kwargs)
 
