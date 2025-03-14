@@ -6,9 +6,8 @@
 
 ![GenImg](https://i.imgur.com/wpz7LKf.png)
 
-![GitHub contributors](https://img.shields.io/github/contributors-anon/Yemini-Lab/NeuroPAL_ID)
- ![GitHub commit activity](https://img.shields.io/github/commit-activity/m/Yemini-Lab/NeuroPAL_ID) ![GitHub Issues or Pull Requests](https://img.shields.io/github/issues/Yemini-Lab/NeuroPAL_ID)                   
- ![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/Yemini-Lab/NeuroPAL_ID/total) [![CC BY-NC-SA 4.0][cc-by-nc-sa-shield]][cc-by-nc-sa] 
+[![Citation Badge](https://api.juleskreuer.eu/citation-badge.php?doi=10.1016/j.cell.2020.12.012)](https://juleskreuer.eu//projects/citation-badge)  ![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/Yemini-Lab/NeuroPAL_ID/total) 
+ ![GitHub contributors](https://img.shields.io/github/contributors-anon/Yemini-Lab/NeuroPAL_ID) ![GitHub Issues or Pull Requests](https://img.shields.io/github/issues/Yemini-Lab/NeuroPAL_ID) [![CC BY-NC-SA 4.0][cc-by-nc-sa-shield]][cc-by-nc-sa] 
 
 ### Authors
 
