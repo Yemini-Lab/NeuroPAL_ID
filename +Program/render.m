@@ -7,11 +7,13 @@ classdef render
 
     methods (Static, Access = public)
         function obj = render(volume)
+            state = Program.states;
+
             if nargin == 0
-                volume = Program.states.active_volume;
+                volume = state.active_volume;
             end
             
-            switch Program.states.interface
+            switch state.interface
                 case "NeuroPAL ID"
                     obj.stack(volume);
                 case "Video Tracking"
@@ -26,9 +28,10 @@ classdef render
                 volume = Program.states.active_volume;
             end
 
-            render = Program.render.calculate_channels(volume);
+            [render, ~] = volume.render();
             [render, maximum_intensity_projection] = Program.render.draw_mip(render);
 
+            app = Program.app;
             image(app.MaxProjection, squeeze(maximum_intensity_projection));
             Program.Routines.ID.get_slice(app.ZSlider, render, app.XY);
         end
@@ -38,7 +41,7 @@ classdef render
                 volume = Program.states.active_volume;
             end
 
-            render = Program.render.calculate_channels(volume);
+            [render, ~] = volume.render();
             [render, maximum_intensity_projection] = Program.render.draw_mip(render);
         end
 
@@ -47,9 +50,10 @@ classdef render
                 volume = Program.states.active_volume;
             end
 
-            render = Program.render.calculate_channels(volume);
+            [render, raw_array] = volume.render();
             [render, maximum_intensity_projection] = Program.render.draw_mip(render);
 
+            app = Program.app;
             actions = fieldnames(app.flags);
             for a=1:length(actions)
                 action = actions{a};
@@ -59,11 +63,13 @@ classdef render
                 end
             end
 
-            Program.GUIHandling.set_gui_limits(app, dims=volume.dims);
-            Program.Handlers.histograms.draw();
+            Program.GUI.Settings.bounds('volume', volume)
+            %Program.GUIHandling.set_gui_limits(app, dims=volume.dims);
+            %Program.GUI.Toggles.histograms(render);
+            Program.Handlers.histograms.draw(struct('array', {raw_array}));
             Program.GUIHandling.shorten_knob_labels(app);
         
-            if Program.states.mip
+            if Program.states().mip
                 image(squeeze(maximum_intensity_projection), ...
                     'Parent', app.proc_xyAxes);
             else
@@ -78,38 +84,15 @@ classdef render
                     'Parent', app.proc_yzAxes);
             end
         end
-    end
-
-    methods (Access = private)
-        function array = calculate_channels(volume)
-            cursor = Program.cursor();
-            array = volume.read(cursor);
-
-            for c=1:volume.nc
-                channel = volume.channels{c};
-                if ~channel.is_rendered
-                    array(:, :, :, channel.index) = 0;
-                else
-                    array(:, :, :, channel.index) = imadjustn(array(:, :, :, channel.index), channel.lh_in, channel.lh_out, channel.gamma);
-                    if ~channel.is_rgb
-                        channel_array = array(:, :, :, channel.index);
-                        pseudocolor_array = Program.render.generate_pseudocolor(channel_array, channel);
-                        array(:, :, :, volume.rgb) = array(:, :, :, volume.rgb) + pseudocolor_array;
-                    end
-                end
-            end
-
-            array = array(:, :, :, volume.rgb);
-        end
-
+    
         function pseudocolor_array = generate_pseudocolor(array, channel)
             pseudocolor_array = repmat(squeeze(array), [1, 1, 1, 3]);
-
+    
             switch channel.color
                 case 'gfp'
                     gfp_color = Program.GUIPreferences.instance().GFP_color;
                     pseudocolor_array(:, :, :, ~gfp_color) = 0;
-
+    
                 otherwise
                     for c = 1:3
                         rgb_modifier = 1 - channel.color(c);
@@ -117,7 +100,7 @@ classdef render
                     end
             end
         end
-
+    
         function [render, maximum_intensity_projection] = draw_mip(render)
             maximum_intensity_projection = double(max(render, [], 'all'));
             render = uint16(double(intmax('uint16')) * double(render)/maximum_intensity_projection);
