@@ -116,13 +116,8 @@ classdef ChunkyMethods
             end            
         end
 
-        function processed_vol = apply_vol(app, action, vol, progress)
+        function processed_vol = apply_vol(app, action, vol)
             % Apply operation to a volume.
-
-            if exist('progress', 'var')
-                dialog_message = progress.Message;
-                dialog_progress = progress.Value;
-            end
 
             switch action
                 case 'debleed'
@@ -137,9 +132,7 @@ classdef ChunkyMethods
     
                     % Iterate over slices.
                     for z=1:nz
-                        if exist('progress', 'var')
-                            progress.Message = sprintf("%s, slice %.f/%.f)", dialog_message, z, nz);
-                        end
+                        Program.Handlers.dialogue.step(sprintf("Slice %.f/%.f", z, nz));
     
                         % Grab slice.
                         if isa(vol, 'matlab.io.MatFile')
@@ -157,14 +150,11 @@ classdef ChunkyMethods
             end            
         end
 
-        function apply_colormap(app, actions, progress)
+        function apply_colormap(app, actions)
             % Apply set of operations to a colormap.
 
-            if exist('progress', 'var')
-                dialog_message = progress.Message;
-            end
-
             % Calculate new colormap dimensions
+            Program.Handlers.dialogue.step('Calculating new dimensions...');
             new_dims = size(app.proc_image, 'data');
             for a=1:length(actions)
                 new_dims = Methods.ChunkyMethods.calc_pp_size(app, actions{a}, zeros(new_dims));
@@ -176,9 +166,9 @@ classdef ChunkyMethods
 
             for a=1:length(actions)
                 if exist('progress', 'var')
-                    progress.Message = sprintf("%s \n-> (%s", dialog_message, actions{a});
-                    progress.Value = a/length(actions);
-                    processed_vol = Methods.ChunkyMethods.apply_vol(app, actions{a}, app.proc_image.data, progress);
+                    Program.Handlers.dialogue.add_task(sprintf("Applying %s", actions{a}));
+                    Program.Handlers.dialogue.set_value(a/length(actions));
+                    processed_vol = Methods.ChunkyMethods.apply_vol(app, actions{a}, app.proc_image.data);
                 else
                     processed_vol = Methods.ChunkyMethods.apply_vol(app, actions{a}, app.proc_image.data);
                 end
@@ -193,10 +183,7 @@ classdef ChunkyMethods
         function apply_video(app, actions, progress)
             % Apply set of operations to a video.
 
-            if exist('progress', 'var')
-                dialog_message = progress.Message;
-                start_time = datetime("now");
-            end
+            start_time = datetime("now");
 
             % ...Set up necessary paths.
             ppath = fileparts(app.video_path); % Get current file's parent path.
@@ -209,6 +196,7 @@ classdef ChunkyMethods
             end
 
             % Calculate new video dimensions
+            Program.Handlers.dialogue.step('Calculating new dimensions...');
             nt = app.video_info.nt;
             p_frame = app.retrieve_frame(1);
             new_dims = size(p_frame);
@@ -218,25 +206,20 @@ classdef ChunkyMethods
             end
 
             % Create the cache file we'll be writing to chunk-by-chunk.
+            Program.Handlers.dialogue.step('Creating cache file...');
             h5create(temp_path, '/data', [new_dims(1:end) nt], "Chunksize", [new_dims(1:end) 1], "Datatype", class(p_frame));
 
             for t=1:nt
-                if exist('progress', 'var')
-                    progress.Value = t/nt;
-                    dialog_progress = progress.Value;
-                    time_string = Program.GUIHandling.get_time_string(start_time, t, nt);
-                end
+                frame_progress = t/nt;
+                Program.Handlers.dialogue.set_value(frame_progress);
+                time_string = Program.GUIHandling.get_time_string(start_time, t, nt);
+                Program.Handlers.dialogue.add_task(sprintf("Frame %.f/%.f %s", t, nt, time_string));
 
                 processed_frame = app.retrieve_frame(app.proc_tSlider.Value);
 
                 for a=1:length(actions)
-                    if exist('progress', 'var')
-                        progress.Message = sprintf("%s \n-> frame %.f/%.f %s \n-> (%s", dialog_message, t, nt, time_string, actions{a});
-                        progress.Value = min(dialog_progress + (dialog_progress/t)*(a/length(actions)), 1);
-                        processed_frame = Methods.ChunkyMethods.apply_vol(app, actions{a}, processed_frame, progress);
-                    else
-                        processed_frame = Methods.ChunkyMethods.apply_vol(app, actions{a}, processed_frame);
-                    end
+                    Program.Handlers.dialogue.set_value(min(frame_progress + (frame_progress/t)*(a/length(actions)), 1));
+                    processed_frame = Methods.ChunkyMethods.apply_vol(app, actions{a}, processed_frame);
                 end
 
                 % Ensure cache frame retains time dimension.
@@ -245,6 +228,8 @@ classdef ChunkyMethods
                 
                 % Write cache frame to cache file.
                 h5write(temp_path, '/data', processed_frame, [1 1 1 1 t], write_size);
+
+                Program.Handlers.dialogue.resolve();
             end
 
             if exist(processed_path, 'file')==2
