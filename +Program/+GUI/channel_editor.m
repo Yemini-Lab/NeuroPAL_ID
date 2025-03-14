@@ -91,15 +91,16 @@ classdef channel_editor < handle
 
             for c=1:nc
                 channel = channels{c};
+                gui_idx = channel.gui_idx;
                 channel_style = uistyle( ...
                     "BackgroundColor", channel.styling.background, ...
                     "FontColor", channel.styling.font);
 
-                components = obj.rows{c};
+                components = obj.rows{gui_idx};
                 components.cb.Value = channel.is_rgb;
 
                 components.dd.Value = channel.fluorophore;
-                addStyle(components.dd, channel_style, "item", c)
+                addStyle(components.dd, channel_style, "item", gui_idx)
 
                 switch class(components.ref)
                     case 'matlab.ui.control.ColorPicker'
@@ -154,7 +155,11 @@ classdef channel_editor < handle
                     gui.add_channel();
                 end
 
-                row = gui.rows{idx};
+                if idx ~= 0
+                    row = gui.rows{idx};
+                else
+                    row = gui.rows{end};
+                end
             else
                 error("Protected property %s from class %s may " + ...
                     "only be accessed from within %s, but was" + ...
@@ -165,9 +170,17 @@ classdef channel_editor < handle
     end
 
     methods(Access = private)
-        function add_channel(obj)
+        function add_channel(obj, count)
             if isempty(obj.rows) || ~isgraphics(obj.grid)
                 obj = Program.GUI.channel_editor;
+            end
+
+            if nargin == 2
+                for n=1:count
+                    obj.add_channel();
+                end
+
+                return
             end
 
             handles = struct;
@@ -237,9 +250,6 @@ classdef channel_editor < handle
             live_rows = obj.grid.RowHeight;
             live_rows(idx) = [];
             obj.grid.RowHeight = live_rows;
-
-            % Validate
-            obj.validate();
         end
 
         function set_fluorophores(obj, array)
@@ -249,6 +259,8 @@ classdef channel_editor < handle
         end
 
         function set_colors(obj, array)
+            array = array(~ismember(array, {'red', 'blue', 'green'}));
+
             for c=1:obj.n_rows
                 if isa(obj.rows{c}.ref, 'matlab.ui.control.DropDown')
                     obj.rows{c}.ref.Items = array;
@@ -299,7 +311,7 @@ classdef channel_editor < handle
                 missing_channels = n:obj.n_rows;
                 obj.add_channel(length(missing_channels));
             else
-                excess_channels = obj.n_rows:-1:n;
+                excess_channels = obj.n_rows:-1:n+1;
                 obj.delete_channel(excess_channels);
             end
         end
