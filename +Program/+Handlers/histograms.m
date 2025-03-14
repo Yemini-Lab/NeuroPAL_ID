@@ -26,14 +26,17 @@ classdef histograms
             cla(Program.Routines.GUI.get_component('axes', pfx))
         end
         
-        function draw()
+        function draw(raw)
             app = Program.app;
-            raw = Program.GUIHandling.get_active_volume(app, 'request', 'array');
+
+            if nargin == 0
+                raw = Program.GUIHandling.get_active_volume(app, 'request', 'array');
+            end
 
             Program.Handlers.histograms.reset();
             for c=1:length(app.proc_channel_grid.RowHeight)
                 checkbox = Program.Routines.GUI.get_component('pp_cb', c);
-                if checkbox.Value
+                if ~isempty(checkbox) && checkbox.Value
                     dropdown = Program.Routines.GUI.get_component('pp_dd', c);
                     reference = Program.Helpers.get_reference(c);
                     if isempty(reference)
