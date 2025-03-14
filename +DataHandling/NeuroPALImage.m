@@ -136,6 +136,8 @@ classdef NeuroPALImage
             % Initialize the packages.
             import Program.*;
             import DataHandling.*;
+
+            Program.Handlers.dialogue.step('Loading NeuroPAL_ID file...');
             
             % Open the image file.
             np_data = load(image_file);
