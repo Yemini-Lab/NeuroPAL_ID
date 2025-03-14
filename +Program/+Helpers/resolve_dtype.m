@@ -1,7 +1,7 @@
 function [is_valid_dtype, bit_depth, dtype_str, dtype_max] = resolve_dtype(bit_depth)
     switch class(bit_depth)
-        case {'string', 'char'}
-            dtype_str = bit_depth;
+        case {'string', 'char', 'ome.xml.model.enums.PixelType'}
+            dtype_str = string(bit_depth);
             bit_depth = str2double(extract(dtype_str, digitsPattern));
 
         case {'Program.volume', 'struct'}
