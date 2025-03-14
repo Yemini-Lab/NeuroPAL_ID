@@ -1,85 +1,152 @@
 classdef cursor < handle
     
     properties
-        x1 = 1;
-        x2 = 0;
+        x1;
+        x2;
 
-        y1 = 1;
-        y2 = 0;
+        y1;
+        y2;
 
-        z1 = 1;
-        z2 = 0;
+        z1;
+        z2;
 
-        c1 = 1;
-        c2 = 0;
-
-        t1 = 1;
-        t2 = 0;
-
-        mode = 'chunk';
+        t1;
+        t2;
     end
     
     methods (Access = public)
-        function obj = cursor(volume)
-            states = Program.states;
+        function obj = cursor(varargin)
+            state = Program.states;
+            projection = state.projection;
+            
+            p = inputParser();
+            addParameter(p, 'interface', state.interface);
+            addParameter(p, 'volume', state.active_volume);
+            parse(p, varargin{:});
 
-            if nargin == 0
-               volume = states.active_volume;
+            gui = obj.get_gui(p.Results.interface);
+            volume = p.Results.volume;
+
+            have_x_comp = ~isempty(gui.x);
+            have_y_comp = ~isempty(gui.y);
+            is_projecting_z = contains(projection, 'z');
+            is_projecting_xy = contains(projection, 'xy');
+        
+            if is_projecting_xy || is_projecting_z
+                obj.x1 = 1;
+                obj.x2 = volume.nx;
+            elseif have_x_comp
+                obj.x1 = round(gui.x.Value);
+                obj.x2 = obj.x1;
             end
 
-            if isempty(states.interface)
-                obj.generate('obj', obj, 'volume', volume, ...
-                    'z', round(volume.nz/2), 't', 1);
+            if is_projecting_xy || is_projecting_z
+                obj.y1 = 1;
+                obj.y2 = volume.ny;
+            elseif have_y_comp
+                obj.y1 = round(gui.y.Value);
+                obj.y2 = obj.y1;
+            end
+            
+            if state.mip || ~is_projecting_z
+                obj.z1 = 1;
+                obj.z2 = gui.z.Limits(2);
             else
-                switch states.interface
-                    case "NeuroPAL ID"
-                        obj = stack_cardinals(volume);
+                obj.z1 = round(gui.z.Value);
+                obj.z2 = obj.z1;
+            end
+            
+            if Program.GUI.viewing_video
+                obj.t1 = round(gui.t.Value);
+                obj.t2 = obj.t1;
+            else
+                obj.t1 = [];
+                obj.t2 = [];
+            end
+        end
+
+        function gui = get_gui(obj, interface)
+            gui = struct();
+
+            if nargin < 2
+                state = Program.states();
+                interface = state.interface;
+            end
+
+            if nargin == 2
+                app = Program.app;
+
+                switch interface
+                    case {0, "NeuroPAL ID", 'stack', 'id'}
+                        gui.x = [];
+                        gui.y = [];
+                        gui.z = app.ZSlider;
+                        gui.t = [];
         
-                    case "Video Tracking"
-                        obj = video_cardinals(volume);
+                    case {1, "Video Tracking", 'track', 'tracking'}
+                        gui.x = app.xSlider;
+                        gui.y = app.ySlider;
+                        gui.z = app.vert_zSlider;
+                        gui.t = app.tSlider;
         
-                    case "Image Processing"
-                        obj = processing_cardinals(volume);
+                    case {2, "Image Processing", 'proc', 'processing'}
+                        gui.x = app.proc_xSlider;
+                        gui.y = app.proc_ySlider;
+                        gui.z = app.proc_zSlider;
+                        gui.t = app.proc_tSlider;
                 end
             end
         end
     end
 
     methods (Static, Access = public)
-        function obj = generate(varargin)
+        function cursor = generate(dims, varargin)
             p = inputParser();
-
-            addParameter(p, 'obj', []);
-            addParameter(p, 'volume', []);
-            addParameter(p, 'coords', []);
-            addParameter(p, 'mode', 'chunk');
-
-            addParameter(p, 'x', []);
-            addParameter(p, 'y', []);
-            addParameter(p, 'z', []);
-            addParameter(p, 'c', []);
-            addParameter(p, 't', []);
-
+            Program.Helpers.parse_coordinates(p);
             parse(p, varargin{:});
-            coords = p.Results.coords;
-            volume = p.Results.volume;
-            obj = p.Results.obj;
-            
-            if isempty(obj)
-                obj = Program.GUI.cursor;
+
+            coords = p.Results;
+            d_labels = fieldnames(coords);
+
+            if ~isstruct(dims)
+                n_dims = length(dims);
+                struct_dim = struct();
+
+                struct_dim.nx = dims(1);
+                struct_dim.ny = dims(2);
+                struct_dim.nz = dims(3);
+                struct_dim.nc = dims(4);
+
+                if n_dims > 4
+                    struct_dim.nt = dims(5);
+                end
+
+                dims = struct_dim;
+            else
+                n_dims = length(fieldnames(dims));
             end
 
-            if isempty(volume)
-                states = Program.states;
-                volume = states.active_volume;
-            end
+            cursor = struct();
+            for n=1:length(d_labels)
+                d = d_labels{n};                                        % Label for each dimension, e.g. "x", "y", "z', ...
+                d1 = sprintf('%s1', d);                               % First index in a chunk read.
+                d2 = sprintf('%s2', d);                               % Last index in a chunk read.
+                nd = sprintf('n%s', d);                               % Label for the size of each dimension, e.g. "nx", "ny", "nz", ...
 
-            if isempty(coords)
-                coords = rmfield(p.Results, ...
-                    {'obj', 'volume', 'coords', 'mode'});
-            end
+                if n <= n_dims && (isfield(dims, nd) || ~isempty(coords.(d)))    
+                    if ~isempty(coords.(d))                                 % If an index was given for a particular dimension, set cursor to that index.
+                        cursor.(d1) = coords.(d);
+                        cursor.(d2) = cursor.(d1);
+                    else                                                    % If no index was given for a particular dimension, set cursor to dimensional range.
+                        cursor.(d1) = 1;
+                        cursor.(d2) = dims.(nd);
+                    end
 
-            obj.unfurl(coords)
+                else
+                    cursor.(d1) = [];
+                    cursor.(d2) = [];
+                end
+            end
         end
     end
 
@@ -87,6 +154,7 @@ classdef cursor < handle
         function unfurl(obj, source)
             states = Program.states;
             d = fieldnames(source);
+
             for n=1:length(d)
                 dc = d{n};
                 if isempty(source.(dc))
@@ -103,58 +171,6 @@ classdef cursor < handle
                     obj.(sprintf('%s1', dc)) = value(1);
                     obj.(sprintf('%s2', dc)) = value(2);
                 end
-            end
-        end
-
-        function coords = stack_cardinals(obj)
-            app = Program.app;
-            coords = struct( ...
-                'x1', {1}, ...
-                'x2', {obj.nx}, ...
-                'y1', {1}, ...
-                'y2', {obj.ny}, ...
-                'z1', {app.ZSlider.Value}, ...
-                'z2', {app.ZSlider.Value}, ...
-                't1', {[]}, ...
-                't2', {[]});
-        end
-
-        function coords = video_cardinals(obj)
-            app = Program.app;
-            coords = struct( ...
-                'x1', {1}, ...
-                'x2', {obj.nx}, ...
-                'y1', {1}, ...
-                'y2', {obj.ny});
-
-
-            if ~app.OverlayFrameMIPCheckBox.Value
-                coords.z1 = app.vert_zSlider.Value; coords.z2 = coords.z1;
-            else
-                coords.z1 = 1; coords.z2 = obj.nz;
-            end
-            
-            coords.t1 = app.tSlider.Value; coords.t2 = app.tSlider.Value;
-        end
-
-        function coords = processing_cardinals(obj)
-            app = Program.app;
-            coords = struct( ...
-                'x1', {app.proc_xSlider.Value}, ...
-                'x2', {app.proc_xSlider.Value}, ...
-                'y1', {app.proc_ySlider.Value}, ...
-                'y2', {app.proc_ySlider.Value});
-
-            if ~app.ProcShowMIPCheckBox.Value
-                coords.z1 = app.proc_zSlider.Value; coords.z2 = coords.z1;
-            else
-                coords.z1 = 1; coords.z2 = obj.nz;
-            end
-
-            if obj.is_video
-                coords.t1 = app.proc_tSlider.Value; coords.t2 = coords.t1;
-            else
-                coords.t1 = []; coords.t2 = [];
             end
         end
     end
