@@ -34,7 +34,6 @@ classdef volume < handle
         z = -1;
         c = -1;
         t = -1;
-        cursor;
 
         % Dimensionality
         nx = -1;            % Width of the volume
@@ -61,7 +60,8 @@ classdef volume < handle
     methods
         function obj = volume(path)
             % Constructor for the volume class
-            Program.states.now('Creating volume');
+            app = Program.app;
+            app.state.now('Creating volume');
             if nargin == 0
                 error('No path provided for volume class constructor.');
             elseif isempty(path)
@@ -118,11 +118,17 @@ classdef volume < handle
             end
             
             % The skeleton calls obj.read('metadata') to retrieve metadata
-            metadata = obj.read('metadata');
+            metadata = obj.read_metadata();
             
             obj.nx = metadata.nx;
+            obj.x = round(obj.nx/2);
+
             obj.ny = metadata.ny;
+            obj.y = round(obj.ny/2);
+
             obj.nz = metadata.nz;
+            obj.z = round(obj.nz/2);
+
             obj.nc = metadata.nc;
             obj.nt = metadata.nt;
             obj.dims = [obj.nx, obj.ny, obj.nz, obj.nc, obj.nt];
@@ -135,6 +141,7 @@ classdef volume < handle
             if isfield(metadata, 'channels')
                 obj.channels = metadata.channels;
                 obj.rgb = metadata.rgb;
+                obj.sort_channels();
             end
 
             if isfield(metadata, 'device')
@@ -165,41 +172,21 @@ classdef volume < handle
             obj.validate();
         end
         
-        function data = read(obj, varargin)
-            % READ  Read data (or metadata) from the volume.
-            %
-            %   data = read(obj, 'metadata') returns metadata.
-            %   data = read(obj, 'dims') returns [nx, ny, nz, nc, nt].
-            %
-            %   Otherwise you may pass parameter/value pairs:
-            %     't' (time index), 'z' (z-slice), 'c' (channel), 'x', 'y'
-            %     'mode' (e.g. 'chunk' vs. 'metadata')
-            %
-            % Example:
-            %   entireData = vol.read();                % read entire volume
-            %   singleZ = vol.read('z',1,'c',1,'t',1);  % read a single slice
-            
-            % If the only argument is 'metadata' or 'dims', handle those quickly
-            if nargin == 1
-                cursor = Program.GUI.cursor;
-            elseif isscalar(varargin) && ischar(varargin{1})
-                data = obj.read_metadata();
-                return;
-            elseif ~isa(varargin{1}, 'cursor')
-                % Otherwise parse optional arguments
-                p = inputParser();
-                addParameter(p, 't',    []);  % default means "all"
-                addParameter(p, 'z',    []);
-                addParameter(p, 'c',    []);
-                addParameter(p, 'x',    []);
-                addParameter(p, 'y',    []);
-                addParameter(p, 'mode', 'chunk'); % default read mode
-                parse(p, varargin{:});
-                cursor = Program.GUI.cursor.generate(p.Results);
+        function data = read(obj, cursor, varargin)
+            create_cursor = ~isempty(varargin);
+            have_cursor = exist('cursor', 'var') ...
+                && isa(cursor, 'Program.GUI.cursor');
+
+            if ~have_cursor
+                if create_cursor
+                    cursor = Program.GUI.cursor.generate(obj.dims, ...
+                        cursor, varargin{:});
+                else
+                    cursor = Program.GUI.cursor.generate( ...
+                        obj.dims, 'z', obj.z);
+                end
             end
-            
-            % We assume that read_obj has a method readData(...) that
-            % takes these inputs in a param/value style
+
             data = obj.read_class.read(obj, ...
                 'cursor', cursor);
         end
@@ -251,53 +238,39 @@ classdef volume < handle
             end
         end
 
-        function array = render(obj, cursor)
-            if ~isa(cursor, 'cursor')
-                return
+        function [array, raw_array] = render(obj, varargin)
+            if isempty(varargin)
+                cursor = Program.GUI.cursor( ...
+                    'volume', obj, ...
+                    'interface', Program.states().interface);
+
+            elseif isa(varargin{1}, 'Program.GUI.cursor')
+                cursor = varargin{1};
+
+            else
+                cursor = Program.GUI.cursor.generate( ...
+                    obj.dims, varargin{:});
+            
             end
-
-            array = obj.render(cursor);
-
-            for c=1:obj.nc
-                channel = obj.channels{c};
+            
+            raw_array = obj.read(cursor);
+            array = raw_array;
+    
+            for ch=1:obj.nc
+                channel = obj.channels{ch};
                 if ~channel.is_rendered
-                    array(:, :, :, channel.index) = 0;
+                    array(:, :, :, channel.arr_idx) = 0;
                 else
-                    array(:, :, :, channel.index) = imadjustn(array(:, :, :, channel.index), channel.lh_in, channel.lh_out, channel.gamma);
+                    array(:, :, :, channel.arr_idx) = imadjustn(array(:, :, :, channel.arr_idx), channel.lh_in, channel.lh_out, channel.gamma);
                     if ~channel.is_rgb
-                        channel_array = array(:, :, :, channel.index);
+                        channel_array = array(:, :, :, channel.arr_idx);
                         pseudocolor_array = Program.render.generate_pseudocolor(channel_array, channel);
                         array(:, :, :, obj.rgb) = array(:, :, :, obj.rgb) + pseudocolor_array;
                     end
                 end
             end
-
+    
             array = array(:, :, :, obj.rgb);
-        end
-        
-        function draw(obj, ax, varargin)
-            % DRAW  Draw the chunk of the volume indicated by the "cursor" 
-            % onto the axes object, ax.
-            
-            if ~isempty(Program.app) && nargin <= 2
-                cursor = Program.GUI.cursor; 
-            else
-                p = inputParser();
-                addRequired(p, 'obj');
-                addRequired(p, 'ax');
-                addParameter(p, 't', 1);
-                addParameter(p, 'z', 1);
-                addParameter(p, 'c', []);
-                addParameter(p, 'x', []);
-                addParameter(p, 'y', []);
-                parse(p, obj, ax, varargin{:});
-                cursor = p.Results;
-            end
-
-            viewData = obj.read('t', cursor.t, 'z', cursor.z, 'c', cursor.c, ...
-                                'x', cursor.x, 'y', cursor.y);
-            
-            imshow(viewData, 'Parent', ax);
         end
         
         function converted_instance = convert(obj, fmt)
@@ -312,7 +285,11 @@ classdef volume < handle
                 converted_instance = obj;
             end
 
-            Program.states.now("Converting %s.%s to %s format", obj.name, obj.fmt, fmt);
+            app = Program.app;
+            app.state.now("Converting %s.%s to %s format", obj.name, obj.fmt, fmt);
+            %Program.GUI.dialogue.add_task( ...
+            %    sprintf("Converting %s.%s to %s format", ...
+            %    obj.name, obj.fmt, fmt), 1);
             
             % Check if there's a helper for that format
             helperFile = fullfile('+DataHandling', '+Helpers', [fmt, '.m']);
@@ -335,12 +312,13 @@ classdef volume < handle
             
             % Now chunk-write from the current volume into the new file
             if obj.is_video
-                Program.states.progress('start', obj.nt);
+                %Program.GUI.dialogyue.add_step('Frame (%.f/%.f)', obj.nt);
+                app.state.progress('Frame (%.f/%.f)', obj.nt);
                 for t = 1:obj.nt
-                    Program.states.progress();
-                    Program.states.progress('start', obj.nz);
+                    app.state.progress();
+                    app.state.progress('Slice (%.f/%.f)', obj.nz);
                     for z = 1:obj.nz
-                        Program.states.progress();
+                        app.state.progress();
                         chunkData = obj.read('t', t, 'z', z);
                         if numel(size(chunkData)) <= 4
                             null_data = zeros(size(chunkData, 1), size(chunkData, 2), 1, size(chunkData, 3), 1, class(chunkData));
@@ -355,9 +333,9 @@ classdef volume < handle
                     end
                 end
             else
-                Program.states.progress('start', obj.nz);
+                app.state.progress('Slice %.f/%.f', obj.nz);
                 for z = 1:obj.nz
-                    Program.states.progress();
+                    app.state.progress();
                     chunkData = obj.read('z', z);
                     if numel(size(chunkData)) <= 3
                         null_data = zeros(size(chunkData, 1), size(chunkData, 2), 1, size(chunkData, 3), class(chunkData));
@@ -409,22 +387,21 @@ classdef volume < handle
                                'arr', p.Results.arr);
         end
 
-        function update_channels(obj)
-            rgb = [];
-            for tc=1:obj.nc
-                channel = obj.channels{tc};
+        function update_channels(obj, target)
+            if nargin < 2
+                c_start = 1;
+                c_end = obj.nc;
 
-                dd = channel.gui{'dropdown'};
-                channel.fluorophore = dd.Value;
-                channel.index = find(dd.Items, dd.Value);
+            elseif isnumeric(target)
+                c_start = target;
+                c_end = target;
+            end
 
-                channel.identify();
-
-                channel.is_rendered = channel.gui{'checkbox'}.Value;
+            for tc=c_start:c_end
+                obj.channels{tc}.update;
             end
 
             obj.nc = length(obj.channels);
-            Program.render();
         end
 
         function out = get(obj, query)
@@ -449,6 +426,25 @@ classdef volume < handle
     end
 
     methods (Access = private)
+        function obj = sort_channels(obj)
+            n_rows = Program.GUI.channel_editor().n_rows;
+            order = {'red', 'green', 'blue', 'white', 'dic', 'gfp'};
+            colors = cellfun(@(x)(x.color), obj.channels, 'UniformOutput', false);
+            [~, gui_idx] = ismember(colors, order);
+
+            addl_chs = 0;
+            for ch=1:obj.nc
+                if gui_idx(ch) ~= 0
+                    obj.channels{ch}.gui_idx = gui_idx(ch);
+                else 
+                    obj.channels{ch}.gui_idx = n_rows-addl_chs;
+                    addl_chs = addl_chs + 1;
+                end
+
+                obj.channels{ch}.assign_gui();
+            end
+        end
+
         function validate(obj)
             % VALIDATE  Ensure the volume properties have valid values.
             % Return true (logical) if all is valid, otherwise false.
