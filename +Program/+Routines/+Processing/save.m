@@ -1,20 +1,18 @@
 function save()
     app = Program.app;
 
-    d = uiprogressdlg(Program.window, ...
-        "Message", "Updating file...", ...
-        "Indeterminate", "off");
+    Program.Handlers.dialogue.add_task('Updating file...');
 
     switch app.VolumeDropDown.Value
         case 'Colormap'
-            Methods.ChunkyMethods.apply_colormap(app, fieldnames(app.flags), d);
+            Methods.ChunkyMethods.apply_colormap(app, fieldnames(app.flags));
 
         case 'Video'
-            Methods.ChunkyMethods.apply_video(app, fieldnames(app.flags), d);
+            Methods.ChunkyMethods.apply_video(app, fieldnames(app.flags));
     end
 
     app.flags = struct();
-    close(d)
+    Program.Handlers.dialogue.resolve();
 
     check = uiconfirm(Program.window, ...
         "Successfully updated file. Load into main tab?", "NeuroPAL_ID", ...
