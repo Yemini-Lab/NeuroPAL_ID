@@ -3,7 +3,8 @@ classdef channel < dynamicprops
     properties
         parent = [];                    % Reference to this channel's associated volume object.
         fluorophore = '';               % Name of this channel's associated fluorophore. Program.Handlers.channels.fluorophore_map is a dictionary whose every key is a color (e.g. 'red', 'blue', 'white', 'gfp') and whose corresponding value is a cell array of possible fluorophores that produce this color.
-        index = -1;                     % Index of this channel in its parent volume. -1 if uninitialized.
+        arr_idx = -1;                   % Index of this channel in its parent volume. -1 if uninitialized.
+        gui_idx = -1;                   % Index of this channel in the channel editor. -1 if uninitialized.
         color = '';
 
         is_rgb = -1;                    % Boolean indicating whether this channel is one of red, green, or blue.
@@ -11,8 +12,8 @@ classdef channel < dynamicprops
         is_rendered = -1;               % Boolean indicating whether this channel's checkbox (referenced in gui{'checkbox'}) is currently checked.
 
         lh_out = [];                    % This is an array of size (1, 2) whose first value is calculated by dividing the lower value of the gui{'sliders'} component by the limit of the gui{'histogram'} component, and whose second value is calculated by doing the same with the higher value of the gui{'sliders'} component.
-        lh_In = [];                     % Empty array.
-        gamma = -1;                     % Float that is equal to the value of the gui{'gamma_field'} component.
+        lh_in = [];                     % Empty array.
+        gamma = 0.8;                     % Float that is equal to the value of the gui{'gamma_field'} component.
 
         excitation = dictionary( ...    % Dictionary describing excitation values of this channel.
             'lambda', {-1}, ...
@@ -40,6 +41,10 @@ classdef channel < dynamicprops
 
     methods
         function obj = channel(fluorophore)
+            if nargin == 0
+                fluorophore = 'Unknown';
+            end
+
             obj.fluorophore = fluorophore;
             obj.identify();
         end
@@ -63,8 +68,31 @@ classdef channel < dynamicprops
             end
         end
 
+        function obj = update(obj)     
+            dd = obj.gui.dd;
+            obj.fluorophore = dd.Value;
+            obj.gui_idx = find(ismember(dd.Items, dd.Value));
+            obj.identify();
+            
+            obj.is_rendered = obj.gui.cb.Value;
+            obj.gamma = obj.gui.gamma.Value;
+
+            hist = obj.gui.slider;
+            obj.lh_out = [ ...
+                hist.Value(1)/hist.Limits(2) ...
+                hist.Value(2)/hist.Limits(2)];
+        end
+
         function obj = assign_gui(obj)
-            obj.gui = Program.GUI.channel_editor.request_row(obj.index);
+            idx = obj.gui_idx;
+
+            obj.gui = Program.GUI.channel_editor.request_row(idx);
+            hist_gui = Program.GUI.histogram_editor.request_gui(idx);
+
+            components = fieldnames(hist_gui);
+            for n=1:length(components)
+                obj.gui.(components{n}) = hist_gui.(components{n});
+            end
         end
 
         function delete_channel(obj)
