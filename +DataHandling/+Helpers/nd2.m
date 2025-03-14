@@ -392,7 +392,12 @@ classdef nd2
             nt = nd2_reader.getSizeT;
         
             % Maximum memory to use for a single chunk:
-            max_arr = memory().MaxPossibleArrayBytes * 0.90;
+            if ispc
+                max_arr = memory().MaxPossibleArrayBytes * 0.90;
+            else
+                [~, max_arr] = system('sysctl hw.memsize | awk ''{print $2}''');
+                max_arr = str2double(max_arr) * 0.90;
+            end
         
             % Determine the data class from config:
             dclass = Program.config.defaults{'class'};
