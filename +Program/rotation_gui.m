@@ -306,7 +306,7 @@ classdef rotation_gui
             Program.rotation_gui.close(app);
             switch user_choice
                 case "Yes"
-                    Program.GUIHandling.proc_save_prompt(app, 'crop');
+                    Program.Routines.Processing.apply('crop');
                     
                 case "Return to cropping"
                     Program.GUIHandling.crop_routine(app);
