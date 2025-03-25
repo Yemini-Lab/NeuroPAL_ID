@@ -1,6 +1,11 @@
 function render()
+    state = Program.state;
+    Program.render.processing(state.active_volume);
+    return
+    
     app = Program.app;
-    raw = Program.GUIHandling.get_active_volume(app, 'request', 'all');
+
+    %raw = Program.GUIHandling.get_active_volume(app, 'request', 'all');
     [raw_volume, raw_dims] = Program.Validation.pad_rgb(raw.array);
     
     % Determine the color channel indices.

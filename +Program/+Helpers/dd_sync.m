@@ -1,6 +1,6 @@
 function dd_sync(event)
 
-    (source, old_value, new_value, group)
+    %(source, old_value, new_value, group)
 
     pattern = dbstack;
 

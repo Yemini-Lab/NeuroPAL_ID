@@ -16,7 +16,7 @@ classdef cursor < handle
     
     methods (Access = public)
         function obj = cursor(varargin)
-            state = Program.states;
+            state = Program.state;
             projection = state.projection;
             
             p = inputParser();
@@ -69,7 +69,7 @@ classdef cursor < handle
             gui = struct();
 
             if nargin < 2
-                state = Program.states();
+                state = Program.state();
                 interface = state.interface;
             end
 
@@ -152,7 +152,7 @@ classdef cursor < handle
 
     methods (Access = private)
         function unfurl(obj, source)
-            states = Program.states;
+            states = Program.state;
             d = fieldnames(source);
 
             for n=1:length(d)

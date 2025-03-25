@@ -68,19 +68,38 @@ classdef channel < dynamicprops
             end
         end
 
-        function obj = update(obj)     
-            dd = obj.gui.dd;
-            obj.fluorophore = dd.Value;
-            obj.gui_idx = find(ismember(dd.Items, dd.Value));
-            obj.identify();
-            
-            obj.is_rendered = obj.gui.cb.Value;
-            obj.gamma = obj.gui.gamma.Value;
+        function obj = update(obj, query)
+            if nargin < 2
+                query = {'dropdown', 'histogram', 'render', 'gamma'};
+            end
 
-            hist = obj.gui.slider;
-            obj.lh_out = [ ...
-                hist.Value(1)/hist.Limits(2) ...
-                hist.Value(2)/hist.Limits(2)];
+            if any(ismember(query, {'dropdown'}))
+                dd = obj.gui.dd;
+                obj.fluorophore = dd.Value;
+                obj.gui_idx = find(ismember(dd.Items, dd.Value));
+                obj.identify();
+            end
+
+            if any(ismember(query, {'histogram'}))
+                slider = obj.gui.slider;
+                low_high_out = [ ...
+                    slider.Value(1)/slider.Limits(2) ...
+                    slider.Value(2)/slider.Limits(2)];
+                
+                if low_high_out(1) < 0.01 && low_high_out(2) == 1
+                    low_high_out = [];
+                end
+                
+                obj.lh_out = low_high_out;
+            end
+
+            if any(ismember(query, {'render'}))
+                obj.is_rendered = obj.gui.cb.Value;
+            end
+
+            if any(ismember(query, {'gamma'}))
+                obj.gamma = obj.gui.gamma.Value;
+            end
         end
 
         function obj = assign_gui(obj)
@@ -90,6 +109,7 @@ classdef channel < dynamicprops
             hist_gui = Program.GUI.histogram_editor.request_gui(idx);
 
             components = fieldnames(hist_gui);
+            hist_gui.gamma.Value = obj.gamma;
             for n=1:length(components)
                 obj.gui.(components{n}) = hist_gui.(components{n});
             end

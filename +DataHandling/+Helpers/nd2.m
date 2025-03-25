@@ -173,7 +173,7 @@ classdef nd2
             metadata.channels = DataHandling.Helpers.nd2.get_channels(f);
 
             % Load the file data or return a lazy reader object depending on the file handling mode
-            if Program.states.instance().is_lazy
+            if Program.state.instance().is_lazy
                 obj = f; % Return lazy file reader if lazy loading is enabled.
             else
                 obj = bfOpen(file); % Load full file data.

@@ -7,7 +7,7 @@ classdef render
 
     methods (Static, Access = public)
         function obj = render(volume)
-            state = Program.states;
+            state = Program.state;
 
             if nargin == 0
                 volume = state.active_volume;
@@ -25,7 +25,7 @@ classdef render
 
         function stack(volume)
             if nargin == 0
-                volume = Program.states.active_volume;
+                volume = Program.state.active_volume;
             end
 
             [render, ~] = volume.render();
@@ -38,7 +38,7 @@ classdef render
         
         function video(volume)
             if nargin == 0
-                volume = Program.states.active_volume;
+                volume = Program.state.active_volume;
             end
 
             [render, ~] = volume.render();
@@ -46,8 +46,8 @@ classdef render
         end
 
         function processing(volume)
-            if nargin == 0
-                volume = Program.states.active_volume;
+            if nargin == 0 || isempty(volume)
+                volume = Program.state().active_volume;
             end
 
             [render, raw_array] = volume.render();
@@ -63,13 +63,17 @@ classdef render
                 end
             end
 
-            Program.GUI.Settings.bounds('volume', volume)
+            %volume_max = double(max(render, [], 'all'));
+            %render = uint16(double(intmax('uint16')) * double(render)/volume_max);
+            %render = double(render)/double(max(render(:)));
+
             %Program.GUIHandling.set_gui_limits(app, dims=volume.dims);
             %Program.GUI.Toggles.histograms(render);
+            Program.GUI.Settings.bounds('volume', volume)
             Program.Handlers.histograms.draw(struct('array', {raw_array}));
             Program.GUIHandling.shorten_knob_labels(app);
         
-            if Program.states().mip
+            if Program.state().mip
                 image(squeeze(maximum_intensity_projection), ...
                     'Parent', app.proc_xyAxes);
             else

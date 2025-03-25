@@ -15,12 +15,22 @@ classdef npal
             addRequired(p, 'path');
             addParameter(p, 'version', 'legacy');
             addParameter(p, 'like', []);
+            addParameter(p, 'array_size', []);
+            addParameter(p, 'dtype', []);
             parse(p, path, varargin{:});
             path = strrep(path, '.npal', '-NPAL.mat');
 
             if ~isempty(p.Results.like)
                 fstruct = struct();
                 template = p.Results.like;
+
+                if isempty(p.Results.array_size)
+                    p.Results.array_size = template.dims;
+                end
+
+                if isempty(p.Results.dtype)
+                    p.Results.dtype = template.dtype_str;
+                end
 
                 if ~strcmp(p.Results.version, 'legacy')
                     fstruct.version = p.Results.version;
@@ -64,7 +74,7 @@ classdef npal
                         'notes', {template.subject.notes});
                 end
 
-                fstruct.data = zeros(template.dims, template.dtype_str);
+                fstruct.data = zeros(p.Results.array_size, p.Results.dtype);
                 save(path, '-struct', 'fstruct', '-v7.3');
             end
         end

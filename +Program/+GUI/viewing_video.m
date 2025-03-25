@@ -1,5 +1,5 @@
 function bool = viewing_video()
-    state = Program.states;
+    state = Program.state;
     source = dbstack();
     source = source(2).name;
 

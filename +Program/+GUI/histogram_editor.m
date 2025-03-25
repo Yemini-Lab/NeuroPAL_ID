@@ -2,7 +2,7 @@ classdef histogram_editor < handle
     %HISTOGRAM_EDITOR Summary of this class goes here
     %   Detailed explanation goes here
     
-    properties
+    properties (Constant)
         pfx = {'tl', 'tm', 'tr', 'bl', 'bm', 'br'};
         patterns = struct( ...
             'slider', {"%s_hist_slider"}, ...
@@ -36,6 +36,34 @@ classdef histogram_editor < handle
                     "accessed from within %s.", ...
                     'gui', 'histogram_editor', valid_source, source);
             end
+        end
+
+        function update(volume)
+            if ~isa(volume, 'Program.volume')
+                error("Invalid input %s provided to histogram " + ...
+                    "update function. Expected Program.volume, got " + ...
+                    "%s.", ...
+                    volume, class(volume));
+            end
+
+            if isempty(volume.dtype_max)
+                volume.dtype_max = intmax(volume.dtype_str);
+            end
+
+            app = Program.app;
+            pfxs = Program.GUI.histogram_editor.pfx;
+            patterns = Program.GUI.histogram_editor.patterns;
+
+            for p = 1:length(pfxs)
+                pfx = pfxs{p};
+                sl_handle = sprintf(patterns.slider, pfx);
+                ax_handle = sprintf(patterns.axes, pfx);
+
+                app.(sl_handle).Limits(2) = volume.dtype_max;
+                app.(ax_handle).XLim(2) = volume.dtype_max;
+            end
+
+            cellfun(@(x)(x.update('histogram')), volume.channels);
         end
     end
 

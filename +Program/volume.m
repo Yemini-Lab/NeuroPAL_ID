@@ -189,6 +189,12 @@ classdef volume < handle
 
             data = obj.read_class.read(obj, ...
                 'cursor', cursor);
+
+            % Some formats return double arrays on chunk read.
+            % Check for this and if so, correct the datatype.
+            if ~isa(data, obj.dtype_str)
+                data = cast(data, obj.dtype_str);
+            end
         end
 
         function mdata = read_metadata(obj)
@@ -242,7 +248,7 @@ classdef volume < handle
             if isempty(varargin)
                 cursor = Program.GUI.cursor( ...
                     'volume', obj, ...
-                    'interface', Program.states().interface);
+                    'interface', Program.state().interface);
 
             elseif isa(varargin{1}, 'Program.GUI.cursor')
                 cursor = varargin{1};
@@ -291,68 +297,48 @@ classdef volume < handle
             %    sprintf("Converting %s.%s to %s format", ...
             %    obj.name, obj.fmt, fmt), 1);
             
-            % Check if there's a helper for that format
-            helperFile = fullfile('+DataHandling', '+Helpers', [fmt, '.m']);
-            if ~isfile(helperFile)
-                error('No helper script found for format "%s".', fmt);
-            end
-            
-            % Construct new file path
-            if ~strcmp(fmt, 'npal')
-                newPath = strrep(obj.path, obj.fmt, fmt);
+            dtype_flag = strcmpi(fmt, 'double') || startsWith(fmt, 'uint');
+            if dtype_flag
+                target_dtype = fmt;
+
+                new_name = sprintf('%s-%s', obj.name, fmt);
+                target_path = strrep(obj.path, obj.name, new_name);
+                
+                target_helper = obj.read_class;
+                target_helper.create(target_path, 'like', obj, ...
+                    'dtype', target_dtype);
+
             else
-                npal_name = sprintf('%s-NPAL', obj.name);
-                newPath = strrep(obj.path, obj.name, npal_name);
-                newPath = strrep(newPath, obj.fmt, 'mat');
-            end
+                target_dtype = obj.dtype_str;
             
-            % Call create(...) from the new helper class to make the file
-            newHelper = feval(str2func(['DataHandling.Helpers.' fmt]));
-            newHelper.create(newPath, 'like', obj);
+                if ~strcmp(fmt, 'npal')
+                    target_path = strrep(obj.path, obj.fmt, fmt);
+                else
+                    npal_name = sprintf('%s-NPAL', obj.name);
+                    target_path = strrep(obj.path, obj.name, npal_name);
+                    target_path = strrep(target_path, obj.fmt, 'mat');
+                end
+            
+                target_helper = feval(str2func(['DataHandling.Helpers.' fmt]));
+                target_helper.create(target_path, 'like', obj);
+            end
             
             % Now chunk-write from the current volume into the new file
             if obj.is_video
-                %Program.GUI.dialogyue.add_step('Frame (%.f/%.f)', obj.nt);
-                app.state.progress('Frame (%.f/%.f)', obj.nt);
-                for t = 1:obj.nt
-                    app.state.progress();
-                    app.state.progress('Slice (%.f/%.f)', obj.nz);
-                    for z = 1:obj.nz
-                        app.state.progress();
-                        chunkData = obj.read('t', t, 'z', z);
-                        if numel(size(chunkData)) <= 4
-                            null_data = zeros(size(chunkData, 1), size(chunkData, 2), 1, size(chunkData, 3), 1, class(chunkData));
-                            null_data(:, :, 1, :, 1) = chunkData;
-                            chunkData = null_data;
-                        end
-
-                        newHelper.write('mode', 'chunk', ...
-                                        'file', newPath, ...
-                                        't', t, 'z', z, ...
-                                        'arr', chunkData);
-                    end
-                end
+                chunking_method = 'framewise';
             else
-                app.state.progress('Slice %.f/%.f', obj.nz);
-                for z = 1:obj.nz
-                    app.state.progress();
-                    chunkData = obj.read('z', z);
-                    if numel(size(chunkData)) <= 3
-                        null_data = zeros(size(chunkData, 1), size(chunkData, 2), 1, size(chunkData, 3), class(chunkData));
-                        null_data(:, :, 1, :) = chunkData;
-                        chunkData = null_data;
-                    end
-
-                    newHelper.write('mode', 'chunk', ...
-                                    'file', newPath, ...
-                                    'z', z, ...
-                                    'arr', chunkData);
-                end
+                chunking_method = 'slicewise';
             end
+
+            obj.write_chunk( ...
+                target_path, ...
+                'method', chunking_method, ...
+                'helper', target_helper, ...
+                'dtype', target_dtype);
             
             % Finally, return a new volume instance referencing the new file
             % (assuming Program.Data.volume is how you normally construct one)
-            converted_instance = Program.volume(newPath);
+            converted_instance = Program.volume(target_path);
             converted_instance.load(); % so that the new instance is ready to go
         end
         
@@ -426,6 +412,67 @@ classdef volume < handle
     end
 
     methods (Access = private)
+        function write_chunk(obj, t_file, varargin)
+            p = inputParser();
+            addParameter(p, 'method', 'slice');
+            addParameter(p, 'helper', obj.read_class);
+            addParameter(p, 'dtype', obj.dtype_str);
+            parse(p, varargin{:});
+
+            should_convert_dtype = ~strcmpi(p.Results.dtype, obj.dtype_str);
+            
+            switch p.Results.method
+                case {'frame', 'framewise'}
+                    app.state.progress('Frame (%.f/%.f)', obj.nt);
+                    for this_frame = 1:obj.nt
+                        app.state.progress();
+                        app.state.progress('Slice (%.f/%.f)', obj.nz);
+                        for this_slice = 1:obj.nz
+                            app.state.progress();
+                            chunk = obj.read('t', this_frame, 'z', this_slice);
+                            if numel(size(chunk)) <= 4
+                                null_data = zeros( ...
+                                    size(chunk, 1), size(chunk, 2), 1, ...
+                                    size(chunk, 3), 1, class(chunk));
+                                null_data(:, :, 1, :, 1) = chunk;
+                                chunk = null_data;
+                            end
+
+                            if should_convert_dtype
+                                chunk = cast(chunk, p.Results.dtype);
+                            end
+    
+                            p.Results.helper.write('mode', 'chunk', ...
+                                            'file', t_file, ...
+                                            't', this_frame, 'z', this_slice, ...
+                                            'arr', chunk);
+                        end
+                    end
+                case {'slice', 'slicewise'}
+                    app.state.progress('Slice %.f/%.f', obj.nz);
+                    for this_slice = 1:obj.nz
+                        app.state.progress();
+                        chunk = obj.read('z', this_slice);
+                        if numel(size(chunk)) <= 3
+                            null_data = zeros( ...
+                                size(chunk, 1), size(chunk, 2), 1, ...
+                                size(chunk, 3), class(chunk));
+                            null_data(:, :, 1, :) = chunk;
+                            chunk = null_data;
+                        end
+
+                        if should_convert_dtype
+                            chunk = cast(chunk, p.Results.dtype);
+                        end
+    
+                        p.Results.helper.write('mode', 'chunk', ...
+                                        'file', t_file, ...
+                                        'z', this_slice, ...
+                                        'arr', chunk);
+                    end
+            end
+        end
+
         function obj = sort_channels(obj)
             n_rows = Program.GUI.channel_editor().n_rows;
             order = {'red', 'green', 'blue', 'white', 'dic', 'gfp'};
