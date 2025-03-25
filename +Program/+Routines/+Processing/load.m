@@ -1,11 +1,10 @@
 function load(mode, path)
     [app, window] = Program.ctx;
-    app.state.now('Initializing processing tab')
-    app.state.progress('start', 5);
+    Program.dlg.add_task('Initializing processing tab');
 
-    app.state.now('Building volume')
+    Program.dlg.step('Building volume');
+    Program.dlg.set_value(1/5);
     volume = Program.volume(path);
-    app.state.progress();
 
     app.state.set('interface', 'Image Processing');
     app.state.set('active_volume', volume);
@@ -30,19 +29,19 @@ function load(mode, path)
         Program.GUI.Toggles.colorstack;
     end
     
-    app.state.progress();
-    app.state.now('Setting threshold');
+    Program.dlg.step('Setting threshold');
+    Program.dlg.set_value(2/5);
     Program.GUI.Settings.thresholds(volume.dtype_max);
     Program.GUI.histogram_editor.update(volume);
     
-    app.state.progress();
-    app.state.now('Mapping channels');
+    Program.dlg.step('Mapping channels');
+    Program.dlg.set_value(3/5);
     app.channel_editor.populate(volume);
     volume.update_channels();
     %Program.Routines.Processing.set_channels_from_file(channel.names, channel.idx);
     
-    app.state.progress();
-    app.state.now('Configuring view');
+    Program.dlg.step('Configuring view');
+    Program.dlg.set_value(4/5);
     daspect(app.proc_xyAxes, [1 1 1]);
     
     if volume.nc < 4
@@ -57,8 +56,8 @@ function load(mode, path)
     
     Program.GUI.set_gammas(volume);
     
-    app.state.progress();
-    app.state.now('Rendering volume');
+    Program.dlg.step('Rendering volume');
+    Program.dlg.set_value(5/5);
     Program.render();
     
     app.ImageProcessingTab.Tag = 'rendered';
@@ -66,7 +65,7 @@ function load(mode, path)
     set(app.ProcessingGridLayout, 'Visible', 'on');
     
     app.TabGroup.SelectedTab = app.ImageProcessingTab;
-    app.state.done();
+    Program.dlg.resolve();
     
     check = uiconfirm(window, "We recommend starting by cropping your image " + ...
         "to ensure that there is no superfluous space taking up memory. " + ...
@@ -75,7 +74,7 @@ function load(mode, path)
 
     switch check
         case "Yes"
-            app.ProcCropImageButtonPushed([]);
+            Program.Routines.Processing.volume_crop(volume);
             Program.GUIHandling.gui_lock(app, 'unlock', 'processing_tab');
         case "No, skip cropping."
             Program.GUIHandling.gui_lock(app, 'unlock', 'processing_tab');
