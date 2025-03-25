@@ -25,11 +25,15 @@ classdef npal
                 template = p.Results.like;
 
                 if isempty(p.Results.array_size)
-                    p.Results.array_size = template.dims;
+                    target_array_size = template.dims;
+                else
+                    target_array_size = p.Results.array_size;
                 end
 
                 if isempty(p.Results.dtype)
-                    p.Results.dtype = template.dtype_str;
+                    target_dtype = template.dtype_str;
+                else
+                    target_dtype = p.Results.dtype;
                 end
 
                 if ~strcmp(p.Results.version, 'legacy')
@@ -74,7 +78,7 @@ classdef npal
                         'notes', {template.subject.notes});
                 end
 
-                fstruct.data = zeros(p.Results.array_size, p.Results.dtype);
+                fstruct.data = zeros(target_array_size, target_dtype);
                 save(path, '-struct', 'fstruct', '-v7.3');
             end
         end
@@ -136,19 +140,25 @@ classdef npal
             end
         end
 
-        function arr = read(obj, varargin)
-            if ~isa(varargin{1}, 'cursor')
-                p = inputParser();
-                addRequired(p, 'obj');
-                addParameter(p, 't',    []);  % default means "all"
-                addParameter(p, 'z',    []);
-                addParameter(p, 'c',    []);
-                addParameter(p, 'x',    []);
-                addParameter(p, 'y',    []);
-                addParameter(p, 'mode', 'chunk'); % default read mode
-                parse(p, obj, varargin{:});
+        function arr = read(varargin)
+            p = inputParser();
+            addRequired(p, 'obj');
+            addParameter(p, 'cursor',   []);
+            addParameter(p, 't',        []);
+            addParameter(p, 'z',        []);
+            addParameter(p, 'c',        []);
+            addParameter(p, 'x',        []);
+            addParameter(p, 'y',        []);
+            addParameter(p, 'mode', 'chunk'); % default read mode
+            parse(p, varargin{:});
+
+            obj = p.Results.obj;
+
+            if isempty(p.Results.cursor) || ~isa(p.Results.cursor, 'Program.GUI.cursor')
                 cursor = rmfield(p.Results, {'mode', 'obj'});
                 Program.GUI.cursor.generate(p.Results);
+            else
+                cursor = p.Results.cursor;
             end
 
             switch class(obj)
@@ -159,23 +169,45 @@ classdef npal
                     dims = obj.metadata.dims;
             end
             
-            if strcmp(p.Results.mode, 'chunk') || ~all(structfun(@isempty, cursor))
-                parameters = fieldnames(cursor);
-    
-                for p=1:length(parameters)
-                    parameter = parameters{p};
-                    if isempty(cursor.(parameter)) && isfield(dims, parameter)
-                        cursor.(parameter) = 1:dims.(parameter);
+            if obj.version >= 3.0
+                if strcmp(p.Results.mode, 'chunk') || ~all(structfun(@isempty, cursor))
+                    if length(size(obj.volume)) < 5
+                        arr = obj.volume( ...
+                            cursor.x1:cursor.x2, ...
+                            cursor.y1:cursor.y2, ...
+                            cursor.z1:cursor.z2, ...
+                            :);
+                    else
+                        arr = obj.volume( ...
+                            cursor.x1:cursor.x2, ...
+                            cursor.y1:cursor.y2, ...
+                            cursor.z1:cursor.z2, ...
+                            :, ...
+                            cursor.t1:cursor.t2);
                     end
+                else
+                    arr = obj.volume;
                 end
 
-                fn = fieldnames(cursor);
-                idx_cell = cellfun(@(f) cursor.(f), fn, 'UniformOutput', false);
-                idx_cell = idx_cell(1:length(native_dims));
-                indices = idx_cell(flip(order));
-                arr = obj.volume(indices{:});
             else
-                arr = obj.volume;
+                if strcmp(p.Results.mode, 'chunk') || ~all(structfun(@isempty, cursor))
+                    if length(size(obj.data)) < 5
+                        arr = obj.data( ...
+                            cursor.x1:cursor.x2, ...
+                            cursor.y1:cursor.y2, ...
+                            cursor.z1:cursor.z2, ...
+                            :);
+                    else
+                        arr = obj.data( ...
+                            cursor.x1:cursor.x2, ...
+                            cursor.y1:cursor.y2, ...
+                            cursor.z1:cursor.z2, ...
+                            :, ...
+                            cursor.t1:cursor.t2);
+                    end
+                else
+                    arr = obj.data;
+                end
             end
         end
 
