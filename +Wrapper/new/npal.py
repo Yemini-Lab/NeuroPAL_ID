@@ -59,9 +59,10 @@ def get_engine():
         else:
             session = existing_sessions[0]
 
-        target_engine = matlab.engine.connect_matlab(session)
+        target_engine = matlab.engine.connect_matlab(session, background=True).result()
         state = f"Hooked NeuroPAL_ID engine..."
     else:
+        raise ValueError('Could not hook NeuroPAL_ID engine!')
         target_engine = matlab.engine.start_matlab()
         state = f"Could not hook NeuroPAL_ID engine...\n" \
                 f"Built new engine..."
@@ -89,10 +90,10 @@ def set_task(target_engine: Optional[matlab.engine.MatlabEngine] = None,
         target_engine = engine
 
     if finish_last:
-        target_engine.Program.Wrappers.core.remove_task(task)
+        target_engine.Program.Handlers.dialogue.resolve()
 
     if task is not None:
-        target_engine.Program.Wrappers.core.add_task(task)
+        target_engine.Program.Handlers.dialogue.add_task(task)
 
 
 def set_state(target_engine: Optional[matlab.engine.MatlabEngine] = None,
@@ -109,7 +110,8 @@ def set_state(target_engine: Optional[matlab.engine.MatlabEngine] = None,
         target_engine = engine
 
     debug(f"{state} (Progress: {progress})")
-    target_engine.Program.Wrappers.core.state(state, progress)
+    target_engine.Program.Handlers.dialogue.step(state)
+    target_engine.Program.Handlers.dialogue.set_value(progress)
 
 
 def pass_data(results: Any,
@@ -226,6 +228,7 @@ if profile_mode:
 
 engine, is_hooked = get_engine()
 
+set_state(state=f"Parsing arguments...")
 for each_key in raw_args.keys():
     args[each_key.replace('--', '')] = raw_args[each_key]
 

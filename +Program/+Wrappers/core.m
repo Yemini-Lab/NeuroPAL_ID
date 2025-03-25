@@ -1,82 +1,58 @@
 classdef core
     
-    properties (Constant)
+    properties
+        future = [];
+    end
+
+    methods
+        function obj = core(prl)
+            persistent active_future
+
+            if nargin ~= 0
+                active_future = prl;
+            end
+
+            obj.future = active_future;
+        end
+
+        function obj = clean_up(obj)
+            obj.future = [];
+            delete(obj);
+        end
     end
     
     methods (Static, Access = public)
-        function current_progress = progress(new_progress)
-            persistent last_progress
+        function executable = get_executable()
+            if ~isdeployed
+                callable = 'python ';
+                sloc = fullfile(pwd, '/+Wrapper/new/');
+                ext = '.py';
 
-            if nargin > 0
-                last_progress = new_progress;
-            end
+            else
+                if ispc
+                    os = 'windows';
+                    ext = '.exe';
+                    spath = pwd;
 
-            current_progress = last_progress;
-        end
-
-        function p_task = task(parent)
-            persistent current_task
-
-            if nargin > 0
-                current_task = parent;
-            end
-
-            p_task = current_task;
-        end
-
-        function add_task(task)
-            p_task = Program.Wrappers.core.task;
-            n_task = sprintf("%s\n├🢒 %s...", p_task, task);
-            Program.Wrappers.core.task(n_task);
-        end
-
-        function remove_task()
-            p_task = Program.Wrappers.core.task;
-            p_task = p_task.splitlines();
-            subtask_indices = find(contains(p_task, '├🢒'));
-            if ~isempty(subtask_indices)
-                n_task = p_task(1:subtask_indices-1);
-                Program.Wrappers.core.task(n_task);
-            end
-        end
-
-        function current_state = state(new_state, new_progress)
-            persistent last_state
-
-            d = Program.Wrappers.core.progress();
-            can_update = ~isempty(d);
-
-            if exist('new_state', 'var')
-                last_state = new_state;
-
-                if can_update
-                    d.Message = sprintf("%s\n└🢒 %s...", ...
-                        Program.Wrappers.core.task, last_state);
-                end
-            end
-
-            if can_update
-                if exist('new_progress', 'var')
-                    if strcmp(d.Indeterminate, "off")
-                        d.Indeterminate = "on";
+                elseif ismac
+                    os = 'macos';
+                    ext = '';
+                    spath = ctfroot;
+                    for i = 1:4
+                        spath = fileparts(spath);
                     end
-
-                    d.Value = new_progress;
-                else
-                    d.Indeterminate = "on";
                 end
+
+                callable = '';
+                sloc = fullfile(spath, 'lib', 'bin', os);
             end
 
-            current_state = last_state;
+            executable = sprintf('%s%s', callable, ...
+                fullfile(sloc, sprintf('npal%s', ext)));
         end
 
         function run(operation, config)
-            app = Program.app;
-
-            d = uiprogressdlg(Program.window, ...
-                "Message", "Sharing engine...", "Title", "NeuroPAL_ID", ...
-                "Indeterminate", "on");
-            Program.Wrappers.core.progress(d);
+            Program.Handlers.dialogue.step('Sharing engine...');
 
             if ~matlab.engine.isEngineShared
                 matlab.engine.shareEngine;
@@ -85,20 +61,29 @@ classdef core
             stack = dbstack;
             last_func = string(stack(2).name).split('.');
             origin_wrapper = last_func(1);
-            task_string = Program.Wrappers.(origin_wrapper).task_string{last_func(2)};
-            Program.Wrappers.core.task(task_string);
             
-            Program.Wrappers.core.state('Formulating command');
+            Program.Handlers.dialogue.step('Formulating command');
             arguments = sprintf(' --operation=%s_%s --config="%s"', ...
                 origin_wrapper, operation, config);
-            executable = fullfile(app.script_dir, sprintf('npal%s', app.script_ext));
+            executable = Program.Wrappers.core.get_executable();
+            cmd = [executable, arguments];
 
-            if ~isdeployed
-                executable = sprintf('python %s', executable);
+            % Ensure we have a parallel pool
+            Program.Handlers.dialogue.step('Seeking parallelized instance...');
+            pool = gcp('nocreate');
+            if isempty(pool)
+                parpool;
             end
-
-            Program.Wrappers.core.state('Running command');
-            [status, output] = system([executable, arguments]);
+            
+            % Execute the Python script asynchronously
+            % parfeval returns a "future" object which you can retrieve later
+            Program.Handlers.dialogue.step('Awaiting async wrapper signal...');
+            futureObj = parfeval(@system, 2, cmd); %#ok<NASGU>
+            Program.Wrappers.core(futureObj);
+            
+            % If you want to eventually capture the output and status,
+            % you can call:
+            [status, output] = fetchOutputs(futureObj);
         end
 
         function signal(trigger)
@@ -107,16 +92,17 @@ classdef core
 
             else
                 if startsWith(trigger, "end_")
-                    Program.Wrappers.core.follow(trigger.replace('end_', ''));
-                    Program.Wrappers.core.clean_up();
+                    obj = Program.Wrappers.core;
+                    [status, output] = fetchOutputs(obj);
+                    obj.clean_up();
+
+                    status
+                    output
 
                 else
                     fprintf("Received unknown signal: %s", trigger)
                 end
             end
-        end
-
-        function follow(routine())
         end
     end
 end
