@@ -127,10 +127,10 @@ classdef channel < dynamicprops
         function set(obj, keyword, value)
             if isprop(obj, keyword)
                 [is_valid, is_dict] = obj.validate(keyword, value);
-                if ~is_valid
-                    error("Property %s cannot be set to value %.f of class %s for channel %s.", ...
-                        keyword, value, class(value), obj.fluorophore);
-                end
+                %if ~is_valid
+                %    error("Property %s cannot be set to value %.f of class %s for channel %s.", ...
+                %        keyword, value, class(value), obj.fluorophore);
+                %end
 
                 if is_dict && contains(keyword, '/')
                     keyword = keyword.split('/');
