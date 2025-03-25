@@ -1,12 +1,22 @@
-function apply(volume)
+function apply(volume, action)
+    Program.dlg.add_task('Processing volume');
     [app, ~, state] = Program.ctx;
-    actions = fieldnames(app.flags);
 
-    if nargin == 0
+    if ~exist('volume', 'var')
+        volume = state.active_volume;
+    elseif ~isa(volume, 'Program.volume')
+        action = volume;
         volume = state.active_volume;
     end
 
+    if exist('action', 'var')
+        actions = {action};
+    else
+        actions = fieldnames(app.flags);
+    end
+
     % Calculate the dimensions of the array we'll need to initialize.
+    Program.dlg.step('Preallocating space...');
     prospective_dimensions = volume.dims;
     for a=1:length(actions)
         prospective_dimensions = Methods.ChunkyMethods.calc_pp_size( ...
@@ -14,6 +24,7 @@ function apply(volume)
     end
 
     % Check whether this is a neuropal file.
+    Program.dlg.step('Validating file...');
     npal_helper = DataHandling.Helpers.npal;
     if ~npal_helper.is_npal_file(volume.path)
         npal_name = sprintf('%s-NPAL', volume.name);
@@ -30,11 +41,13 @@ function apply(volume)
         target_file = matfile(target_path, "Writable", true);
     end
 
+    Program.dlg.step('Calculating chunk size...');
     maximum_array_size = Program.Routines.Debug.get_max_array_size;
     total_volume_size = prod(volume.dims);
-    must_chunk = total_volume_size <= maximum_array_size;
+    must_chunk = total_volume_size > maximum_array_size;
 
     if ~must_chunk
+        Program.dlg.step('Reading all at once...');
         if volume.is_video
             data = volume.read( ...
                 'x', 1:volume.nx, ...
@@ -52,13 +65,15 @@ function apply(volume)
 
 
         for a=1:length(actions)
+            Program.dlg.step(sprintf('Applying %s...', actions{a}));
             processed_data = Methods.ChunkyMethods.apply_vol( ...
                 app, actions{a}, data);
         end
 
+        Program.dlg.step('Writing all at once...');
         target_file.data = processed_data;        
     else
-        use_framewise_chunks = volume.is_video || volume.nz > volume.nt;
+        use_framewise_chunks = volume.is_video && (volume.nt > volume.nz);
         if use_framewise_chunks
             chunk_max = volume.nt;
             chunk_label = 'Slices';
@@ -76,22 +91,22 @@ function apply(volume)
 
             Program.dlg.set_value(chunk_end/chunk_max);
             Program.dlg.step(sprintf( ...
-                '%s %.f-%.f (out of %.f)', ...
+                '%s %.f-%.f (out of %.f)...', ...
                 chunk_label, chunk_start, chunk_end, chunk_max));
 
             if use_framewise_chunks
                 chunk = volume.read( ...
                     'x', 1:volume.nx, ...
                     'y', 1:volume.ny, ...
-                    'z', chunk_start:chunk_end, ...
-                    'c', 1:volume.nc);
+                    'z', 1:volume.nz, ...
+                    'c', 1:volume.nc, ...
+                    't', chunk_start:chunk_end);
             else
                 chunk = volume.read( ...
                     'x', 1:volume.nx, ...
                     'y', 1:volume.ny, ...
-                    'z', 1:volume.nz, ...
-                    'c', 1:volume.nc, ...
-                    't', chunk_start:chunk_end);
+                    'z', chunk_start:chunk_end, ...
+                    'c', 1:volume.nc);
             end
 
             for a=1:length(actions)
@@ -100,16 +115,18 @@ function apply(volume)
             end
 
             if use_framewise_chunks
-                target_file.data(:, :, chunk_start:chunk_end, :) = processed_chunk;
-            else
                 target_file.data(:, :, :, :, chunk_start:chunk_end) = processed_chunk;
+            else
+                target_file.data(:, :, chunk_start:chunk_end, :) = processed_chunk;
             end
 
             chunk_start = chunk_end + 1;
         end
     end
 
+    Program.dlg.step('Setting new volume...');
     processed_volume = Program.volume(target_file.Properties.Source);
     state.set('active_volume', processed_volume);
+    Program.dlg.resolve();
 end
 
