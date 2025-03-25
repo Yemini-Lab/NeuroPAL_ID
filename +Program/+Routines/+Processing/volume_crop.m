@@ -6,7 +6,7 @@ function volume_crop(volume)
     app = Program.app;
     window = Program.window;
 
-    Program.GUIHandling.gui_lock(app, 'lock', 'processing_tab', event);
+    Program.GUIHandling.gui_lock(app, 'lock', 'processing_tab');
     check = uiconfirm(window, "Draw a bounding box on the volume to crop the image.", "NeuroPAL_ID", "Options", ["OK", "Cancel"]);
     if ~strcmp(check, "OK")
         return
