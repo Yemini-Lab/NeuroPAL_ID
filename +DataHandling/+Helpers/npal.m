@@ -140,26 +140,32 @@ classdef npal
             end
         end
 
-        function arr = read(varargin)
-            p = inputParser();
-            addRequired(p, 'obj');
-            addParameter(p, 'cursor',   []);
-            addParameter(p, 't',        []);
-            addParameter(p, 'z',        []);
-            addParameter(p, 'c',        []);
-            addParameter(p, 'x',        []);
-            addParameter(p, 'y',        []);
-            addParameter(p, 'mode', 'chunk'); % default read mode
-            parse(p, varargin{:});
+        function arr = read(obj, varargin)
+            if nargin > 1 && ~isa(varargin{1}, 'Program.cursor')
+                p = inputParser();
+                addRequired(p, 'obj');
+                addParameter(p, 'cursor', []);
+                addParameter(p, 'mode', 'chunk');
+
+                addParameter(p, 'x',    []);
+                addParameter(p, 'y',    []);
+                addParameter(p, 'z',    []);
+                addParameter(p, 'c',    []);
+                addParameter(p, 't',    []);
+
+                parse(p, obj, varargin{:});
+                
+                cursor = p.Results.cursor;
+                if isempty(cursor)
+                    cursor = Program.GUI.cursor.generate(rmfield(p.Results, {'obj', 'cursor', 'mode'}));
+                elseif ~isstruct(cursor)
+                    cursor = Program.GUI.cursor.generate(cursor);
+                else
+                    cursor = p.Results.cursor;
+                end
+            end            
 
             obj = p.Results.obj;
-
-            if isempty(p.Results.cursor) || ~isa(p.Results.cursor, 'Program.GUI.cursor')
-                cursor = rmfield(p.Results, {'mode', 'obj'});
-                Program.GUI.cursor.generate(p.Results);
-            else
-                cursor = p.Results.cursor;
-            end
 
             switch class(obj)
                 case 'Program.volume'
