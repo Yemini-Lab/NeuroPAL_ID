@@ -102,49 +102,37 @@ classdef cursor < handle
     methods (Static, Access = public)
         function cursor = generate(dims, varargin)
             p = inputParser();
-            Program.Helpers.parse_coordinates(p);
+            addParameter(p, 'x', []);
+            addParameter(p, 'y', []);
+            addParameter(p, 'z', []);
+            addParameter(p, 'c', []);
+            addParameter(p, 't', []);
             parse(p, varargin{:});
 
-            coords = p.Results;
-            d_labels = fieldnames(coords);
-
-            if ~isstruct(dims)
-                n_dims = length(dims);
-                struct_dim = struct();
-
-                struct_dim.nx = dims(1);
-                struct_dim.ny = dims(2);
-                struct_dim.nz = dims(3);
-                struct_dim.nc = dims(4);
-
-                if n_dims > 4
-                    struct_dim.nt = dims(5);
-                end
-
-                dims = struct_dim;
-            else
-                n_dims = length(fieldnames(dims));
-            end
-
+            coords = rmfield(p.Results, p.UsingDefaults);
             cursor = struct();
-            for n=1:length(d_labels)
-                d = d_labels{n};                                        % Label for each dimension, e.g. "x", "y", "z', ...
-                d1 = sprintf('%s1', d);                               % First index in a chunk read.
-                d2 = sprintf('%s2', d);                               % Last index in a chunk read.
-                nd = sprintf('n%s', d);                               % Label for the size of each dimension, e.g. "nx", "ny", "nz", ...
 
-                if n <= n_dims && (isfield(dims, nd) || ~isempty(coords.(d)))    
-                    if ~isempty(coords.(d))                                 % If an index was given for a particular dimension, set cursor to that index.
-                        cursor.(d1) = coords.(d);
-                        cursor.(d2) = cursor.(d1);
-                    else                                                    % If no index was given for a particular dimension, set cursor to dimensional range.
-                        cursor.(d1) = 1;
-                        cursor.(d2) = dims.(nd);
+            for pm=1:length(p.Parameters)
+                parameter = p.Parameters{pm};
+                d1 = sprintf('%s1', parameter);                              
+                d2 = sprintf('%s2', parameter);                               
+                nd = sprintf('n%s', parameter);   
+
+                if isfield(coords, parameter)              
+                    if isscalar(coords.(parameter))
+                        cursor.(d1) = coords.(parameter);
+                        cursor.(d2) = coords.(parameter);
+                    else
+                        cursor.(d1) = min(coords.(parameter));
+                        cursor.(d2) = max(coords.(parameter));
                     end
 
                 else
-                    cursor.(d1) = [];
-                    cursor.(d2) = [];
+                    volume = Program.state().active_volume;
+                    if ~strcmpi(parameter, 't') || volume.is_video
+                        cursor.(d1) = 1;
+                        cursor.(d2) = Program.state().active_volume.(nd);
+                    end
                 end
             end
         end
