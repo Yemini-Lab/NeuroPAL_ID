@@ -148,11 +148,13 @@ classdef channel_editor < handle
             stack = dbstack;
             source = stack(2).name;
             valid_source = 'channel.assign_gui';
-            if strcmp(source, valid_source)
+            if strcmp(source, valid_source) || contains(source, 'channel_editor')
                 gui = Program.GUI.channel_editor;
 
                 if idx > gui.n_rows
                     gui.add_channel();
+                    row = Program.GUI.channel_editor.request_row(idx);
+                    return
                 end
 
                 if idx ~= 0
