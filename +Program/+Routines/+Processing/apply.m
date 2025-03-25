@@ -1,5 +1,5 @@
 function apply(volume, action)
-    Program.dlg.add_task('Processing volume');
+    Program.dlg.add_task('Processing volume...');
     [app, ~, state] = Program.ctx;
 
     if ~exist('volume', 'var')
@@ -39,6 +39,8 @@ function apply(volume, action)
         end
 
         target_file = matfile(target_path, "Writable", true);
+    else
+        target_file = matfile(volume.path, "Writable", true);
     end
 
     Program.dlg.step('Calculating chunk size...');
@@ -47,6 +49,8 @@ function apply(volume, action)
     must_chunk = total_volume_size > maximum_array_size;
 
     if ~must_chunk
+        Program.dlg.add_task("Volume size fits into memory...");
+
         Program.dlg.step('Reading all at once...');
         if volume.is_video
             data = volume.read( ...
@@ -72,14 +76,19 @@ function apply(volume, action)
 
         Program.dlg.step('Writing all at once...');
         target_file.data = processed_data;        
+        Program.dlg.resolve();
     else
         use_framewise_chunks = volume.is_video && (volume.nt > volume.nz);
         if use_framewise_chunks
+            Program.dlg.add_task("Volume size exceeds memory, " + ...
+                " chunking frame-wise...");
             chunk_max = volume.nt;
-            chunk_label = 'Slices';
-        else    
-            chunk_max = volume.nz;
             chunk_label = 'Frames';
+        else    
+            Program.dlg.add_task("Volume size exceeds memory, " + ...
+                " chunking slice-wise...");
+            chunk_max = volume.nz;
+            chunk_label = 'Slices';
         end
 
         bytes_per_slice = total_volume_size / chunk_max;
@@ -122,6 +131,8 @@ function apply(volume, action)
 
             chunk_start = chunk_end + 1;
         end
+
+        Program.dlg.resolve();
     end
 
     Program.dlg.step('Setting new volume...');
