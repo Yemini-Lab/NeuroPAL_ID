@@ -395,10 +395,10 @@ classdef volume < handle
             out = [];
             switch query
                 case 'rgbw'
-                    out = cell2mat(cellfun(@(x)(x.index*x.is_rgb), obj.channels,'UniformOutput', false));
+                    out = cell2mat(cellfun(@(x)(x.arr_idx*x.is_rgb), obj.channels,'UniformOutput', false));
 
                 case {'gfp', 'dic'}
-                    found = cell2mat(cellfun(@(x)(x.index*strcmp(x.color, query)), obj.channels,'UniformOutput', false));
+                    found = cell2mat(cellfun(@(x)(x.arr_idx*strcmp(x.color, query)), obj.channels,'UniformOutput', false));
                     if any(found)
                         found = found(found~=0);
                     end
