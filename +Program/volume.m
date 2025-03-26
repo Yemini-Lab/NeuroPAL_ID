@@ -474,23 +474,74 @@ classdef volume < handle
         end
 
         function obj = sort_channels(obj)
-            n_rows = Program.GUI.channel_editor().n_rows;
-            order = {'red', 'green', 'blue', 'white', 'dic', 'gfp'};
-            colors = cellfun(@(x)(x.color), obj.channels, 'UniformOutput', false);
-            [~, gui_idx] = ismember(colors, order);
-
-            addl_chs = 0;
-            for ch=1:obj.nc
-                if gui_idx(ch) ~= 0
-                    obj.channels{ch}.gui_idx = gui_idx(ch);
-                else 
-                    obj.channels{ch}.gui_idx = n_rows-addl_chs;
-                    addl_chs = addl_chs + 1;
+            % Define the preferred color order
+            order = {'red', 'green', 'blue', 'white', 'dic', 'gfp', 'gcamp'};
+            
+            % Extract the actual colors from each channel
+            colors = cellfun(@(x)x.color, obj.channels, 'UniformOutput', false);
+            
+            % Map each color to its index in "order"; returns 0 if not found
+            [~, idx_in_order] = ismember(colors, order);
+        
+            N = numel(idx_in_order);
+            gui_idx = zeros(1, N);
+            
+            % 1) Track which recognized indices have been 'claimed' as first occurrences
+            firstOccurrenceUsed = false(1, max(idx_in_order)); 
+            
+            % 2) Lists for duplicates and unknown
+            duplicates = [];   % will store channel indices (k) for recognized duplicates
+            unknowns = [];     % will store channel indices (k) for unrecognized colors
+            
+            % 3) First pass: assign each recognized color's first occurrence to its canonical index
+            for k = 1:N
+                idx = idx_in_order(k);
+                if idx > 0
+                    if ~firstOccurrenceUsed(idx)
+                        % Assign the canonical index (first occurrence)
+                        gui_idx(k) = idx;
+                        firstOccurrenceUsed(idx) = true;
+                    else
+                        % This is a duplicate of a recognized color
+                        duplicates(end+1) = k; %#ok<AGROW>
+                    end
+                else
+                    % Unrecognized color goes in 'unknowns'
+                    unknowns(end+1) = k; %#ok<AGROW>
                 end
-
-                obj.channels{ch}.assign_gui();
+            end
+            
+            % 4) Figure out where to start assigning duplicates.
+            %    We use 'maxRecognized' = largest canonical index that actually appeared.
+            maxRecognized = max(idx_in_order);
+            if isempty(maxRecognized)
+                % No recognized colors at all? Start from 1
+                maxRecognized = 0;
+            end
+            
+            nextAvail = maxRecognized + 1;
+            
+            % 5) Assign duplicates from 'nextAvail' upwards
+            for d = 1:numel(duplicates)
+                k = duplicates(d);
+                gui_idx(k) = nextAvail;
+                nextAvail = nextAvail + 1;
+            end
+            
+            % 6) Finally assign unknown channels after duplicates
+            for u = 1:numel(unknowns)
+                k = unknowns(u);
+                gui_idx(k) = nextAvail;
+                nextAvail = nextAvail + 1;
+            end
+            
+            % 7) Store back into the channels
+            for k = 1:N
+                obj.channels{k}.gui_idx = gui_idx(k);
             end
         end
+
+
 
         function validate(obj)
             % VALIDATE  Ensure the volume properties have valid values.
