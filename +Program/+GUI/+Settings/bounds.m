@@ -18,6 +18,7 @@ function bounds(varargin)
     if ~isempty(bounds.nx) && bounds.nx > 1
         app.proc_xSlider.Limits = [1 bounds.nx];
         if p.Results.is_initializing
+            app.proc_xyAxes.XLim = [1 bounds.nx];
             app.proc_xSlider.Value = round(app.proc_xSlider.Limits(2)/2);
         end
     end
@@ -25,6 +26,7 @@ function bounds(varargin)
     if ~isempty(bounds.ny) && bounds.ny > 1
         app.proc_ySlider.Limits = [1 bounds.ny];
         if p.Results.is_initializing
+            app.proc_xyAxes.YLim = [1 bounds.nx];
             app.proc_ySlider.Value = round(app.proc_ySlider.Limits(2)/2);
         end
     end
