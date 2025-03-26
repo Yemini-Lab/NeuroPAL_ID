@@ -45,7 +45,7 @@ classdef channel < dynamicprops
                 fluorophore = 'Unknown';
             end
 
-            obj.fluorophore = fluorophore;
+            obj.fluorophore = string(fluorophore);
             obj.identify();
         end
 
@@ -73,14 +73,16 @@ classdef channel < dynamicprops
                 query = {'dropdown', 'histogram', 'render', 'gamma'};
             end
 
-            if any(ismember(query, {'dropdown'}))
+            if any(ismember(query, {'dropdown'})) ...
+                    && isfield(obj.gui, 'dd')
                 dd = obj.gui.dd;
                 obj.fluorophore = dd.Value;
                 obj.gui_idx = find(ismember(dd.Items, dd.Value));
                 obj.identify();
             end
 
-            if any(ismember(query, {'histogram'}))
+            if any(ismember(query, {'histogram'})) ...
+                    && isfield(obj.gui, 'slider')
                 slider = obj.gui.slider;
                 low_high_out = [ ...
                     slider.Value(1)/slider.Limits(2) ...
@@ -93,11 +95,13 @@ classdef channel < dynamicprops
                 obj.lh_out = low_high_out;
             end
 
-            if any(ismember(query, {'render'}))
+            if any(ismember(query, {'render'})) ...
+                    && isfield(obj.gui, 'cb')
                 obj.is_rendered = obj.gui.cb.Value;
             end
 
-            if any(ismember(query, {'gamma'}))
+            if any(ismember(query, {'gamma'})) ...
+                    && isfield(obj.gui, 'gamma')
                 obj.gamma = obj.gui.gamma.Value;
             end
         end
