@@ -85,9 +85,12 @@ classdef channel_editor < handle
             channels = volume.channels;
 
             obj = Program.GUI.channel_editor;
+            fluorophores = cellfun(@(x)(x.fluorophore), channels, 'UniformOutput', false);
+            colors = cellfun(@(x)(x.color), channels, 'UniformOutput', false);
+
             obj.set_row_count(nc);
-            obj.set_fluorophores(cellfun(@(x)(x.fluorophore), channels));
-            obj.set_colors(cellfun(@(x)(x.color), channels, 'UniformOutput', false));
+            obj.set_fluorophores(string(fluorophores));
+            obj.set_colors(string(colors));
 
             for c=1:nc
                 channel = channels{c};
