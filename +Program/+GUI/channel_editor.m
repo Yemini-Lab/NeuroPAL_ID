@@ -219,12 +219,13 @@ classdef channel_editor < handle
                 "ButtonPushedFcn", @(src, event) Program.Routines.GUI.delete_channel(tc));
 
             handle_types = fieldnames(handles);
+            skip_count = 0;
             for h=1:length(handle_types)
                 target_handle = handle_types{h};
                 handles.(target_handle).Layout.Row = target_row;
 
-                use_same_cell = strcmp(target_handle, 'ef');
-                handles.(target_handle).Layout.Column = h - use_same_cell;
+                skip_count = skip_count + strcmp(target_handle, 'ef');
+                handles.(target_handle).Layout.Column = h - skip_count;
             end
 
             obj.rows{end+1} = handles;
@@ -310,7 +311,7 @@ classdef channel_editor < handle
             if obj.n_rows == n
                 return
             elseif obj.n_rows < n
-                missing_channels = n:obj.n_rows;
+                missing_channels = obj.n_rows+1:n;
                 obj.add_channel(length(missing_channels));
             else
                 excess_channels = obj.n_rows:-1:n+1;
