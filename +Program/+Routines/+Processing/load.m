@@ -36,8 +36,7 @@ function load(mode, path)
     
     Program.dlg.step('Mapping channels');
     Program.dlg.set_value(3/5);
-    app.channel_editor.populate(volume);
-    volume.update_channels();
+    Program.Routines.mount_volume(volume);
     %Program.Routines.Processing.set_channels_from_file(channel.names, channel.idx);
     
     Program.dlg.step('Configuring view');
@@ -53,8 +52,6 @@ function load(mode, path)
     app.ProcZSlicesEditField.Enable = 'on';
     app.proc_xEditField.Enable = 'off';
     app.proc_yEditField.Enable = 'off';
-    
-    Program.GUI.set_gammas(volume);
     
     Program.dlg.step('Rendering volume');
     Program.dlg.set_value(5/5);

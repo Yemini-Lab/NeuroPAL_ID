@@ -137,7 +137,7 @@ function apply(volume, action)
 
     Program.dlg.step('Setting new volume...');
     processed_volume = Program.volume(target_file.Properties.Source);
-    state.set('active_volume', processed_volume);
+    Program.Routines.mount_volume(processed_volume);
     Program.dlg.resolve();
 end
 

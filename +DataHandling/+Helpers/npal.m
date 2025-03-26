@@ -48,6 +48,7 @@ classdef npal
                     for c=1:length(template.channels)
                         fstruct.channels{end+1} = template.channels{c}.freeze();
                     end
+                    
                     rgbw = template.get('rgbw');
                     dic = template.get('dic');
                     gfp = template.get('gfp');
