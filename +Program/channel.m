@@ -110,13 +110,12 @@ classdef channel < dynamicprops
             idx = obj.gui_idx;
 
             obj.gui = Program.GUI.channel_editor.request_row(idx);
-            hist_gui = Program.GUI.histogram_editor.request_gui(idx);
 
-            components = fieldnames(hist_gui);
-            hist_gui.gamma.Value = obj.gamma;
-            for n=1:length(components)
-                obj.gui.(components{n}) = hist_gui.(components{n});
-            end
+            histogram_panel = Program.GUI.Panels.histograms.get_panel(idx);
+            obj.gui.histogram = histogram_panel.histogram_axes;
+            obj.gui.sliders = histogram_panel.histogram_slider;
+            obj.gui.gamma_field = histogram_panel.gamma_ef;
+            obj.gui.gamma.Value = histogram_panel.gamma_ef.Value;
         end
 
         function delete_channel(obj)
