@@ -3,8 +3,8 @@ function mount_volume(volume)
         volume.name, volume.fmt));
 
     Program.GUI.channel_editor.populate(volume);
-    Program.GUI.histogram_editor.update(volume);
-
+    Program.GUI.Panels.histograms.populate(volume);
+    
     cellfun(@(x)(x.assign_gui()), volume.channels);
     Program.GUI.set_gammas(volume);
     volume.update_channels();

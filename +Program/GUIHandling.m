@@ -177,12 +177,7 @@ classdef GUIHandling
 
                 case 'processing_tab'
                     gui_components = Program.GUIHandling.proc_components;
-
-                    for pos=1:length(Program.GUIHandling.pos_prefixes)
-                        app.(sprintf('%s_hist_slider', Program.GUIHandling.pos_prefixes{pos})).Enable = state;
-                        app.(sprintf('%s_GammaEditField', Program.GUIHandling.pos_prefixes{pos})).Enable = state;
-                    end
-
+                    Program.GUI.Panels.histograms.lock(state);
             end
 
             for comp=1:length(gui_components)
@@ -571,64 +566,6 @@ classdef GUIHandling
                 end
             else
                 app.flags.(action) = 1;
-            end
-        end
-
-        function histogram_handler(app, mode, image)
-            raw = Program.GUIHandling.get_active_volume(app, 'request', 'array');
-            nc = size(raw.array, 4);
-
-            if nc < 4
-                app.bl_hist_panel.Parent = app.CELL_ID;
-                app.bm_hist_panel.Parent = app.CELL_ID;
-                app.br_hist_panel.Parent = app.CELL_ID;
-
-                app.bl_hist_panel.Visible = 'off';
-                app.bm_hist_panel.Visible = 'off';
-                app.br_hist_panel.Visible = 'off';
-
-                app.ProcHistogramGrid.RowHeight = {'1x'};
-            else
-                app.ProcHistogramGrid.RowHeight = {'1x', '1x'};
-            end
-
-            for c=1:nc
-                prefix = Program.GUIHandling.pos_prefixes{c};
-
-                switch mode
-                    case 'reset'
-                        app.(sprintf("%s_hist_panel", prefix)).Visible = 'off';
-                        cla(app.(sprintf("%s_hist_ax", prefix)))
-
-                    case 'draw'
-
-                        chan_hist = raw.array(:, :, :, c);
-
-                        if app.HidezerointensitypixelsCheckBox.Value
-                            chan_hist = chan_hist(chan_hist>0);
-                        end
-
-                        if max(chan_hist, [], 'all') <= 1
-                            chan_hist = chan_hist * app.ProcNoiseThresholdKnob.Limits(2);
-                        end
-                        
-                        if any(ismember(app.nameMap.keys(), num2str(c)))
-                            h_panel = sprintf("%s_hist_panel", Program.GUIHandling.pos_prefixes{c});
-                            h_label = sprintf("%s_Label", Program.GUIHandling.pos_prefixes{c});
-                            h_axes = sprintf("%s_hist_ax", Program.GUIHandling.pos_prefixes{c});
-
-                            app.(h_panel).Visible = 'on';
-                            app.(h_label).Text = sprintf("%s Channel", app.nameMap(num2str(c)));
-                            histogram(app.(h_axes), chan_hist, 'FaceColor', app.shortMap(num2str(c)), 'EdgeColor', app.shortMap(num2str(c)));
-                            app.(h_axes).XLim = [app.HidezerointensitypixelsCheckBox.Value, app.(h_axes).XLim(2)];
-       
-                            if c >= 4
-                                app.(h_panel).Parent = app.ProcHistogramGrid;
-                                app.(h_panel).Layout.Row = 2;
-                                app.(h_panel).Layout.Column = c-3;
-                            end
-                        end
-                end
             end
         end
 

@@ -68,9 +68,9 @@ classdef render
             %render = double(render)/double(max(render(:)));
 
             %Program.GUIHandling.set_gui_limits(app, dims=volume.dims);
-            %Program.GUI.Toggles.histograms(render);
             Program.GUI.Settings.bounds('volume', volume)
-            Program.Handlers.histograms.draw(struct('array', {raw_array}));
+            Program.GUI.Panels.histograms.draw( ...
+                'array', render, 'volume', volume)
             Program.GUIHandling.shorten_knob_labels(app);
         
             if Program.state().mip

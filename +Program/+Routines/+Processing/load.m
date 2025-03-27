@@ -32,10 +32,11 @@ function load(mode, path)
     Program.dlg.step('Setting threshold');
     Program.dlg.set_value(2/5);
     Program.GUI.Settings.thresholds(volume.dtype_max);
-    Program.GUI.histogram_editor.update(volume);
+    %Program.GUI.histogram_editor.update(volume);
     
     Program.dlg.step('Mapping channels');
     Program.dlg.set_value(3/5);
+    Program.GUI.Panels.histograms.populate(volume);
     Program.Routines.mount_volume(volume);
     %Program.Routines.Processing.set_channels_from_file(channel.names, channel.idx);
     

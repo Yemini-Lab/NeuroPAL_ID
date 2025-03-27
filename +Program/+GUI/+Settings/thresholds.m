@@ -9,10 +9,6 @@ function thresholds(new_maximum)
     app.ProcNoiseThresholdKnob.MajorTickLabels = string(app.ProcNoiseThresholdKnob.MajorTicks);
     Program.GUIHandling.shorten_knob_labels(app);
 
-    for pos=1:length(Program.GUIHandling.pos_prefixes)
-        app.(sprintf('%s_hist_slider', Program.GUIHandling.pos_prefixes{pos})).Limits = new_limits;
-        app.(sprintf('%s_hist_slider', Program.GUIHandling.pos_prefixes{pos})).Value = new_limits;
-        app.(sprintf('%s_hist_ax', Program.GUIHandling.pos_prefixes{pos})).XLim = new_limits;
-    end
+    Program.GUI.Panels.histograms.set_limits(new_limits);
 end
 
