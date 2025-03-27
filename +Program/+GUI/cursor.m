@@ -10,6 +10,9 @@ classdef cursor < handle
         z1;
         z2;
 
+        c1;
+        c2;
+
         t1;
         t2;
     end
@@ -47,6 +50,11 @@ classdef cursor < handle
                 obj.y1 = round(gui.y.Value);
                 obj.y2 = obj.y1;
             end
+
+            channels_to_load = find(cellfun( ...
+                @(x)(x.is_rendered), volume.channels));
+            obj.c1 = min(channels_to_load);
+            obj.c2 = max(channels_to_load);
             
             if state.mip || ~is_projecting_z
                 obj.z1 = 1;

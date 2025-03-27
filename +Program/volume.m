@@ -260,23 +260,34 @@ classdef volume < handle
             end
             
             raw_array = obj.read(cursor);
+            to_delete = [];
             array = raw_array;
     
-            for ch=1:obj.nc
+            for ch=cursor.c1:cursor.c2
                 channel = obj.channels{ch};
-                if ~channel.is_rendered
-                    array(:, :, :, channel.arr_idx) = 0;
-                else
-                    array(:, :, :, channel.arr_idx) = imadjustn(array(:, :, :, channel.arr_idx), channel.lh_in, channel.lh_out, channel.gamma);
+                arr_idx = channel.arr_idx - cursor.c1 + 1;
+
+                if channel.is_rendered
+                    array(:, :, :, arr_idx) = imadjustn(array(:, :, :, arr_idx), channel.lh_in, channel.lh_out, channel.gamma);
+
                     if ~channel.is_rgb
-                        channel_array = array(:, :, :, channel.arr_idx);
+                        channel_array = array(:, :, :, arr_idx);
                         pseudocolor_array = Program.render.generate_pseudocolor(channel_array, channel);
                         array(:, :, :, obj.rgb) = array(:, :, :, obj.rgb) + pseudocolor_array;
+                        to_delete = [to_delete, arr_idx];
                     end
+                    
+                elseif channel.is_rgb
+                    array(:, :, :, arr_idx) = 0;
+                    
+                else
+                    to_delete = [to_delete, arr_idx];
                 end
             end
+
+            array(:, :, :, to_delete) = [];
     
-            array = array(:, :, :, obj.rgb);
+            %array = array(:, :, :, obj.rgb);
         end
         
         function converted_instance = convert(obj, fmt)

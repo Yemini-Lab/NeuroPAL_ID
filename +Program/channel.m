@@ -77,7 +77,7 @@ classdef channel < dynamicprops
                     && isfield(obj.gui, 'dd')
                 dd = obj.gui.dd;
                 obj.fluorophore = dd.Value;
-                obj.gui_idx = find(ismember(dd.Items, dd.Value));
+                obj.arr_idx = find(ismember(dd.Items, dd.Value));
                 obj.identify();
             end
 
