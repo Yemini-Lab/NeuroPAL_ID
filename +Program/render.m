@@ -58,7 +58,7 @@ classdef render
             for a=1:length(actions)
                 action = actions{a};
                 if app.flags.(action) == 1
-                    Program.Handlers.loading.start(sprintf("Applying %s...", action));
+                    Program.dlg.step(sprintf("Applying %s...", action));
                     render = Methods.ChunkyMethods.apply_vol(app, action, render);
                 end
             end
