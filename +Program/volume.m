@@ -552,6 +552,9 @@ classdef volume < handle
             end
         end
 
+            [~, obj.rgb] = ismember(sort(gui_idx), gui_idx);
+            obj.rgb = obj.rgb(1:3);
+        end
 
 
         function validate(obj)
