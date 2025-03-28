@@ -83,6 +83,7 @@ classdef histograms < handle
                             'Row', row, ...
                             'Column', column, ...
                             'Parent', obj.grid);
+                        panel.enable();
                     else
                         obj.reset(channel.gui_idx);
                     end
