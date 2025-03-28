@@ -140,7 +140,6 @@ classdef volume < handle
             
             if isfield(metadata, 'channels')
                 obj.channels = metadata.channels;
-                obj.rgb = metadata.rgb;
                 obj.sort_channels();
             end
 
