@@ -70,7 +70,7 @@ classdef render
             %Program.GUIHandling.set_gui_limits(app, dims=volume.dims);
             Program.GUI.Settings.bounds('volume', volume)
             Program.GUI.Panels.histograms.draw( ...
-                'array', render, 'volume', volume)
+                'array', raw_array, 'volume', volume)
             Program.GUIHandling.shorten_knob_labels(app);
         
             if Program.state().mip
