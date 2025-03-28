@@ -91,17 +91,18 @@ classdef render
     
         function pseudocolor_array = generate_pseudocolor(array, channel)
             pseudocolor_array = repmat(squeeze(array), [1, 1, 1, 3]);
-    
-            switch channel.color
-                case 'gfp'
-                    gfp_color = Program.GUIPreferences.instance().GFP_color;
-                    pseudocolor_array(:, :, :, ~gfp_color) = 0;
-    
-                otherwise
-                    for c = 1:3
-                        rgb_modifier = 1 - channel.color(c);
-                        pseudocolor_array(:, :, :, c) = pseudocolor_array(:, :, :, c) * rgb_modifier;
-                    end
+
+            if channel.is_known
+                switch channel.color
+                    case 'gfp'
+                        gfp_color = Program.GUIPreferences.instance().GFP_color;
+                        pseudocolor_array(:, :, :, ~gfp_color) = 0;
+                end
+            else
+                for c = 1:3
+                    rgb_modifier = 1 - channel.color(c);
+                    pseudocolor_array(:, :, :, c) = pseudocolor_array(:, :, :, c) * rgb_modifier;
+                end
             end
         end
     
