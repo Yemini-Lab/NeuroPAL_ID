@@ -130,9 +130,15 @@ classdef histogram_panel < dynamicprops
             obj.title_label.Text = sprintf("%s Channel", ...
                 channel.fluorophore);
 
+            try
+                histogram_color = validatecolor(channel.color);
+            catch
+                histogram_color = validatecolor(channel.styling.background);
+            end
+
             histogram(obj.histogram_axes, array(:), ...
-                'FaceColor', channel.color, ...
-                'EdgeColor', channel.color);
+                'FaceColor', histogram_color, ...
+                'EdgeColor', histogram_color);
 
             obj.histogram_axes.XLim(1) = ...
                 app.HidezerointensitypixelsCheckBox.Value;
