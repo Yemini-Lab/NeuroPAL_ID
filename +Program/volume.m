@@ -549,7 +549,6 @@ classdef volume < handle
             for k = 1:N
                 obj.channels{k}.gui_idx = gui_idx(k);
             end
-        end
 
             [~, obj.rgb] = ismember(sort(gui_idx), gui_idx);
             obj.rgb = obj.rgb(1:3);
