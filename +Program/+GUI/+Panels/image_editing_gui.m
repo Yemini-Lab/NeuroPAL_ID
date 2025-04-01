@@ -1,4 +1,4 @@
-classdef image_manipulation
+classdef image_editing_gui
     %IMAGE_MANIPULATION Class responsible for managing the image
     %   manipulation interface within the processing tab, as well as any
     %   helper functions that its child components rely upon.
@@ -12,7 +12,7 @@ classdef image_manipulation
     end
     
     methods
-        function obj = image_manipulation()
+        function obj = image_editing_gui()
             %IMAGE_MANIPULATION Constructs a persistent instance
             %   of the image manipulation panel.
             persistent panel_instance
@@ -51,7 +51,17 @@ classdef image_manipulation
         function obj = set_display_configuration(obj, mode)
             %SET_DISPLAY_CONFIGURATION Edits relevant grid layout
             %   to ensure layout serves the functionality the user
-            %   is currently engaging with.
+            %   is currently engaging with. For example, if we are working
+            %   with a video, we display frame trimming components.
+            %
+            %   Inputs:
+            %   - obj = image_editing_gui instance.
+            %   - mode = string or char that is one of 'crop', 'rotate',
+            %       or 'downsample', each representing one of the possible
+            %       image editing operations.
+            %
+            %   Outputs:
+            %   - obj = image_editing_gui instance.
 
             % If obj wasn't passed for some reason, grab the 
             % persistent instance.
@@ -96,6 +106,60 @@ classdef image_manipulation
                         obj.panels.downsample.Visible = 'on';
                 end
             end
+        end
+
+        function obj = set_video_configuration(obj)
+            %SET_VIDEO_CONFIGURATION Configure the GUI and its components
+            %   properties such that users are able to edit videos.
+            %
+            %   Inputs:
+            %   - obj: image_manipulation instance.
+            %
+            %   Outputs:
+            %   - obj: image_manipulation instance.
+
+            app = Program.app;
+
+            row_height = app.ProcDownsamplingGrid.RowHeight;
+            row_height{3} = 20;
+            row_height{4} = 20;
+            app.ProcDownsamplingGrid.RowHeight = row_height;
+
+            sidebar = Program.GUI.Panels.preprocessing_sidebar();
+            sidebar.toggle_spectral_unmixing(0);
+
+            % Add a row to the parent grid to accommodate the time slider.
+            obj.grid.RowHeight{end+1} = 'fit';
+
+            % Move the timeline component into the new row.
+            obj.video_only_components.timeline.Parent = obj.grid;
+            obj.video_only_components.timeline.Layout.Row = length(obj.grid.RowHeight);
+            obj.video_only_components.timeline.timeline.Layout.Column = length(obj.grid.ColumnWidth);
+
+            % Render the timeline component visible.
+            obj.video_only_components.timeline.timeline.Visible = 'on';
+
+            % For every component whose callback edits video content...
+            for n=1:length(obj.video_only_components)
+                % Get the component.
+                component = obj.video_only_components{n};
+                
+                % If the component can be enabled, enable it.
+                if isprop(component, 'Enable')
+                    component.Enable = 'on';
+                end
+                
+                % If the component can be made visible, make it visible.
+                if isprop(component, 'Visible')
+                    component.Visible = 'on';
+                end
+            end
+
+            % Get the persistent instance of the image manipulation panel.
+            image_manipulation_panel = Program.GUI.Panels.image_manipulation();
+
+            % Priompt the instance to switch to its video configuration.
+            image_manipulation_panel.set_video_configuration();
         end
 
         function obj = save_array_to_cache(obj, array)

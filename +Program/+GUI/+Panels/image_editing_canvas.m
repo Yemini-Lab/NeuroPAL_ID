@@ -1,9 +1,9 @@
-classdef image_processing_viewport
-    %IMAGE_PROCESSING_AXES Class responsible for managing the viewport
+classdef image_editing_canvas
+    %IMAGE_EDITING_AXES Class responsible for managing the canvas
     %   within the processing tab.
     %
     %   Glossary:
-    %   - viewport = The group of GUI components, such as axes and sliders,
+    %   - canvas = The group of GUI components, such as axes and sliders,
     %       which together facilitate the viewing & perusing of a loaded
     %       image or video.
     %   - projection = The set of dimensions along which we are viewing a
@@ -23,21 +23,21 @@ classdef image_processing_viewport
     end
     
     methods
-        function obj = image_processing_viewport()
+        function obj = image_editing_canvas()
             %IMAGE_MANIPULATION Constructs a persistent instance
             %   of the image manipulation panel.
-            persistent viewport_instance
+            persistent canvas_instance
 
             % If uninitiated...
-            if isempty(viewport_instance)
+            if isempty(canvas_instance)
                 % Get running app instance.
                 app = Program.app;
 
                 % Populate the persistent variable.
-                viewport_instance = obj;
+                canvas_instance = obj;
 
                 % Assign parent grid layout's GUI handle to grid property.
-                viewport_instance.grid = app.ProcAxGrid;
+                canvas_instance.grid = app.ProcAxGrid;
 
                 % Initiate cell array featuring all video components whose
                 % callbacks edit video-specific aspects of the current
@@ -49,7 +49,7 @@ classdef image_processing_viewport
 
                 % Initiate a struct whose fields reference video-exclusive
                 % components.
-                viewport_instance.video_exclusive_components = struct( ...
+                canvas_instance.video_exclusive_components = struct( ...
                     'timeline', {app.PlaceholderProcTimeline}, ...
                     'editables', {video_editables});
 
@@ -58,7 +58,7 @@ classdef image_processing_viewport
                 % and yz axes so that users are able to account for neuron
                 % visibility in these projections when preprocessing
                 % videos.
-                viewport_instance.axes = struct( ...
+                canvas_instance.axes = struct( ...
                     'xy', {app.proc_xyAxes}, ...
                     'xz', {app.proc_xzAxes}, ...
                     'yz', {app.proc_yzAxes});
@@ -73,7 +73,7 @@ classdef image_processing_viewport
                     'vertical', {app.proc_vert_zSlider});                   % This is the vertical z slider we use when the yz view is enabled.
 
                 % Assign slider GUI components to sliders property.
-                viewport_instance.sliders = struct( ...
+                canvas_instance.sliders = struct( ...
                     'x', {app.proc_xSlider}, ...
                     'y', {app.proc_ySlider}, ...
                     'z', {z_sliders}, ...
@@ -81,7 +81,7 @@ classdef image_processing_viewport
             end
 
             % Return persistent instance.
-            obj = viewport_instance;
+            obj = canvas_instance;
         end
 
         function obj = set_projection(obj, projection)
@@ -89,7 +89,7 @@ classdef image_processing_viewport
             %   given projection.
             %
             %   Input:
-            %   - obj: image_processing_viewport instance.
+            %   - obj: image_editing_canvas instance.
             %   - projection: char describing dimensions to project, e.g.
             %       "xyzt", "xyz", "z", etc.
 
@@ -115,6 +115,11 @@ classdef image_processing_viewport
             % the new projection.
             obj.set_display_configuration();
         end
+
+        function obj = set_gui_configuration(obj, mode)
+            func_string = sprintf("set_%s_configuration", mode);
+            obj.(func_string);
+        end
         
         function obj = set_display_configuration(obj, projection)
             %SET_DISPLAY_CONFIGURATION Edits relevant grid layout
@@ -124,7 +129,7 @@ classdef image_processing_viewport
             % If obj wasn't passed for some reason, grab the 
             % persistent instance.
             if ~exist('obj', 'var')
-                obj = Program.GUI.Panels.image_processing_axes();
+                obj = Program.GUI.Panels.image_editing_axes();
             end
 
             % If a projection was passed, set this to be the new active
@@ -132,26 +137,44 @@ classdef image_processing_viewport
             if exist('projection', 'var')
                 obj.set_projection(projection);
             else 
-                projection = obj.projection;
-            end
-
-            % If we are working with a video...
-            if obj.is_working_with_video
-                % Update the GUI configuration to ensure that only
-                % components relevant to videos are accessible.
-                obj.set_video_configuration();
-
-                % Remove t from the projection argument.
                 projection = strrep(projection, 't', '');
             end
 
+            obj.set_projection_configuration(projection);
+        end
+    end
+
+    methods (Static, Access = public)
+        function bool = is_working_with_video()
+            %IS_WORKING_WITH_VIDEO Helper function that returns true if
+            %   the viewpoer is currently displaying a video and false if
+            %   it is currently displaying an image.
+
+            % Get persistent canvas instance.
+            obj = Program.GUI.Panels.image_editing_canvas();
+
+            % Check whether current projections features a time dimension.
+            bool = contains(obj.projection, 't');
+        end
+    end
+
+    methods (Access = private)
+        function obj = set_projection_configuration(obj, projection)
+            new_row_height = obj.grid.RowHeight;
+            new_column_width = obj.grid.ColumnWidth;
+
             switch projection
                 case 'xyz'
+                    new_row_height{1} = 150;                                % This row features the xyAxes, the yzAxes, and the y slider.
+                    new_row_height{2} = 0;                                  % This row features the xzAxes.
+                    new_row_height{3} = 0;                                  % 
+                    new_row_height{4} = 30;                                 % This row features the z Slider.
+
                 case 'z'
-                    new_row_height = obj.grid.RowHeight;
-                    new_row_height{2} = 150;                                % This row features the xyAxes and the y slider.
-                    new_row_height{3} = 30;                                 % This row features the 
-                    new_row_height{4} = 0;
+                    new_row_height{1} = 150;                                % This row features the xyAxes, the yzAxes, and the y slider.
+                    new_row_height{2} = 0;                                  % This row features the xzAxes.
+                    new_row_height{3} = 0;                                  % 
+                    new_row_height{4} = 30;                                 % This row features the z Slider.
             end
 
             obj.set_row_height(new_row_height);
@@ -192,32 +215,51 @@ classdef image_processing_viewport
                 end
             end
         end
-    end
 
-    methods (Static, Access = public)
-        function bool = is_working_with_video()
-            %IS_WORKING_WITH_VIDEO Helper function that returns true if
-            %   the viewpoer is currently displaying a video and false if
-            %   it is currently displaying an image.
+        function obj = set_image_configuration(obj)
+            %SET_IMAGE_CONFIGURATION Configure the GUI and its components
+            %   properties such that users are able to edit images.
+            %
+            %   Inputs:
+            %   - obj: image_editing_canvas instance.
+            %
+            %   Outputs:
+            %   - obj: image_editing_canvas instance.
 
-            % Get persistent viewport instance.
-            obj = Program.GUI.Panels.image_processing_viewport();
+            % Remove the time slider's row from the parent grid layout.
+            obj.grid.RowHeight(end) = [];
 
-            % Check whether current projections features a time dimension.
-            bool = contains(obj.projection, 't');
+            % Move the time slider into the background and render it
+            % invisible.
+            obj.video_only_components.timeline.Parent = Program.window;
+            obj.video_only_components.timeline.Visible = 'off';
+            
+            % For every component whose callback edits video content...
+            for n=1:length(obj.video_only_components)
+                % Get the component.
+                component = obj.video_only_components{n};
+                
+                % If the component can be disabled, disable it.
+                if isprop(component, 'Enable')
+                    component.Enable = 'off';
+                end
+                
+                % If the component can be made invisible, make it invisible.
+                if isprop(component, 'Visible')
+                    component.Visible = 'off';
+                end
+            end
         end
-    end
 
-    methods (Access = private)
         function obj = set_video_configuration(obj)
             %SET_VIDEO_CONFIGURATION Configure the GUI and its components
             %   properties such that users are able to edit videos.
             %
             %   Inputs:
-            %   - obj: image_processing_viewport instance.
+            %   - obj: image_editing_canvas instance.
             %
             %   Outputs:
-            %   - obj: image_processing_viewport instance.
+            %   - obj: image_editing_canvas instance.
 
             % Add a row to the parent grid to accommodate the time slider.
             obj.grid.RowHeight{end+1} = 'fit';
@@ -246,11 +288,11 @@ classdef image_processing_viewport
                 end
             end
 
-            % Get the persistent instance of the image manipulation panel.
-            image_manipulation_panel = Program.GUI.Panels.image_manipulation();
+            % Get the persistent instance of the image editing panel.
+            image_editing_gui = Program.GUI.Panels.image_editing_gui();
 
             % Priompt the instance to switch to its video configuration.
-            image_manipulation_panel.set_video_configuration();
+            image_editing_gui.set_video_configuration();
         end
     end
 end
