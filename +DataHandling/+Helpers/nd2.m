@@ -111,8 +111,11 @@ classdef nd2
                     "get_dimensions function.", class(reader));
             end
 
-            % Get the bit depth from the reader object.
-            bit_depth = reader.getMetadataStore().getPixelsType(0);
+            % Get the datatype from the reader object.
+            datatype = char(reader.getMetadataStore().getPixelsType(0));
+
+            % Extract bit depth from datatype.
+            bit_depth = str2double(extract(datatype, digitsPattern));
 
             % Check whether this bit depth is matlab-compatible by 
             % calculating the remainder after division of by 8;
@@ -136,10 +139,10 @@ classdef nd2
                 % reader and run a conversion should they not match.
                 bit_depth = valid_bit_depths( ...
                     find(valid_bit_depths, smallest_dist));
-            end
 
-            % Compose the appropriate class name for this bit depth.
-            datatype = sprintf("uint%.f", bit_depth);
+                % Compose the appropriate class name for new bit depth.
+                datatype = sprintf("uint%.f", bit_depth);
+            end
         end
 
         function xyz_array = get_voxel_resolution(reader)
