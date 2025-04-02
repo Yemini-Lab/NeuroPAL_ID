@@ -67,7 +67,7 @@ classdef nd2
             % Get order of dimensions. Note that we call a char
             % conversion here because the reader will return a java object
             % by default.
-            order_of_dimensions = char(obj.getDimensionOrder);
+            order_of_dimensions = char(reader.getDimensionOrder);
 
             % Initialize dimension struct.
             dimensions = struct();
