@@ -41,6 +41,35 @@ classdef ProgramInfo
             % Return the handle to the caller
             handle = window_handle;
         end
+
+        function handle = app()
+            %APP Retrieve a persistent handle to the running app instance.
+            %
+            %   Output:
+            %   - handle: The handle to the running application instance
+            %       (if it exists), or an empty value otherwise.
+        
+            % Initiate a persistent reference.
+            persistent app_handle
+
+            % Check whether the persistent variable is uninitialized.
+            is_uninitialized = any(isempty(app_handle));
+
+            % Check whether the persistent variable references a delete
+            % or otherwise invalid graphics object.
+            is_invalid = any(isa(app_handle, "handle")) ...
+                && any(~isvalid(app_handle));
+        
+            % If the reference is empty or invalid, try to find it.
+            if  is_uninitialized || is_invalid               
+                window_handle = Program.ProgramInfo.window();
+                app_handle = window_handle.RunningAppInstance;
+            end
+        
+            % Return the persistent variable.
+            handle = app_handle;
+        end
+
         function msg = getAboutMsg()
             %GETABOUTMSG Get the about message for display.
             msg = [];
