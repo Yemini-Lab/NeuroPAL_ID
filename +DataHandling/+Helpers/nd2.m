@@ -75,14 +75,14 @@ classdef nd2
             % Iterate over all dimensions in order.
             for d=1:length(order_of_dimensions)
                 % Get the name of this dimension (e.g. "X", "Y", etc).
-                dimension_label = order_of_dimensions(2);
+                dimension_label = order_of_dimensions(d);
 
                 % Get the appropriate function to obtain this dimension's
                 % size from the reader (e.g. "GetSizeX", "GetSizeY", etc).
                 dimension_func = sprintf("getSize%s", dimension_label);
 
                 % call this function and assign its output to the struct.
-                dimensions.(dimension_label) = reader.(dimension_func);
+                dimensions.(lower(dimension_label)) = reader.(dimension_func);
             end
         end
 
@@ -172,6 +172,7 @@ classdef nd2
                 metadata_store.getPixelsPhysicalSizeX(0).value, ...
                 metadata_store.getPixelsPhysicalSizeY(0).value, ...
                 metadata_store.getPixelsPhysicalSizeZ(0).value];
+            xyz_array = double(xyz_array);
         end
 
         %% Functions merged from slow_merge.
@@ -215,7 +216,7 @@ classdef nd2
             image_array = image_array{1};
         end
 
-        function writer = convert_to(format, source)
+        function write_obj = convert_to(format, source)
             %CONVERT_TO Convert the nd2 file into a given format.
             %
             %   Inputs:
@@ -227,6 +228,9 @@ classdef nd2
             %   Outputs:
             %   - new_file: Path to converted file.
 
+            Program.GUI.dialogues.add_task('Converting ND2 file...');
+            Program.GUI.dialogues.step('Identifying helper class...');
+
             % Construct the expected name of requested format's helper
             % class.
             write_class = sprintf("DataHandling.Helpers.%s", format);
@@ -235,6 +239,8 @@ classdef nd2
             if ~exist(write_class, 'class')
                 % If it doesn't, raise error.
                 error("No helper class found for format %s.", format)
+            else
+                write_class = eval(write_class);
             end
 
             % Construct the new path by swapping the given format in
@@ -242,10 +248,12 @@ classdef nd2
             new_path = strrep(source, 'nd2', format);
 
             % Get nd2 reader object by calling get_reader.
+            Program.GUI.dialogues.step('Generating Nikon reader...');
             source = DataHandling.Helpers.nd2.get_reader(source);
+            Program.GUI.dialogues.step('Reading metadata...');
 
             % Get the datatype of the image array.
-            [dclass, ~] = DataHandling.Helpers.nd2.get_datatype(source);
+            [bit_depth, dtype] = DataHandling.Helpers.nd2.get_datatype(source);
 
             % Get the dimensions of the image array.
             dims = DataHandling.Helpers.nd2.get_dimensions(source);
@@ -254,17 +262,20 @@ classdef nd2
             voxel_resolution = DataHandling.Helpers.nd2.get_voxel_resolution(source);
 
             % Call the helper class's create_file function.
-            new_path = DataHandling.Helpers.(write_class).create_file( ...
-                new_path, 'dtype', dclass, ...
-                'voxel_resolution', voxel_resolution, ...
+            Program.GUI.dialogues.step('Initializing new file...');
+            new_path = write_class.create_file( ...
+                new_path, 'dtype', dtype, ...
+                'scale', voxel_resolution, ...
                 'dims', [dims.x, dims.y, dims.z, dims.c, dims.t]);
 
             % Get this new file's reader object.
-            writer = DataHandling.Helpers.(write_class).get_reader(new_path);
+            write_obj = write_class.get_reader(new_path);
+            write_obj.Properties.Writable = true;
 
             % Calculate the maximum possible array size of given system's
             % memory. Note that we limit the maximum chunk size to 90% of
             % the maximum possible array to leave a compute buffer.
+            Program.GUI.dialogues.step('Performing memory analysis...');
             if ispc
                 % If system is running Windows, use Matlab's memory()
                 % function.
@@ -278,13 +289,13 @@ classdef nd2
 
             % Using the datatype, calculate the bytes occupied by each
             % element within the image array.
-            switch dclass
+            switch dtype
                 case 'single'
                     bytes_per_el = 4;
                 case 'double'
                     bytes_per_el = 8;
                 otherwise
-                    bytes_per_el = str2double(dclass(5:end))/8;
+                    bytes_per_el = str2double(dtype(5:end))/8;
             end
 
             % Calculate the total memory occupied by the image array.
@@ -295,14 +306,15 @@ classdef nd2
             % than or equal to the maximum possible array size allowed by
             % the system's memory constraints, write plane-wise. Otherwise,
             % write chunk-wise.
-            write_planewise = ttl_bytes <= max_arr;
+            write_planewise = ttl_bytes <= max_arr && ttl_bytes < 1e9;
 
             if write_planewise
                 % If writing plane-wise...
-                %Program.Handlers.dialogue.step('Reading entire Nikon volume...');
+                Program.GUI.dialogues.add_task('Writing without chunking...');
+                Program.GUI.dialogues.step('Reading entire Nikon volume...');
 
                 % Get a cell array of all nd2 planes in the file.
-                d_cell = bfopen(char(nd2_reader.getCurrentFile));
+                d_cell = bfopen(char(source.getCurrentFile));
                 d_cell = d_cell{1};
 
                 % Get the number of planes in the nd2 file.
@@ -310,11 +322,11 @@ classdef nd2
 
                 % Initialize the data array.
                 data = zeros(dims.y, dims.x, dims.z, ...
-                    dims.c, dims.t, dclass);
+                    dims.c, dims.t, bit_depth);
 
                 % For each plane...
                 for pidx = 1:n_planes
-                    %Program.Handlers.dialogue.set_value(pidx/n_planes);
+                    Program.GUI.dialogues.set_value(pidx/n_planes);
 
                     % Get the z, c, and t coordinates corresponding to this
                     % plane index.
@@ -323,27 +335,29 @@ classdef nd2
                     % Write this plane to the data array, indexing into the
                     % t dimension only if there is more than one frame.
                     if dims.t > 1 
-                        %Program.Handlers.dialogue.step(sprintf( ...
-                        %    'Caching plane %.f/%.f (z = %.f, c = %.f, t = %.f)', ...
-                        %    pidx, n_planes, z, c, t));
+                        Program.GUI.dialogues.step(sprintf( ...
+                            'Caching plane %.f/%.f (z = %.f, c = %.f, t = %.f)', ...
+                            pidx, n_planes, z, c, t));
                         data(:, :, z, c, t) = d_cell{pidx, 1};
 
                     else
-                        %Program.Handlers.dialogue.step(sprintf( ...
-                        %    'Caching plane %.f/%.f (z = %.f, c = %.f)', ...
-                        %    pidx, n_planes, z, c));
+                        Program.GUI.dialogues.step(sprintf( ...
+                            'Caching plane %.f/%.f (z = %.f, c = %.f)', ...
+                            pidx, n_planes, z, c));
                         data(:, :, z, c) = d_cell{pidx, 1};
                     end
                 end
 
                 % Write data to file.
-                %Program.Handlers.dialogue.step(sprintf( ...
-                %    'Writing %.f planes to file...', n_planes));
-                writer.data = data;
+                Program.GUI.dialogues.step(sprintf( ...
+                    'Writing %.f planes to file...', n_planes));
+                write_obj.data = data;
+                Program.GUI.dialogues.resolve();
                 
             else           
                 % If writing chunk-wise...
                 if dims.t > 1
+                    Program.GUI.dialogues.add_task('Writing frame-wise...');
                     % For videos, chunk along the time dimension.
             
                     % Get the number of bytes in one full frame.
@@ -363,19 +377,19 @@ classdef nd2
 
                         % Calculate the end point of our current chunk.
                         t_end = min(t_start + chunk_size_t - 1, dims.t);
-                        %Program.Handlers.dialogue.set_value(t_end/dims.t);
-                        %Program.Handlers.dialogue.step(sprintf( ...
-                        %    'Frames %.f-%.f (out of %.f)', ...
-                        %    t_start, t_end, nt));
+                        Program.GUI.dialogues.set_value(t_end/dims.t);
+                        Program.GUI.dialogues.step(sprintf( ...
+                            'Frames %.f-%.f (out of %.f)', ...
+                            t_start, t_end, nt));
             
                         % Read this chunk of frames.
                         this_chunk = DataHandling.Helpers.nd2.get_plane( ...
-                            nd2_reader, ...
+                            source, ...
                             'x', 1:dims.x, 'y', 1:dims.y, 'z', 1:dims.z, ...
                             'c', 1:dims.c, 't', t_start:t_end);
             
                         % Write this chunk to our new file.
-                        writer.data(:,:,:,:, t_start:t_end) = this_chunk;
+                        write_obj.data(:,:,:,:, t_start:t_end) = this_chunk;
             
                         % Move the chunk window.
                         t_start = t_end + 1;
@@ -383,6 +397,7 @@ classdef nd2
             
                 else
                     % For images, chunk along the z dimension.
+                    Program.GUI.dialogues.add_task('Writing slice-wise...');
             
                     % Get the number of bytes in one z-slice.
                     bytes_per_z_slab = ttl_bytes / dims.z;
@@ -401,24 +416,56 @@ classdef nd2
                         % Calculate the end point of our current chunk.
                         z_end = min(z_start + chunk_size_z - 1, dims.z);
 
-                        %Program.Handlers.dialogue.set_value(z_end/dims.t);
-                        %Program.Handlers.dialogue.step(sprintf( ...
-                        %    'Slices %.f-%.f (out of %.f)', ...
-                        %    z_start, z_end, dims.z));
+                        Program.GUI.dialogues.set_value(z_end/dims.t);
+                        Program.GUI.dialogues.step(sprintf( ...
+                            'Slices %.f-%.f (out of %.f)', ...
+                            z_start, z_end, dims.z));
             
                         % Read this chunk of z-slices.
                         this_chunk = DataHandling.Helpers.nd2.get_plane( ...
-                            nd2_reader, ...
+                            source, ...
                             'x', 1:dims.x, 'y', 1:dims.y, 'z', z_start:z_end, ...
                             'c', 1:dims.c);
+
+                        this_chunk = cast(this_chunk, dtype);
             
                         % Write this chunk to our new file.
-                        writer.data(:,:, z_start:z_end, :) = this_chunk;
+                        write_obj.data(:, :, z_start:z_end, :) = this_chunk;
             
                         % Move the chunk window.
                         z_start = z_end + 1;
                     end
                 end
+                
+                Program.GUI.dialogues.resolve();
+            end
+
+            Program.GUI.dialogues.resolve();
+        end
+
+        function arr = read(obj, varargin)
+            p = inputParser();
+    
+            addParameter(p, 'z_range',    []);
+            addParameter(p, 'c_range',    []);
+            addParameter(p, 't_range',    []);
+    
+            parse(p, varargin{:});
+
+            if isfield(cursor, 'c1') || isprop(cursor, 'c1')
+                arr = DataHandling.Helpers.nd2.get_plane( ...
+                    obj, ...
+                    'z', cursor.z1:cursor.z2, ...
+                    'c', cursor.c1:cursor.c2, ...
+                    'x', cursor.x1:cursor.x2, ...
+                    'y', cursor.y1:cursor.y2);
+            else
+                arr = DataHandling.Helpers.nd2.get_plane( ...
+                    obj, ...
+                    'z', cursor.z1:cursor.z2, ...
+                    'c', 1:obj.getSizeC, ...
+                    'x', cursor.x1:cursor.x2, ...
+                    'y', cursor.y1:cursor.y2);
             end
         end
 
@@ -428,7 +475,7 @@ classdef nd2
             % nd2_file = the ND2 file to convert
             % np_file = the NeuroPAL format file
 
-            Program.Handlers.dialogue.add_task('Reading Nikon metadata...');
+            Program.GUI.dialogues.add_task('Reading Nikon metadata...');
             f = bfGetReader(file);                                              % Get reader object.
 
             nx = f.getSizeX;                                                    % Get width.
@@ -494,15 +541,15 @@ classdef nd2
             % Save the ND2 file to our MAT file format.
             np_file = strrep(file, 'nd2', 'mat');
             version = Program.information.version;
-            Program.Handlers.dialogue.resolve();
+            Program.GUI.dialogues.resolve();
 
-            Program.Handlers.dialogue.add_task('Writing metadata...');
+            Program.GUI.dialogues.add_task('Writing metadata...');
             save(np_file, 'version', 'data', 'info', 'prefs', 'worm', '-v7.3');
-            Program.Handlers.dialogue.resolve();
+            Program.GUI.dialogues.resolve();
 
-            Program.Handlers.dialogue.add_task('Running Nikon write routine...');
+            Program.GUI.dialogues.add_task('Running Nikon write routine...');
             DataHandling.Helpers.nd2.write_data(np_file, f);
-            Program.Handlers.dialogue.resolve();
+            Program.GUI.dialogues.resolve();
         end
 
         function channel_struct = get_channels(reader)            
@@ -550,7 +597,7 @@ classdef nd2
         end
 
         function [sorted_names, permute_record] = autosort(channels)
-            Program.Handlers.dialogue.add_task('Interpreting channel names...');
+            Program.GUI.dialogues.add_task('Interpreting channel names...');
             channels = string(channels(:));
             n_names = numel(channels);
         
@@ -587,7 +634,7 @@ classdef nd2
                 permute_record = [permute_record; unmatched_idx];
             end
 
-            Program.Handlers.dialogue.resolve();
+            Program.GUI.dialogues.resolve();
         end
 
         function obj = get_plane(file, varargin)
@@ -603,15 +650,13 @@ classdef nd2
                 file = Program.GUIPreferences.instance().image_dir;
             end
 
-            t = Program.GUIHandling.current_frame; % Retrieve the current time frame from GUI.
-
             % Set up input parser to handle variable input arguments
             p = inputParser;
             addOptional(p, 'x', 1:file.getSizeX);
             addOptional(p, 'y', 1:file.getSizeY);
             addOptional(p, 'z', 1:file.getSizeZ);
             addOptional(p, 'c', 1:file.getSizeC);
-            addOptional(p, 't', t);
+            addOptional(p, 't', 1);
             parse(p, varargin{:});
         
             % Determine starting positions for extraction (zero-based)
@@ -667,7 +712,7 @@ classdef nd2
         end
 
         function write_data(np_file, nd2_reader)
-            Program.Handlers.dialogue.step('Performing pre-write memory analysis...');
+            Program.GUI.dialogues.step('Performing pre-write memory analysis...');
             np_write = matfile(np_file, "Writable", true);
         
             nx = nd2_reader.getSizeX;
@@ -702,32 +747,32 @@ classdef nd2
             ttl_bytes = ny * nx * nz * nc * nt * bytes_per_el;
 
             if ttl_bytes <= max_arr
-                Program.Handlers.dialogue.step('Reading entire Nikon volume...');
-                d_cell = bfopen(char(nd2_reader.getCurrentFile));
+                Program.GUI.dialogues.step('Reading entire Nikon volume...');
+                d_cell = bfopen(char(source.getCurrentFile));
 
                 d_cell = d_cell{1};
                 n_planes = length(d_cell);
                 data = zeros(ny, nx, nz, nc, nt, dclass);
 
                 for pidx = 1:n_planes
-                    Program.Handlers.dialogue.set_value(pidx/n_planes);
+                    Program.GUI.dialogues.set_value(pidx/n_planes);
                     [~, z, c, t] = DataHandling.Helpers.nd2.parse_plane_idx(d_cell{pidx, 2});
                     
                     if nt > 1 
-                        Program.Handlers.dialogue.step(sprintf( ...
+                        Program.GUI.dialogues.step(sprintf( ...
                             'Caching plane %.f/%.f (z = %.f, c = %.f, t = %.f)', ...
                             pidx, n_planes, z, c, t));
                         data(:, :, z, c, t) = d_cell{pidx, 1};
 
                     else
-                        Program.Handlers.dialogue.step(sprintf( ...
+                        Program.GUI.dialogues.step(sprintf( ...
                             'Caching plane %.f/%.f (z = %.f, c = %.f)', ...
                             pidx, n_planes, z, c));
                         data(:, :, z, c) = d_cell{pidx, 1};
                     end
                 end
 
-                Program.Handlers.dialogue.step(sprintf( ...
+                Program.GUI.dialogues.step(sprintf( ...
                     'Writing %.f planes to file...', n_planes));
                 np_write.data = data;
                 
@@ -744,8 +789,8 @@ classdef nd2
                     t_start = 1;
                     while t_start <= nt
                         t_end = min(t_start + chunk_size_t - 1, nt);
-                        Program.Handlers.dialogue.set_value(t_end/nt);
-                        Program.Handlers.dialogue.step(sprintf( ...
+                        Program.GUI.dialogues.set_value(t_end/nt);
+                        Program.GUI.dialogues.step(sprintf( ...
                             'Frames %.f-%.f (out of %.f)', ...
                             t_start, t_end, nt));
             
@@ -775,8 +820,8 @@ classdef nd2
                     while z_start <= nz
                         z_end = min(z_start + chunk_size_z - 1, nz);
 
-                        Program.Handlers.dialogue.set_value(z_end/nt);
-                        Program.Handlers.dialogue.step(sprintf( ...
+                        Program.GUI.dialogues.set_value(z_end/nt);
+                        Program.GUI.dialogues.step(sprintf( ...
                             'Slices %.f-%.f (out of %.f)', ...
                             z_start, z_end, nz));
             

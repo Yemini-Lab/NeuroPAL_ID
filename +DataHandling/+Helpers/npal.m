@@ -50,7 +50,7 @@ classdef npal
             bool = all(has_expected_fields);
         end
 
-        function create_file(path, varargin)
+        function path = create_file(path, varargin)
             %CREATE_FILE Initializes a file in the NeuroPAL_ID format
             %   and saves it. This is useful for cases in which we need a
             %   file to be present but don't want to write the entire image
@@ -70,15 +70,22 @@ classdef npal
             % Initialize expected optional parameters & define their
             % default values should no parameter have been passed.
             addParameter(p, 'like', []);                    % img_vid_volume object to be used as a template.
+
             addParameter(p, 'dims', []);                    % Expected dimensions of the image array.
             addParameter(p, 'dtype', []);                   % Expected datatype of the image array.
             addParameter(p, 'scale', []);                   % Voxel resolution of the image array.
+
+            addParameter(p, 'rgbw', 1:4);                    % Expected datatype of the image array.
+            addParameter(p, 'dic', 0);                     % Expected datatype of the image array.
+            addParameter(p, 'gfp', 0);                     % Expected datatype of the image array.
+            addParameter(p, 'gammas', repmat(0.8, [1 4]));                  % Expected datatype of the image array.
+
             %addParameter(p, 'version', 'legacy');           % String/char representing target version of the file. Not implemented on master branch.
 
             % Parse varargin with the parameters specified above.
             parse(p, varargin{:});
 
-            path = strrep(path, '.npal', '-NPAL.mat');
+            path = strrep(path, '.npal', '.mat');
 
             % Initialize struct that will ultimately be saved to mat file.
             fstruct = struct();
@@ -126,18 +133,29 @@ classdef npal
 
                 % Get voxel resolution from parser.
                 voxel_resolution = p.Results.scale;
+
+                rgbw = p.Results.rgbw;
+                dic = p.Results.dic;
+                gfp = p.Results.gfp;
+                gammas = p.Results.gammas;
+
+                worm = struct();
+                worm.body = 'Head';
+                worm.age = 'Adult';
+                worm.sex = 'XX';
+                worm.strain = '';
+                worm.notes = '';
             end 
 
             % Initialize a cell array describing the properties we
             % absolutely require for file creation.
             required_properties = { ...
-                'rgbw', 'dic', 'gfp', ...
-                'gammas', 'voxel_resolution',
-                'worm'};
+                'rgbw', 'dic', 'gfp', 'gammas', ...
+                'voxel_resolution', 'worm'};
 
             % Check whether each of these properties are present.
-            have_required_properties = cellfun(@(x)(exists(x, 'var')), ...
-                required_properties);
+            have_required_properties = [cellfun(@(x)(exist(x, 'var')), ...
+                required_properties)];
 
             if any(~have_required_properties)
                 % If we have values for all required properties...
@@ -168,6 +186,7 @@ classdef npal
 
                 % Initialize data field with zero array.
                 fstruct.data = zeros(dims, dtype);
+                fstruct.version = 2.0;
 
                 % Save the struct to file. Note that use a -v7.3 flag in
                 % our save command to ensure that the resulting mat file is
@@ -220,7 +239,7 @@ classdef npal
                         reader.info = info;
                 end
             end
-            
+
             reader.Writeable = false;
         end
 
@@ -290,11 +309,7 @@ classdef npal
             end
         end
 
-        function obj = get_reader(path)
-            if ~endsWith(path, 'NPAL.mat')
-                error('Non-%s file passed to npal get_reader function: \n%s', Program.config.npal.fmt, path)
-            end
-            
+        function obj = get_reader(path)            
             obj = matfile(path);
         end
 
