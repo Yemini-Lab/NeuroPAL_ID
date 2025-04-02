@@ -116,7 +116,7 @@ classdef nd2
 
             % Check whether this bit depth is matlab-compatible by 
             % calculating the remainder after division of by 8;
-            is_matlab_compatible = mod(bit_dpeth, 8) == 0;
+            is_matlab_compatible = mod(bit_depth, 8) == 0;
 
             % If this bit depth is not matlab-compatible...
             if ~is_matlab_compatible
