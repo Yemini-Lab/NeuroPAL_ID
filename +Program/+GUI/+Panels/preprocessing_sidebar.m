@@ -38,7 +38,7 @@ classdef preprocessing_sidebar
                 % Instantiate the persistent instance of every relevant
                 % panel class.
                 sidebar_instance.panel_instances = struct( ...
-                    'image_manipulation', {Program.GUI.Panels.image_editing()});
+                    'image_manipulation', {Program.GUI.Panels.image_editing_gui()});
             end
 
             % Return persistent instance.
