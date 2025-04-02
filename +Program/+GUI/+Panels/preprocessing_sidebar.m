@@ -30,7 +30,7 @@ classdef preprocessing_sidebar
                 % field in the panels property.
                 sidebar_instance.panels = struct( ...
                     'toggle_volume', {app.ProcToggleVolumePanel}, ...       % The panel featuring the volume type (ie. image or video) selection.
-                    'volume_channels', {app.VolumeChannelsPanel}, ...       % The panel featuring image or video channels.
+                    'volume_channels', {app.ProcToggleChannelsPanel}, ...       % The panel featuring image or video channels.
                     'image_manipulation', {app.ImageManipulationPanel}, ... % The panel featuring image manipulation options (e.g. crop, rotate, downsample).
                     'spectral_unmixing', {app.SpectralUnmixingPanel}, ...   % The panel featuring the spectral unmixing interface.
                     'save_or_reset', {app.ProcSavePanel});                  % The panel featuring the save and reset buttons.
