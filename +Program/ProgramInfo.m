@@ -13,6 +13,34 @@ classdef ProgramInfo
     
    % Public methods.
     methods (Static)
+        function handle = window()
+            %WINDOW Retrieve a persistent handle to the active window.
+            %
+            %   Output:
+            %   - handle: The figure handle with the specified name, or
+            %       empty if none is found.
+        
+            % Define a persistent variable that caches the figure handle across calls
+            persistent window_handle
+
+
+            % Check whether the persistent variable is uninitialized.
+            is_uninitialized = isempty(window_handle);
+
+            % Check whether the persistent variable references a delete
+            % or otherwise invalid graphics object.
+            is_invalid = any(~isgraphics(window_handle));
+        
+            % Check whether the persistent variable references a delete
+            % or otherwise invalid graphics object.
+            if is_uninitialized || is_invalid
+                % If so, find the active window.
+                window_handle = findall(groot, 'Name', 'NeuroPAL ID');
+            end
+            
+            % Return the handle to the caller
+            handle = window_handle;
+        end
         function msg = getAboutMsg()
             %GETABOUTMSG Get the about message for display.
             msg = [];
