@@ -50,8 +50,8 @@ classdef npal
             bool = all(has_expected_fields);
         end
 
-        function create_npal_file(path, varargin)
-            %CREATE_NPAL_FILE Initializes a file in the NeuroPAL_ID format
+        function create_file(path, varargin)
+            %CREATE_FILE Initializes a file in the NeuroPAL_ID format
             %   and saves it. This is useful for cases in which we need a
             %   file to be present but don't want to write the entire image
             %   array all at once.
@@ -157,9 +157,11 @@ classdef npal
                     'GFP', {gfp}, ...
                     'RGBW', {rgbw}, ...
                     'rotate', {[]}, ...
-                    'z_center', {[]}, ...
+                    'z_center', {ceil(dims(3) / 2)}, ...
                     'is_Z_LR', 1, ...
                     'is_Z_flip', 1);
+                fstruct.prefs.rotate.horizontal = false;
+                fstruct.prefs.rotate.vertical = false;
 
                 % Initialize worm field.
                 fstruct.worm = worm;
@@ -182,6 +184,46 @@ classdef npal
             end
         end
 
+        function set_metadata(reader, varargin)
+            % Initiate inputParser object, which facilitates key-value
+            % parsing of varargin.
+            p = inputParser();
+
+            % Initialize expected optional parameters & define their
+            % default values should no parameter have been passed.          
+            addParameter(p, 'voxel_resolution', []);                        
+            addParameter(p, 'rgbw', []);                        
+            addParameter(p, 'dic', []);                        
+            addParameter(p, 'gfp', []);                        
+
+            % Parse varargin with the parameters specified above.
+            parse(p, varargin{:});
+            metadata_to_write = rmfield(p.Results, p.UsingDefaults);
+            metadata_passed = fieldnames(metadata_to_write);
+
+            reader.Writeable = true;
+            for m=1:length(metadata_passed)
+                property_to_write = metadata_passed{m};
+                value_to_write = metadata_to_write.(property_to_write);
+                
+                switch property_to_write
+                    case {'rgbw', 'dic', 'gfp'}
+                        info = reader.info;
+                        prefs = reader.prefs;
+
+                        info.(property_to_write) = value_to_write;
+                        prefs.(property_to_write) = value_to_write;
+
+                    case 'voxel_resolution'
+                        info = reader.info;
+                        info.scale = value_to_write;
+                        reader.info = info;
+                end
+            end
+            
+            reader.Writeable = false;
+        end
+
         function write_to_file(array, path, varargin)
             % Initiate inputParser object, which facilitates key-value
             % parsing of varargin.
@@ -189,7 +231,7 @@ classdef npal
 
             % Initialize expected optional parameters & define their
             % default values should no parameter have been passed.
-            addParameter(p, 'lazy_flag', 1);                    % Boolean indicating whether to write chunk-wise.
+            addParameter(p, 'lazy_flag', 1);                     % Boolean indicating whether to write chunk-wise.
             addParameter(p, 'z_range', []);                      % 1x2 numerical array representing the chunk of data along the z dimension to which the array is to be written.
             addParameter(p, 't_range', []);                      % 1x2 numerical array representing the chunk of data along the t dimension to which the array is to be written.
 
