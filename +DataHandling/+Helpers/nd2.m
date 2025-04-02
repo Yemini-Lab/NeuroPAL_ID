@@ -212,6 +212,213 @@ classdef nd2
             image_array = image_array{1};
         end
 
+        function writer = convert_to(format, source)
+            %CONVERT_TO Convert the nd2 file into a given format.
+            %
+            %   Inputs:
+            %   - format: String/char representing the file format the
+            %       Nikon image is to be converted to (e.g. 'npal', 'nwb')
+            %   - source: Either String/char representing path to nd2 file
+            %       or nd2 reader object.
+            %
+            %   Outputs:
+            %   - new_file: Path to converted file.
+
+            % Construct the expected name of requested format's helper
+            % class.
+            write_class = sprintf("DataHandling.Helpers.%s", format);
+
+            % Check if this class exists.
+            if ~exist(write_class, 'class')
+                % If it doesn't, raise error.
+                error("No helper class found for format %s.", format)
+            end
+
+            % Construct the new path by swapping the given format in
+            % for the nd2 substring.
+            new_path = strrep(source, 'nd2', format);
+
+            % Get nd2 reader object by calling get_reader.
+            source = DataHandling.Helpers.nd2.get_reader(source);
+
+            % Get the datatype of the image array.
+            [dclass, ~] = DataHandling.Helpers.nd2.get_datatype(source);
+
+            % Get the dimensions of the image array.
+            dims = DataHandling.Helpers.nd2.get_dimensions(source);
+
+            % Get the voxel_resolution of the image array.
+            voxel_resolution = DataHandling.Helpers.nd2.get_voxel_resolution(source);
+
+            % Call the helper class's create_file function.
+            new_path = DataHandling.Helpers.(write_class).create_file( ...
+                new_path, 'dtype', dclass, ...
+                'voxel_resolution', voxel_resolution, ...
+                'dims', [dims.nx, dims.ny, dims.nz, dims.nc, dims.nt]);
+
+            % Get this new file's reader object.
+            writer = DataHandling.Helpers.(write_class).get_reader(new_path);
+
+            % Calculate the maximum possible array size of given system's
+            % memory. Note that we limit the maximum chunk size to 90% of
+            % the maximum possible array to leave a compute buffer.
+            if ispc
+                % If system is running Windows, use Matlab's memory()
+                % function.
+                max_arr = memory().MaxPossibleArrayBytes * 0.90;
+            else
+                % If system is running MacOS/Unix, use system call and
+                % parse output.
+                [~, max_arr] = system('sysctl hw.memsize | awk ''{print $2}''');
+                max_arr = str2double(max_arr) * 0.90;
+            end
+
+            % Using the datatype, calculate the bytes occupied by each
+            % element within the image array.
+            switch dclass
+                case 'single'
+                    bytes_per_el = 4;
+                case 'double'
+                    bytes_per_el = 8;
+                otherwise
+                    bytes_per_el = str2double(dclass(5:end))/8;
+            end
+
+            % Calculate the total memory occupied by the image array.
+            ttl_bytes = dims.ny * dims.nx * dims.nz * ...
+                dims.nc * dims.nt * bytes_per_el;
+
+            % If the total memory occupied by the image array is smaller
+            % than or equal to the maximum possible array size allowed by
+            % the system's memory constraints, write plane-wise. Otherwise,
+            % write chunk-wise.
+            write_planewise = ttl_bytes <= max_arr;
+
+            if write_planewise
+                % If writing plane-wise...
+                Program.Handlers.dialogue.step('Reading entire Nikon volume...');
+
+                % Get a cell array of all nd2 planes in the file.
+                d_cell = bfopen(char(nd2_reader.getCurrentFile));
+                d_cell = d_cell{1};
+
+                % Get the number of planes in the nd2 file.
+                n_planes = length(d_cell);
+
+                % Initialize the data array.
+                data = zeros(dims.ny, dims.nx, dims.nz, ...
+                    dims.nc, dims.nt, dclass);
+
+                % For each plane...
+                for pidx = 1:n_planes
+                    Program.Handlers.dialogue.set_value(pidx/n_planes);
+
+                    % Get the z, c, and t coordinates corresponding to this
+                    % plane index.
+                    [~, z, c, t] = DataHandling.Helpers.nd2.parse_plane_idx(d_cell{pidx, 2});
+                    
+                    % Write this plane to the data array, indexing into the
+                    % t dimension only if there is more than one frame.
+                    if dims.nt > 1 
+                        Program.Handlers.dialogue.step(sprintf( ...
+                            'Caching plane %.f/%.f (z = %.f, c = %.f, t = %.f)', ...
+                            pidx, n_planes, z, c, t));
+                        data(:, :, z, c, t) = d_cell{pidx, 1};
+
+                    else
+                        Program.Handlers.dialogue.step(sprintf( ...
+                            'Caching plane %.f/%.f (z = %.f, c = %.f)', ...
+                            pidx, n_planes, z, c));
+                        data(:, :, z, c) = d_cell{pidx, 1};
+                    end
+                end
+
+                % Write data to file.
+                Program.Handlers.dialogue.step(sprintf( ...
+                    'Writing %.f planes to file...', n_planes));
+                writer.data = data;
+                
+            else           
+                % If writing chunk-wise...
+                if dims.nt > 1
+                    % For videos, chunk along the time dimension.
+            
+                    % Get the number of bytes in one full frame.
+                    bytes_per_frame = ttl_bytes / dims.nt;
+
+                    % Calculate the maximum number of frames to process at
+                    % once.
+                    chunk_size_t = max(1, ...
+                        floor(max_arr / bytes_per_frame));
+            
+                    % Initialize the start of our first chunk as frame 1.
+                    t_start = 1;
+
+                    % While the first index of our chunks is lower than or
+                    % equal to the total number of frames...
+                    while t_start <= dims.nt
+
+                        % Calculate the end point of our current chunk.
+                        t_end = min(t_start + chunk_size_t - 1, dims.nt);
+                        Program.Handlers.dialogue.set_value(t_end/dims.nt);
+                        Program.Handlers.dialogue.step(sprintf( ...
+                            'Frames %.f-%.f (out of %.f)', ...
+                            t_start, t_end, nt));
+            
+                        % Read this chunk of frames.
+                        this_chunk = DataHandling.Helpers.nd2.get_plane( ...
+                            nd2_reader, ...
+                            'x', 1:dims.nx, 'y', 1:dims.ny, 'z', 1:dims.nz, ...
+                            'c', 1:dims.nc, 't', t_start:t_end);
+            
+                        % Write this chunk to our new file.
+                        writer.data(:,:,:,:, t_start:t_end) = this_chunk;
+            
+                        % Move the chunk window.
+                        t_start = t_end + 1;
+                    end
+            
+                else
+                    % For images, chunk along the z dimension.
+            
+                    % Get the number of bytes in one z-slice.
+                    bytes_per_z_slab = ttl_bytes / dims.nz;
+
+                    % Calculate the maximum number of z-slices to process
+                    % at once.
+                    chunk_size_z = max(1, floor(max_arr / bytes_per_z_slab));
+            
+                    % Initialize the start of our first chunk as slice 1.
+                    z_start = 1;
+
+                    % While the first index of our chunks is lower than or
+                    % equal to the total number of z-slices...
+                    while z_start <= dims.nz
+
+                        % Calculate the end point of our current chunk.
+                        z_end = min(z_start + chunk_size_z - 1, dims.nz);
+
+                        Program.Handlers.dialogue.set_value(z_end/dims.nt);
+                        Program.Handlers.dialogue.step(sprintf( ...
+                            'Slices %.f-%.f (out of %.f)', ...
+                            z_start, z_end, dims.nz));
+            
+                        % Read this chunk of z-slices.
+                        this_chunk = DataHandling.Helpers.nd2.get_plane( ...
+                            nd2_reader, ...
+                            'x', 1:dims.nx, 'y', 1:dims.ny, 'z', z_start:z_end, ...
+                            'c', 1:dims.nc);
+            
+                        % Write this chunk to our new file.
+                        writer.data(:,:, z_start:z_end, :) = this_chunk;
+            
+                        % Move the chunk window.
+                        z_start = z_end + 1;
+                    end
+                end
+            end
+        end
+
         function np_file = to_npal(file)
             %CONVERTND2 Convert an ND2 file to NeuroPAL format.
             %
