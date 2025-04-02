@@ -296,7 +296,7 @@ classdef nd2
 
             if write_planewise
                 % If writing plane-wise...
-                Program.Handlers.dialogue.step('Reading entire Nikon volume...');
+                %Program.Handlers.dialogue.step('Reading entire Nikon volume...');
 
                 % Get a cell array of all nd2 planes in the file.
                 d_cell = bfopen(char(nd2_reader.getCurrentFile));
@@ -311,7 +311,7 @@ classdef nd2
 
                 % For each plane...
                 for pidx = 1:n_planes
-                    Program.Handlers.dialogue.set_value(pidx/n_planes);
+                    %Program.Handlers.dialogue.set_value(pidx/n_planes);
 
                     % Get the z, c, and t coordinates corresponding to this
                     % plane index.
@@ -320,22 +320,22 @@ classdef nd2
                     % Write this plane to the data array, indexing into the
                     % t dimension only if there is more than one frame.
                     if dims.nt > 1 
-                        Program.Handlers.dialogue.step(sprintf( ...
-                            'Caching plane %.f/%.f (z = %.f, c = %.f, t = %.f)', ...
-                            pidx, n_planes, z, c, t));
+                        %Program.Handlers.dialogue.step(sprintf( ...
+                        %    'Caching plane %.f/%.f (z = %.f, c = %.f, t = %.f)', ...
+                        %    pidx, n_planes, z, c, t));
                         data(:, :, z, c, t) = d_cell{pidx, 1};
 
                     else
-                        Program.Handlers.dialogue.step(sprintf( ...
-                            'Caching plane %.f/%.f (z = %.f, c = %.f)', ...
-                            pidx, n_planes, z, c));
+                        %Program.Handlers.dialogue.step(sprintf( ...
+                        %    'Caching plane %.f/%.f (z = %.f, c = %.f)', ...
+                        %    pidx, n_planes, z, c));
                         data(:, :, z, c) = d_cell{pidx, 1};
                     end
                 end
 
                 % Write data to file.
-                Program.Handlers.dialogue.step(sprintf( ...
-                    'Writing %.f planes to file...', n_planes));
+                %Program.Handlers.dialogue.step(sprintf( ...
+                %    'Writing %.f planes to file...', n_planes));
                 writer.data = data;
                 
             else           
@@ -360,10 +360,10 @@ classdef nd2
 
                         % Calculate the end point of our current chunk.
                         t_end = min(t_start + chunk_size_t - 1, dims.nt);
-                        Program.Handlers.dialogue.set_value(t_end/dims.nt);
-                        Program.Handlers.dialogue.step(sprintf( ...
-                            'Frames %.f-%.f (out of %.f)', ...
-                            t_start, t_end, nt));
+                        %Program.Handlers.dialogue.set_value(t_end/dims.nt);
+                        %Program.Handlers.dialogue.step(sprintf( ...
+                        %    'Frames %.f-%.f (out of %.f)', ...
+                        %    t_start, t_end, nt));
             
                         % Read this chunk of frames.
                         this_chunk = DataHandling.Helpers.nd2.get_plane( ...
@@ -398,10 +398,10 @@ classdef nd2
                         % Calculate the end point of our current chunk.
                         z_end = min(z_start + chunk_size_z - 1, dims.nz);
 
-                        Program.Handlers.dialogue.set_value(z_end/dims.nt);
-                        Program.Handlers.dialogue.step(sprintf( ...
-                            'Slices %.f-%.f (out of %.f)', ...
-                            z_start, z_end, dims.nz));
+                        %Program.Handlers.dialogue.set_value(z_end/dims.nt);
+                        %Program.Handlers.dialogue.step(sprintf( ...
+                        %    'Slices %.f-%.f (out of %.f)', ...
+                        %    z_start, z_end, dims.nz));
             
                         % Read this chunk of z-slices.
                         this_chunk = DataHandling.Helpers.nd2.get_plane( ...
