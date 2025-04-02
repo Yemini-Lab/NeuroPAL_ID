@@ -31,7 +31,7 @@ classdef image_editing_canvas
             % If uninitiated...
             if isempty(canvas_instance)
                 % Get running app instance.
-                app = Program.app;
+                app = Program.ProgramInfo.app;
 
                 % Populate the persistent variable.
                 canvas_instance = obj;

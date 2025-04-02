@@ -20,7 +20,7 @@ classdef image_editing_gui
             % If uninitiated...
             if isempty(panel_instance)
                 % Get running app instance.
-                app = Program.app;
+                app = Program.ProgramInfo.app;
 
                 % Populate the persistent variable.
                 panel_instance = obj;
@@ -118,7 +118,7 @@ classdef image_editing_gui
             %   Outputs:
             %   - obj: image_manipulation instance.
 
-            app = Program.app;
+            app = Program.ProgramInfo.app;
 
             row_height = app.ProcDownsamplingGrid.RowHeight;
             row_height{3} = 20;

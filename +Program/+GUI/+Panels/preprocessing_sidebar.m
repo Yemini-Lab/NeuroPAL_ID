@@ -17,7 +17,7 @@ classdef preprocessing_sidebar
             % If uninitialized...
             if isempty(sidebar_instance)
                 % Get running app instance.
-                app = Program.app;
+                app = Program.ProgramInfo.app;
 
                 % Populate the persistent variable.
                 sidebar_instance = obj;
@@ -137,7 +137,7 @@ classdef preprocessing_sidebar
             %   properly initialized.
 
             % Grab running app instance.
-            app = Program.app;
+            app = Program.ProgramInfo.app;
 
             % Depending on whether we are dealing with an image or a video,
             % we'll be checking for a different dropdown item.
