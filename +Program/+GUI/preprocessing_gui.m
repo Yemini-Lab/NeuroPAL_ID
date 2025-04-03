@@ -3,9 +3,10 @@ classdef preprocessing_gui
     %   Detailed explanation goes here
     
     properties
-        canvas = [];        % image_editing_canvas instance.
-        sidebar = [];       % preprocessing_sidebar instance.
-        histograms = [];    % histograms instance.
+        canvas = [];            % image_editing_canvas instance.
+        sidebar = [];           % preprocessing_sidebar instance.
+        histograms = [];        % histograms instance.
+        maximum_bytes = 13e7;   % The maximum size of arrays we allow users to load without triggering our preprocessing routine.
     end
     
     methods
@@ -169,6 +170,223 @@ classdef preprocessing_gui
                         obj.canvas.video_only_components.timeline.Limits = limits;
                 end
             end
+        end
+
+        function obj = pass_to_main(obj)
+            %PASS_TO_MAIN Transfers processed result to either the ID or
+            %   the tracking tab, depending on whether we're dealing with
+            %   an image or a video.
+            %   
+            %   Inputs:
+            %   - obj: preprocessing_gui instance.
+
+            % Get running app instance.
+            app = Program.ProgramInfo.app;
+
+            % Initialize the struct that will be passed to the appropriate
+            % load function.
+            result_package = struct();
+
+            % Check which volume type we're working with (i.e. image or
+            % video).
+            switch app.VolumeDropDown.Value
+                case 'Colormap'
+                    % If it's a color stack, grab the target file path from
+                    % the "Source" property of the lazy loaded matfile 
+                    % instance referenced by proc_image.
+                    result_package.file = app.proc_image.Properties.Source;
+
+                    %app.id_file = DataHandling.Helpers.npal.create_neurons('matfile', app.proc_image);
+                    
+                    % Switch to the ID Tab.
+                    app.TabGroup.SelectedTab = app.NeuroPALIDTab;
+        
+                case 'Video'
+                    % If it's a video, grab the target file path from
+                    % the "file" property of the lazy loaded video_info
+                    % property.
+                    result_package.file = app.video_info.file;
+
+                    % Switch to the video tracking tab.
+                    app.TabGroup.SelectedTab = app.VideoTrackingTab;
+            end
+        end
+    end
+
+    methods (Static, Access = public)
+        function code = check_for_preprocessing_threshold(file_path)
+            %CHECK_FOR_PREPROCESSING_THRESHOLD Checks whether a given file 
+            %   needs to be passed to the preprocessing routine. If so,
+            %   passes file to preprocessing load function.
+            %
+            %   Inputs:
+            %   - file_path: String/char representing the path to the file
+            %       in question.
+            %
+            %   Outputs:
+            %   - code: Integer describing the outcome of running this
+            %       function as such:
+            %           0 -> File was not submitted to preprocessing.
+            %           1 -> File was submitted to preprocessing.
+            %           2 -> File needed preprocessing, but user opted out.
+            %           3 -> Could not determine whether file needs to be
+            %               preprocessed. This occurs if we are unable to
+            %               calculate the data size.
+
+            % Check whether the given file meets the preprocessing
+            % threshold.
+            switch Program.GUI.preprocessing_gui.check_data_size(file_path)
+                case 1
+                    % If the file exceeds our preprocessing threshold, get
+                    % the active window handle.
+                    window = Program.ProgramInfo.window;
+        
+                    % Create a dialogue warning the user and recommending
+                    % that the file be preprocessed.
+                    dialogue_response = uiconfirm(window, ...
+                        sprintf("Your data size exceeds our recommended " + ...
+                        "working limit of 100 mb. We strongly recommend " + ...
+                        "preprocessing your file as you may run into " + ...
+                        "memory issues otherwise.\nPreprocess now?"), ...
+                        "Warning!", "Options", ["Yes", "No"]);
+        
+                    if strcmpi(dialogue_response, "Yes")
+                        % If the user opts to preprocess the file, set code
+                        % to 1 and pass it the file path to the
+                        % preprocessing load function.
+                        code = 1;
+                        app.proc_load(file_path);
+                    else
+                        % If the users opts not to preprocess the file, set
+                        % code to 2.
+                        code = 2;
+                    end
+
+                case 2
+                    % If the size of the data contained within the file
+                    % could not be calculated, set code to 3. This happens
+                    % if the given file has no associated helper class.
+                    code = 3;
+            end
+        end
+
+        function code = check_data_size(file_path)   
+            %CHECK_FILE_SIZE Calculates the size of the data contained
+            %   within a given file and checks it against our preprocessing
+            %   threshold.
+            %
+            %   Inputs:
+            %   - file_path: String/char representing the path to the file
+            %       in question.
+            %
+            %   Outputs:
+            %   - code: Integer describing the outcome of running this
+            %       function as such:
+            %           0 -> Data size is smaller than our threshold.
+            %           1 -> Data size exceeds preprocessing threshold and
+            %               needs to be preprocessed.
+            %           2 -> Failed to assess data size.
+
+            % Calculate the maximum possible array size of given system's
+            % memory. Note that we limit the maximum file size to 90% of
+            % the maximum possible array to leave a compute buffer.
+
+            % Initialize code as 0.
+            code = 0;
+
+            % Get the dialogues class handle.
+            dlg = Program.GUI.dialogues;
+
+            % If there is an active progress dialogue, prompt it to
+            % indicate that we are now checking the size of the file's data.
+            dlg.step("Checking data size...")
+
+            % Get the format of the given file.
+            [~, ~, file_format] = fileparts(file_path);
+            file_format = file_format(2:end);
+
+            % Construct the name of the helper class corresponding to this
+            % file format.
+            helper = sprintf("DataHandling.Helpers.%s", file_format);
+
+            % If this helper class does not exist...
+            if ~exist(helper, 'class')
+                % We could theoretically check the file size by calling
+                % dir() on the file path, but this would be pointless
+                % because we cannot preprocess the file without a helper
+                % class. Thus...
+
+                % Set code to 2 in order to indicate that we are unable to
+                % perform a size check, then return.
+                code = 2;
+                return
+            end
+
+            % Check the file format.
+            switch file_format
+                case 'nwb'
+                    % Get the nwb helper class.
+                    nwb_helper = DataHandling.Helpers.nwb;
+
+                    % If we're dealing with an nwb file, we need to know
+                    % which module the user intends to load before we can
+                    % check its size. Thus, we use the identify_module
+                    % function within the nwb helper class.
+                    selected_module = nwb_helper.identify_module( ...
+                        file_path);
+
+                    % Check whether the selected module is empty.
+                    if isempty(selected_module)
+                        % If the selected module is empty, the user
+                        % canceled during module selection, so return.
+                        return
+                    end
+
+                    % Get the dimensions of the module's data.
+                    dimensions = selected_module.data.internal_dims();
+
+                    % Get the data type of the module's data.
+                    data_type = string(selected_module.data.dataType);
+                    
+                    % Extract the bit depth from the datatype.
+                    bit_depth = str2double( ...
+                        extract(data_type, digitsPattern));
+
+                    % Calculate the size of the module's data by
+                    % multiplying its dimensions by its bit depth.
+                    total_size = prod(dimensions) * bit_depth;
+
+                otherwise
+                    % For any other supported file format, the data
+                    % constitutes such a large fraction fo the file's size
+                    % that we can safely operate under the assumption that
+                    % the file size is equal to the data size for all
+                    % intended purposes. Thus...
+
+                    % Call dir on the file path to obtains further
+                    % information about it.
+                    file_info = dir(file_path);
+
+                    % Get the size of this file.
+                    total_size = file_info.bytes;
+            end
+
+            % Get the maximum array size.
+            maximum_array_size = Program.system.get_maximum_array_size;
+
+            % Check whetehr the total bytes exceed the array size that
+            % would allow the system to run computationally demanding
+            % operations without issues.
+            exceeds_maximum_array_size = total_size > maximum_array_size;
+
+            % Check whether the total bytes that would be loaded from this
+            % file exceed the threshold that triggers our processing
+            % routine.
+            exceeds_maximum_bytes = total_size > obj.maximum_bytes;
+
+            % Set code equal to whether the total bytes exceed either the
+            % maximum array size or our preprocessing threshold.
+            code = exceeds_maximum_array_size || exceeds_maximum_bytes;
         end
     end
 end
