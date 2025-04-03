@@ -540,7 +540,10 @@ classdef ChunkyMethods
                 end
             end
 
-            Program.GUIHandling.set_gui_limits(app, dims=raw.dims);
+            Program.GUI.preprocessing_gui().set_gui_limits( ...
+                'x', [1, raw.dims(2)], ...
+                'y', [1, raw.dims(1)]);
+
             Program.GUIHandling.histogram_handler(app, 'draw', raw.array);
             Program.GUIHandling.shorten_knob_labels(app);
 
