@@ -130,6 +130,146 @@ classdef identification_gui
                 return;
             end
 
+            % Validate the biological properties (age, sex, body part) of
+            % the given worm by checking whether each property's value is
+            % present in its respective dropdown's item list.
+            is_valid_worm = obj.validate_worm_properties(worm);
+            if ~is_valid_worm
+                % If it isn't, return.
+                return
+            end
+
+            % Fix the prefs for z-axis orientation.
+            if ~isfield(prefs, 'z_center')
+                prefs.z_center = ceil(size(data,3) / 2);
+                prefs.is_Z_LR = true;
+                prefs.is_Z_flip = true;
+            end
+
+            % Setup the file.
+            app.image_file = np_file;
+            app.id_file = [];
+            app.image_prefs = prefs;
+
+            % Setup the image.
+            app.image_name = name; %strrep(name, '_', '\_');
+            app.image_data = data;
+
+            % Z-score the image.
+            app.image_data_zscored = Methods.Preprocess.zscore_frame( ...
+                app.image_data);
+
+
+            % Load and update the gamma.
+            gamma_size = length(app.gamma_RGBW_DIC_GFP_index);
+            if isscalar(prefs.gamma)
+                app.image_gamma = ones(gamma_size, 1);
+                app.image_gamma(1:3) = prefs.gamma;
+                app.image_prefs.gamma = app.image_gamma;
+            elseif length(prefs.gamma) < gamma_size
+                app.image_gamma = ones(gamma_size, 1);
+                app.image_gamma(1:length(prefs.gamma)) = prefs.gamma;
+                app.image_prefs.gamma = app.image_gamma;
+            else
+                app.image_gamma = prefs.gamma;
+            end
+
+            % Load the image scale and info.
+            app.image_um_scale = info.scale;
+            app.image_info = info;
+
+            % Setup the color channels.
+            RGBW = prefs.RGBW;
+            RGBW_nan = isnan(RGBW);
+            RGBW(RGBW_nan) = 1; % default unassigned colors to channel 1
+            channels_str = arrayfun(@num2str, 1:size(app.image_data, 4), 'UniformOutput', false);
+            % Red.
+            app.RDropDown.Items = channels_str;
+            app.RDropDown.Value = app.RDropDown.Items{RGBW(1)};
+            app.RCheckBox.Value = true;
+            % Green.
+            app.GDropDown.Items = channels_str;
+            app.GDropDown.Value = app.GDropDown.Items{RGBW(2)};
+            app.GCheckBox.Value = true;
+            % Blue.
+            app.BDropDown.Items = channels_str;
+            app.BDropDown.Value = app.BDropDown.Items{RGBW(3)};
+            app.BCheckBox.Value = true;
+            % White.
+            app.WDropDown.Items = channels_str;
+            if size(app.image_data, 4)>3
+                app.WDropDown.Value = app.WDropDown.Items{RGBW(4)};
+            end
+            app.WCheckBox.Value = false;
+            % DIC.
+            app.DICDropDown.Items = channels_str;
+            if ~isnan(prefs.DIC)
+                try
+                    app.DICDropDown.Value = app.DICDropDown.Items{prefs.DIC};
+                catch
+                    app.DICDropDown.Value = '5';
+                end
+            end
+            app.DICCheckBox.Value = false;
+            % GFP.
+            app.GFPDropDown.Items = channels_str;
+            if ~isnan(prefs.GFP)
+                try
+                    app.GFPDropDown.Value = app.GFPDropDown.Items{prefs.GFP};
+                catch
+                    app.GFPDropDown.Value = '6';
+                end
+            end
+            app.GFPCheckBox.Value = false;
+
+            % Setup the worm info.
+            app.worm = worm;
+            app.BodyDropDown.Value = worm.body;
+            app.AgeDropDown.Value = worm.age;
+            app.SexDropDown.Value = worm.sex;
+            app.StrainEditField.Value = worm.strain;
+            app.SubjectNotesTextArea.Value = worm.notes;
+
+            % Enable the image GUI.
+            Program.GUIHandling.gui_lock(app, ...
+                'enable', 'identification_tab');
+            Program.GUIHandling.gui_lock(app, ...
+                'disable', 'neuron_gui');
+
+            % Determine the image scale.
+            scale = ones(1,3);
+            if ~isempty(info.scale)
+                scale = info.scale;
+            end
+        end
+    end
+
+    methods (Static, Access = public)
+        function enable_gui()
+            %ENABLE_GUI Renders ID tab visible and enables its various gui
+            % components.
+            %
+            %   Inputs:
+            %   - obj: identification_gui instance.
+
+            % Get the running app instance.
+            app = Program.ProgramInfo.app;
+
+            % Disable the load image button.
+            app.IdButton.Enable = 'off';
+            app.IdButton.Visible = 'off';
+
+            % Ensure the ID grid layout is visible.
+            set(app.IdGridLayout, 'Visible', 'on');
+
+            % Switch to the ID tab.
+            app.TabGroup.SelectedTab = app.NeuroPALIDTab;
+        end
+
+        function is_valid_worm = validate_worm_properties(worm_struct)
+            % Initialize is_valid_worm.
+            is_valid_worm = 0;
+
             % Define all biological worm properties.
             worm_properties = {"Age", "Sex", "Body"};
 
@@ -139,7 +279,7 @@ classdef identification_gui
                 bio_property = worm_properties{wp};
 
                 % Get the value of the biological property.
-                bio_value = worm.(lower(bio_property));
+                bio_value = worm_struct.(lower(bio_property));
 
                 % Construct the string corresponding to its dropdown handle.
                 dropdown_handle = sprintf("%sDropDown");
@@ -157,6 +297,7 @@ classdef identification_gui
                 end
             end           
 
+            is_valid_worm = 1;
         end
     end
 
