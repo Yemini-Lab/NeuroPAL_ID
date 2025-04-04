@@ -322,7 +322,7 @@ classdef nd2
 
                 % Initialize the data array.
                 data = zeros(dims.y, dims.x, dims.z, ...
-                    dims.c, dims.t, bit_depth);
+                    dims.c, dims.t, dtype);
 
                 % For each plane...
                 for pidx = 1:n_planes

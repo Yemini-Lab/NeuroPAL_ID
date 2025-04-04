@@ -326,6 +326,10 @@ classdef rotation_gui
 
             cellfun(@delete, app.rotation_stack.listeners);
             app.rotation_stack.listeners = {};
+
+            gui_sidebar = Program.GUI.preprocessing_gui().sidebar;
+            parent_panel = gui_sidebar.panel_instances.image_manipulation;
+            parent_panel.set_display_configuration('reset');
         end
 
     end
