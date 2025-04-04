@@ -183,10 +183,6 @@ classdef preprocessing_gui
             % Get running app instance.
             app = Program.ProgramInfo.app;
 
-            % Initialize the struct that will be passed to the appropriate
-            % load function.
-            result_package = struct();
-
             % Check which volume type we're working with (i.e. image or
             % video).
             switch app.VolumeDropDown.Value
@@ -194,21 +190,22 @@ classdef preprocessing_gui
                     % If it's a color stack, grab the target file path from
                     % the "Source" property of the lazy loaded matfile 
                     % instance referenced by proc_image.
-                    result_package.file = app.proc_image.Properties.Source;
+                    processed_file = app.proc_image.Properties.Source;
 
                     %app.id_file = DataHandling.Helpers.npal.create_neurons('matfile', app.proc_image);
-                    
-                    % Switch to the ID Tab.
-                    app.TabGroup.SelectedTab = app.NeuroPALIDTab;
-        
-                case 'Video'
-                    % If it's a video, grab the target file path from
-                    % the "file" property of the lazy loaded video_info
-                    % property.
-                    result_package.file = app.video_info.file;
 
-                    % Switch to the video tracking tab.
-                    app.TabGroup.SelectedTab = app.VideoTrackingTab;
+                    % Pass the processed file to an intermediary public
+                    % method.
+                    app.import_image_from_preprocessing_tab( ...
+                        processed_file);
+
+                    % Enable the ID interface.
+                    Program.GUI.identification_gui().enable_gui;
+
+                case 'Video'
+                    % Enable the tracking interface.
+                    Program.GUI.tracking_gui().enable_gui;
+                    app.visual_composer();
             end
         end
     end
