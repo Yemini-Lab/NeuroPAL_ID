@@ -49,7 +49,7 @@ function reset()
         'bg_val', {[]}, ...
         'blurred_img', {[]});
 
-    Program.Routines.Processing.quick_render();
+    Program.Routines.Processing.render();
 
     close(d);
 end

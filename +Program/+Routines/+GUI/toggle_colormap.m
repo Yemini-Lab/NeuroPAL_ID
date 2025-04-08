@@ -2,8 +2,7 @@ function toggle_colormap()
     app = Program.GUIHandling.app;
     Program.Helpers.set_grid_height(app.ProcDownsamplingGrid, 3, 0);
     Program.Helpers.set_grid_height(app.ProcDownsamplingGrid, 4, 0);
-    Program.Helpers.set_grid_height(app.ProcSideGrid, 4, 114);
-    Program.Helpers.set_grid_height(app.ProcSideGrid, 5, 212);
+    Program.Helpers.set_grid_height(app.ProcSideGrid, 4, 212);
 
     if isstring(app.ProcAxGrid.RowHeight{end})
         app.ProcAxGrid.RowHeight(end) = [];

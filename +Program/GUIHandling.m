@@ -336,6 +336,15 @@ classdef GUIHandling
             hWin.executeJS(js_code);
         end
 
+        function t = current_frame()
+            app = Program.app;
+            if app.TabGroup.SelectedTab == app.VideoTrackingTab
+                t = app.tEditField.Value;
+            else
+                t = app.proc_tEditField.Value;
+            end
+        end
+
         function mouse_poll(app, click_state)
             app.mouse.pos = get(app.CELL_ID, 'CurrentPoint');
             clicked = exist('click_state', 'var');
@@ -592,6 +601,7 @@ classdef GUIHandling
                         cla(app.(sprintf("%s_hist_ax", prefix)))
 
                     case 'draw'
+
                         chan_hist = raw.array(:, :, :, c);
 
                         if app.HidezerointensitypixelsCheckBox.Value
@@ -623,6 +633,7 @@ classdef GUIHandling
         end
 
         function package = get_active_volume(app, varargin)
+            Program.Handlers.loading.start('Chunk loading selection...');
             package = struct('state', {{}}, 'dims', {[]}, 'array', {[]}, 'coords', {[]});
             
             p = inputParser;
@@ -637,7 +648,9 @@ classdef GUIHandling
             x = app.proc_xSlider.Value;
             y = min(max(round(app.proc_xSlider.Value), 1), app.proc_xSlider.Limits(2));
             z = min(max(round(app.proc_zSlider.Value), 1), app.proc_zSlider.Limits(2));
-            c = Program.GUIHandling.check_channels(app);
+            c_bools = Program.Handlers.channels.get_bools('array');
+            c_max = Program.Handlers.channels.get_max_idx();
+            c_load = 1:c_max;
             t = app.proc_tSlider.Value;
 
             if isempty(p.Results.coords)
@@ -670,16 +683,16 @@ classdef GUIHandling
                     if app.ProcShowMIPCheckBox.Value
                         switch app.VolumeDropDown.Value
                             case 'Colormap'
-                                safe_c = Program.Validation.noskip_index(c);
-                                slice = app.proc_image.data(:, :, :, safe_c);
+                                safe_c = Program.Validation.noskip_index(c_max);
+                                slice = app.proc_image.data(:, :, :, c_load);
                             case 'Video'
                                 slice = app.retrieve_frame(package.coords(4));
                         end
                     else
                         switch app.VolumeDropDown.Value
                             case 'Colormap'
-                                safe_c = Program.Validation.noskip_index(c);
-                                slice = app.proc_image.data(:, :, package.coords(3), safe_c);
+                                safe_c = Program.Validation.noskip_index(c_max);
+                                slice = app.proc_image.data(:, :, package.coords(3), c_load);
                             case 'Video'
                                 slice = app.retrieve_frame(package.coords(4));
                                 slice = slice(:, :, package.coords(3), :);
@@ -687,23 +700,25 @@ classdef GUIHandling
                     end
 
                     rgb = Program.GUIHandling.get_rgb;
-                    missing_rgb = rgb(~ismember(rgb, c));
+                    missing_rgb = rgb(~ismember(rgb, c_load));
                     slice(:, :, :, missing_rgb) = 0;
-                    slice = slice(:, :, :, [rgb c(~ismember(c, rgb))]);
+                    slice(:, :, :, [find(~ismember(c_load, c_bools))]) = 0;
                     package.array = slice;
 
                 case 'coords'
                     package.coords(1) = min(max(round(package.dims(1)-app.proc_ySlider.Value), 1), app.proc_ySlider.Limits(2));
 
             end
+
+            Program.Handlers.loading.done();
         end
 
         function rgb = get_rgb()
             app = Program.GUIHandling.app;
             rgb = [ ...
-                str2num(app.ProcRDropDown.Value) ...
-                str2num(app.ProcGDropDown.Value) ...
-                str2num(app.ProcBDropDown.Value)];
+                find(ismember(app.proc_c1_dropdown.Items, app.proc_c1_dropdown.Value)) ...
+                find(ismember(app.proc_c2_dropdown.Items, app.proc_c2_dropdown.Value)) ...
+                find(ismember(app.proc_c3_dropdown.Items, app.proc_c3_dropdown.Value))];
         end
 
         function set_gui_limits(app, mode, dims)
@@ -837,7 +852,7 @@ classdef GUIHandling
             for comp=1:length(Program.GUIHandling.cm_exclusive_gui)
                 app.(Program.GUIHandling.cm_exclusive_gui{comp}).Enable = strcmp(app.VolumeDropDown.Value, 'Colormap');
             end
-            app.ProcessingGridLayout.ColumnWidth = {'1x', 190};
+            app.ProcessingGridLayout.ColumnWidth = {'1x', 282};
         end
 
         function set_thresholds(app, max_val)

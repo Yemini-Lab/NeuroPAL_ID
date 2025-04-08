@@ -2,8 +2,7 @@ function toggle_video()
     app = Program.GUIHandling.app;
     Program.Helpers.set_grid_height(app.ProcDownsamplingGrid, 3, 20);
     Program.Helpers.set_grid_height(app.ProcDownsamplingGrid, 4, 20);
-    Program.Helpers.set_grid_height(app.ProcSideGrid, 4, 154);
-    Program.Helpers.set_grid_height(app.ProcSideGrid, 5, 0);
+    Program.Helpers.set_grid_height(app.ProcSideGrid, 4, 0);
 
     app.ProcAxGrid.RowHeight{end+1} = 'fit';
     app.PlaceholderProcTimeline.Parent = app.ProcAxGrid;

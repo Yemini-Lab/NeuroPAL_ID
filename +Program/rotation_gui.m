@@ -18,6 +18,11 @@ classdef rotation_gui
 
         function draw(app, roi)
             Program.rotation_gui.close(app);
+
+            % Prompt the image manipulation panel to load its crop config.
+            gui_sidebar = Program.GUI.preprocessing_gui().sidebar;
+            parent_panel = gui_sidebar.panel_instances.image_manipulation();
+            parent_panel.set_display_configuration('crop');
             
             if ~isa(roi, 'images.roi.Freehand') || strcmp(roi.Tag, 'redraw') 
                 app.rotation_stack.roi = Program.GUIHandling.rect_to_freehand(roi);
