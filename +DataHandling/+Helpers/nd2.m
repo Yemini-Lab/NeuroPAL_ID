@@ -1,472 +1,130 @@
 classdef nd2
-    % ND2 Class for handling and extracting metadata and images from 
-    % ND2 files.
-    %
-    %   Glossary:
-    %   - reader = A class defined by the bioformats API which facilitates
-    %       lazy loading & writing from ND2 files.
+    % ND2 Class for handling and extracting metadata and images from ND2 files.
     
     properties (Access = public, Constant)
-        % Keys used to identify voxel resolution.
         key_map = dictionary( ...
             'xy_scale', {'dCalibration'}, ...
             'z_scale', {'dZStep'});
 
-        % Keys used to identify channel metadata
-        channel_keys = { ...
-            'ChannelName', ...
-            'ChannelOrder', ...
-            'ChannelCount', ...
-            'ChannelColor'}; 
-        
+        channel_keys = {'ChannelName', 'ChannelOrder', 'ChannelCount', 'ChannelColor'}; % Keys used to identify channel metadata
         name_substr = 'Global Name #'; % Base substring used to identify channel names globally
     end
     
     methods (Static, Access = public)
-        %% Functions merged from agnostic volume reader branch.
-        function obj = get_reader(path)
-            %GET_READER Returns a reader object.
-            %
-            %   Inputs:
-            %   - path: string/char representing a filepath.
-            %
-            %   Outputs:
-            %   - obj: Bioformats-compatible Java object 
-            %       (loci.formats.ChannelSeparator)
 
-            % Check whether the path ends in .nd2.
-            if ~endsWith(path, '.nd2')
-                % If not, raise an error.
-                error( ...
-                    'Non-nd2 file passed to nd2 get_reader function: \n%s', ...
-                    path)
+        function ttl = get_ttl(file)
+            ttl_keys = DataHandling.Helpers.nd2.get_ttl_keys(file);
+        end
+
+        function ttl = get_ttl_keys(file, target)
+            if ~exist('target', 'var')
+                ttl = struct();
+                ttl.names = DataHandling.Helpers.nd2.get_ttl_keys(file, 'name');
+                ttl.states = DataHandling.Helpers.nd2.get_ttl_keys(file, 'state');
+                return
+            end
+
+            switch class(file)
+                case 'loci.formats.ChannelSeparator'
+                    reader = file;
+                case {'string', 'char'}
+                    reader = bfGetReader(file);
+                otherwise
+                    return
+            end
+
+            % Retrieve the global metadata
+            meta = reader.getGlobalMetadata();
+            
+            if isempty(meta)
+                error('No global metadata returned. Your ND2 may not contain global metadata or the Bio-Formats version is limited.');
             end
             
-            % Call bioformats function to generate reader object.
-            obj = bfGetReader(path);
-        end
-
-        function dimensions = get_dimensions(reader)
-            %GET_DIMENSIONS Return the dimensions of a given ND2 reader
-            % object's image array.
-            %
-            %   Inputs:
-            %   - reader: Bioformats-compatible Java object 
-            %       (loci.formats.ChannelSeparator)
-            %
-            %   Outputs:
-            %   - dimensions: Struct describing the dimensions of the
-            %       array.
-
-            % Validate input by checking its class.
-            if ~isa(reader, 'loci.formats.ChannelSeparator')
-                error("Invalid file of class %s passed to nd2" + ...
-                    "get_dimensions function.", class(reader));
+            % Get the set of keys from the metadata (Java Set object)
+            switch target
+                case 'name'
+                    query = 'ttloutputshortname';
+                case 'state'
+                    query = 'ttloutputstate';
             end
 
-            % Get order of dimensions. Note that we call a char
-            % conversion here because the reader will return a java object
-            % by default.
-            order_of_dimensions = char(reader.getDimensionOrder);
+            [keys, values, count] = DataHandling.Helpers.java.search_key(meta, query);
+            ttl = struct( ...
+                'keys', {keys}, ...
+                'values', {values}, ...
+                'count', {count});
 
-            % Initialize dimension struct.
-            dimensions = struct();
-
-            % Iterate over all dimensions in order.
-            for d=1:length(order_of_dimensions)
-                % Get the name of this dimension (e.g. "X", "Y", etc).
-                dimension_label = order_of_dimensions(d);
-
-                % Get the appropriate function to obtain this dimension's
-                % size from the reader (e.g. "GetSizeX", "GetSizeY", etc).
-                dimension_func = sprintf("getSize%s", dimension_label);
-
-                % call this function and assign its output to the struct.
-                dimensions.(lower(dimension_label)) = reader.(dimension_func);
+            if ttl.count == 0
+                warning('No TTL output channel names found.');
             end
         end
 
-        function [bit_depth, datatype] = get_datatype(reader)
-            %GET_DATATYPE Return the native datatype of a given ND2 reader
-            % object's image array. Note that "native" here refers to the
-            % actual datatype you will encounter if you load the image.
-            % This distiction is important to make because it may differ
-            % from the datatype you receive when lazy loading using
-            % the bioformats reader.
-            %
-            %   Inputs:
-            %   - reader: Bioformats-compatible Java object 
-            %       (loci.formats.ChannelSeparator)
-            %
-            %   Outputs:
-            %   - bit_depth: Integer describing the bit depth of the
-            %       reader's image array (e.g. 8 for uint8, 16 for uint16).
-            %   - datatype: String/char representing the matlab-compatible
-            %       class name that corresponds to this bit depth (e.g.
-            %       'uint8', 'uint16', etc).
-
-            % Validate input by checking its class.
-            if ~isa(reader, 'loci.formats.ChannelSeparator')
-                error("Invalid file of class %s passed to nd2" + ...
-                    "get_dimensions function.", class(reader));
+        function get_ttl_data(file)
+            
+            % 2. Determine number of frames in the series
+            seriesIndex = 0;
+            reader.setSeries(seriesIndex);
+            numFrames = reader.getImageCount();  % total plane count (for a single Z stack, this equals number of T frames)
+            
+            % We can see how many series exist, but often ND2 has just one series
+            seriesCount = reader.getSeriesCount();
+            for s = 0:seriesCount-1
+                fprintf('== Series %d ==\n', s);
+                reader.setSeries(s);
+                nPlanes = reader.getImageCount();  % planes = Z*C*T, not frames alone
+                
+                for p = 0:nPlanes-1
+                    % Print the global metadata keys for debugging
+                    fprintf('-- Plane index %d --\n', p);
+                    
+                    % Attempt to fetch any metadata
+                    % (Bio-Formats often uses separate 'core' or 'plane' metadata structures)
+                    planeMeta = reader.getPlaneMetadata(p);
+                    
+                    if ~isempty(planeMeta)
+                        planeKeys = planeMeta.keySet().iterator();
+                        while planeKeys.hasNext()
+                            key = planeKeys.next();
+                            val = planeMeta.get(key);
+                            fprintf('%s = %s\n', char(key), char(val));
+                        end
+                    else
+                        disp('No plane metadata found for this plane.');
+                    end
+                end
             end
 
-            % Get the datatype from the reader object.
-            datatype = char(reader.getMetadataStore().getPixelsType(0));
-
-            % Extract bit depth from datatype.
-            bit_depth = str2double(extract(datatype, digitsPattern));
-
-            % Check whether this bit depth is matlab-compatible by 
-            % calculating the remainder after division of by 8;
-            is_matlab_compatible = mod(bit_depth, 8) == 0;
-
-            % If this bit depth is not matlab-compatible...
-            if ~is_matlab_compatible
-                % Define valid bit_depths.
-                valid_bit_depths = 8:8:64;
-
-                % Calculate the distance between the real bit depth and
-                % each valid bit depth.
-                dist_from_true_bit_depth = bit_depth - valid_bit_depths;
-
-                % Find the smallest distance.
-                smallest_dist = min(abs(dist_from_true_bit_depth));
-
-                % Set the bit depth equal to the closest valid bit depth.
-                % Note that during the read process, we check whether this
-                % matches the datatype of the array we receive from the
-                % reader and run a conversion should they not match.
-                bit_depth = valid_bit_depths( ...
-                    find(valid_bit_depths, smallest_dist));
-
-                % Compose the appropriate class name for new bit depth.
-                datatype = sprintf("uint%.f", bit_depth);
-            end
         end
 
-        function xyz_array = get_voxel_resolution(reader)
-            %GET_VOXEL_RESOLUTION Return an array representing the voxel
-            % resolution (also known as the grid spacing).
+        function [obj, metadata] = open(file)
+            % OPEN Open an ND2 file, returning a reader object or image data and metadata.
             %
-            %   Inputs:
-            %   - reader: Bioformats-compatible Java object 
-            %       (loci.formats.ChannelSeparator)
+            % Parameters:
+            %   file - Path to the ND2 file.
             %
-            %   Outputs:
-            %   - xyz_array: Numerical 1x3 array representing the voxel
-            %       resolution returned by the reader. Sorted in the
-            %       order xyz, and the x and y should match.
+            % Returns:
+            %   obj - Reader object or image data depending on lazy loading status.
+            %   metadata - Struct containing metadata information for the file.
 
-            % Validate input by checking its class.
-            if ~isa(reader, 'loci.formats.ChannelSeparator')
-                error("Invalid file of class %s passed to nd2" + ...
-                    "get_dimensions function.", class(reader));
-            end
+            f = bfGetReader(file); % Initialize Bio-Formats reader with the file path.
 
-            % Generate a metadata store object from the reader.
-            metadata_store = reader.getMetadataStore();
+            % Collect metadata details about the ND2 file
+            metadata = struct( ...
+                'path', {file}, ...
+                'bit_depth', {f.getMetadataStore.getPixelsSignificantBits(0).getValue()}, ...
+                'scale', {[0 0 0]});
 
-            % Extract the x, y, and z resolution from the metadata store.
-            xyz_array = [ ...
-                metadata_store.getPixelsPhysicalSizeX(0).value, ...
-                metadata_store.getPixelsPhysicalSizeY(0).value, ...
-                metadata_store.getPixelsPhysicalSizeZ(0).value];
-            xyz_array = double(xyz_array);
-        end
-
-        %% Functions merged from slow_merge.
-        function [image_array, metadata] = open(filepath)
-            %OPEN Open an ND2 file, returning image data and metadata.
-            %
-            %   Inputs:
-            %   - filepath: string/char representing the path to an ND2 
-            %       file.
-            %
-            %   Outputs:
-            %   - obj: Numerical array representing image data.
-            %   - metadata: Struct containing relevant metadata.
-
-            % Get Bio-Formats reader object.
-            f = bfGetReader(filepath); 
-
-            % Initialize metadata struct.
-            metadata = struct();
-
-            % Save filepath to metadata.
-            metadata.path = filepath;
-
-            % Get datatype from reader object.
-            [metadata.bit_depth, ~] = DataHandling.Helpers.nd2.get_datatype;
-
-            % Get voxel resolution from reader object.
-            metadata.scale = DataHandling.Helpers.nd2.get_voxel_resolution;
-
-            % Get array dimensions.
             metadata.dimensions = DataHandling.Helpers.nd2.get_dimensions(f);
-            
-            % Get what channel data we can.
             metadata.channels = DataHandling.Helpers.nd2.get_channels(f);
 
-            % Read file data.
-            image_array = bfOpen(filepath); 
-
-            % Obtain image array, which is the first index in the cell
-            % array returned by bfOpen.
-            image_array = image_array{1};
-        end
-
-        function write_obj = convert_to(format, source)
-            %CONVERT_TO Convert the nd2 file into a given format.
-            %
-            %   Inputs:
-            %   - format: String/char representing the file format the
-            %       Nikon image is to be converted to (e.g. 'npal', 'nwb')
-            %   - source: Either String/char representing path to nd2 file
-            %       or nd2 reader object.
-            %
-            %   Outputs:
-            %   - new_file: Path to converted file.
-
-            Program.GUI.dialogues.add_task('Converting ND2 file...');
-            Program.GUI.dialogues.step('Identifying helper class...');
-
-            % Construct the expected name of requested format's helper
-            % class.
-            write_class = sprintf("DataHandling.Helpers.%s", format);
-
-            % Check if this class exists.
-            if ~exist(write_class, 'class')
-                % If it doesn't, raise error.
-                error("No helper class found for format %s.", format)
+            % Load the file data or return a lazy reader object depending on the file handling mode
+            if Program.states.instance().is_lazy
+                obj = f; % Return lazy file reader if lazy loading is enabled.
             else
-                write_class = eval(write_class);
+                obj = bfOpen(file); % Load full file data.
+                obj = obj{1}; % Use the first item if the file contains a list.
             end
 
-            % Construct the new path by swapping the given format in
-            % for the nd2 substring.
-            new_path = strrep(source, 'nd2', format);
-
-            % Get nd2 reader object by calling get_reader.
-            Program.GUI.dialogues.step('Generating Nikon reader...');
-            source = DataHandling.Helpers.nd2.get_reader(source);
-            Program.GUI.dialogues.step('Reading metadata...');
-
-            % Get the datatype of the image array.
-            [bit_depth, dtype] = DataHandling.Helpers.nd2.get_datatype(source);
-
-            % Get the dimensions of the image array.
-            dims = DataHandling.Helpers.nd2.get_dimensions(source);
-
-            % Get the voxel_resolution of the image array.
-            voxel_resolution = DataHandling.Helpers.nd2.get_voxel_resolution(source);
-
-            % Call the helper class's create_file function.
-            Program.GUI.dialogues.step('Initializing new file...');
-            new_path = write_class.create_file( ...
-                new_path, 'dtype', dtype, ...
-                'scale', voxel_resolution, ...
-                'dims', [dims.x, dims.y, dims.z, dims.c, dims.t]);
-
-            % Get this new file's reader object.
-            write_obj = write_class.get_reader(new_path);
-            write_obj.Properties.Writable = true;
-
-            % Calculate the maximum possible array size of given system's
-            % memory. Note that we limit the maximum chunk size to 90% of
-            % the maximum possible array to leave a compute buffer.
-            Program.GUI.dialogues.step('Performing memory analysis...');
-            if ispc
-                % If system is running Windows, use Matlab's memory()
-                % function.
-                max_arr = memory().MaxPossibleArrayBytes * 0.90;
-            else
-                % If system is running MacOS/Unix, use system call and
-                % parse output.
-                [~, max_arr] = system('sysctl hw.memsize | awk ''{print $2}''');
-                max_arr = str2double(max_arr) * 0.90;
-            end
-
-            % Using the datatype, calculate the bytes occupied by each
-            % element within the image array.
-            switch dtype
-                case 'single'
-                    bytes_per_el = 4;
-                case 'double'
-                    bytes_per_el = 8;
-                otherwise
-                    bytes_per_el = str2double(dtype(5:end))/8;
-            end
-
-            % Calculate the total memory occupied by the image array.
-            ttl_bytes = dims.y * dims.x * dims.z * ...
-                dims.c * dims.t * bytes_per_el;
-
-            % If the total memory occupied by the image array is smaller
-            % than or equal to the maximum possible array size allowed by
-            % the system's memory constraints, write plane-wise. Otherwise,
-            % write chunk-wise.
-            write_planewise = ttl_bytes <= max_arr && ttl_bytes < 1e9;
-
-            if write_planewise
-                % If writing plane-wise...
-                Program.GUI.dialogues.add_task('Writing without chunking...');
-                Program.GUI.dialogues.step('Reading entire Nikon volume...');
-
-                % Get a cell array of all nd2 planes in the file.
-                d_cell = bfopen(char(source.getCurrentFile));
-                d_cell = d_cell{1};
-
-                % Get the number of planes in the nd2 file.
-                n_planes = length(d_cell);
-
-                % Initialize the data array.
-                data = zeros(dims.y, dims.x, dims.z, ...
-                    dims.c, dims.t, dtype);
-
-                % For each plane...
-                for pidx = 1:n_planes
-                    Program.GUI.dialogues.set_value(pidx/n_planes);
-
-                    % Get the z, c, and t coordinates corresponding to this
-                    % plane index.
-                    [~, z, c, t] = DataHandling.Helpers.nd2.parse_plane_idx(d_cell{pidx, 2});
-                    
-                    % Write this plane to the data array, indexing into the
-                    % t dimension only if there is more than one frame.
-                    if dims.t > 1 
-                        Program.GUI.dialogues.step(sprintf( ...
-                            'Caching plane %.f/%.f (z = %.f, c = %.f, t = %.f)', ...
-                            pidx, n_planes, z, c, t));
-                        data(:, :, z, c, t) = d_cell{pidx, 1};
-
-                    else
-                        Program.GUI.dialogues.step(sprintf( ...
-                            'Caching plane %.f/%.f (z = %.f, c = %.f)', ...
-                            pidx, n_planes, z, c));
-                        data(:, :, z, c) = d_cell{pidx, 1};
-                    end
-                end
-
-                % Write data to file.
-                Program.GUI.dialogues.step(sprintf( ...
-                    'Writing %.f planes to file...', n_planes));
-                write_obj.data = data;
-                Program.GUI.dialogues.resolve();
-                
-            else           
-                % If writing chunk-wise...
-                if dims.t > 1
-                    Program.GUI.dialogues.add_task('Writing frame-wise...');
-                    % For videos, chunk along the time dimension.
-            
-                    % Get the number of bytes in one full frame.
-                    bytes_per_frame = ttl_bytes / dims.t;
-
-                    % Calculate the maximum number of frames to process at
-                    % once.
-                    chunk_size_t = max(1, ...
-                        floor(max_arr / bytes_per_frame));
-            
-                    % Initialize the start of our first chunk as frame 1.
-                    t_start = 1;
-
-                    % While the first index of our chunks is lower than or
-                    % equal to the total number of frames...
-                    while t_start <= dims.t
-
-                        % Calculate the end point of our current chunk.
-                        t_end = min(t_start + chunk_size_t - 1, dims.t);
-                        Program.GUI.dialogues.set_value(t_end/dims.t);
-                        Program.GUI.dialogues.step(sprintf( ...
-                            'Frames %.f-%.f (out of %.f)', ...
-                            t_start, t_end, nt));
-            
-                        % Read this chunk of frames.
-                        this_chunk = DataHandling.Helpers.nd2.get_plane( ...
-                            source, ...
-                            'x', 1:dims.x, 'y', 1:dims.y, 'z', 1:dims.z, ...
-                            'c', 1:dims.c, 't', t_start:t_end);
-            
-                        % Write this chunk to our new file.
-                        write_obj.data(:,:,:,:, t_start:t_end) = this_chunk;
-            
-                        % Move the chunk window.
-                        t_start = t_end + 1;
-                    end
-            
-                else
-                    % For images, chunk along the z dimension.
-                    Program.GUI.dialogues.add_task('Writing slice-wise...');
-            
-                    % Get the number of bytes in one z-slice.
-                    bytes_per_z_slab = ttl_bytes / dims.z;
-
-                    % Calculate the maximum number of z-slices to process
-                    % at once.
-                    chunk_size_z = max(1, floor(max_arr / bytes_per_z_slab));
-            
-                    % Initialize the start of our first chunk as slice 1.
-                    z_start = 1;
-
-                    % While the first index of our chunks is lower than or
-                    % equal to the total number of z-slices...
-                    while z_start <= dims.z
-
-                        % Calculate the end point of our current chunk.
-                        z_end = min(z_start + chunk_size_z - 1, dims.z);
-
-                        Program.GUI.dialogues.set_value(z_end/dims.t);
-                        Program.GUI.dialogues.step(sprintf( ...
-                            'Slices %.f-%.f (out of %.f)', ...
-                            z_start, z_end, dims.z));
-            
-                        % Read this chunk of z-slices.
-                        this_chunk = DataHandling.Helpers.nd2.get_plane( ...
-                            source, ...
-                            'x', 1:dims.x, 'y', 1:dims.y, 'z', z_start:z_end, ...
-                            'c', 1:dims.c);
-
-                        this_chunk = cast(this_chunk, dtype);
-            
-                        % Write this chunk to our new file.
-                        write_obj.data(:, :, z_start:z_end, :) = this_chunk;
-            
-                        % Move the chunk window.
-                        z_start = z_end + 1;
-                    end
-                end
-                
-                Program.GUI.dialogues.resolve();
-            end
-
-            Program.GUI.dialogues.resolve();
-        end
-
-        function arr = read(obj, varargin)
-            p = inputParser();
-    
-            addParameter(p, 'z_range',    []);
-            addParameter(p, 'c_range',    []);
-            addParameter(p, 't_range',    []);
-    
-            parse(p, varargin{:});
-
-            if isfield(cursor, 'c1') || isprop(cursor, 'c1')
-                arr = DataHandling.Helpers.nd2.get_plane( ...
-                    obj, ...
-                    'z', cursor.z1:cursor.z2, ...
-                    'c', cursor.c1:cursor.c2, ...
-                    'x', cursor.x1:cursor.x2, ...
-                    'y', cursor.y1:cursor.y2);
-            else
-                arr = DataHandling.Helpers.nd2.get_plane( ...
-                    obj, ...
-                    'z', cursor.z1:cursor.z2, ...
-                    'c', 1:obj.getSizeC, ...
-                    'x', cursor.x1:cursor.x2, ...
-                    'y', cursor.y1:cursor.y2);
-            end
         end
 
         function np_file = to_npal(file)
@@ -475,7 +133,7 @@ classdef nd2
             % nd2_file = the ND2 file to convert
             % np_file = the NeuroPAL format file
 
-            Program.GUI.dialogues.add_task('Reading Nikon metadata...');
+            Program.Handlers.dialogue.add_task('Reading Nikon metadata...');
             f = bfGetReader(file);                                              % Get reader object.
 
             nx = f.getSizeX;                                                    % Get width.
@@ -541,15 +199,25 @@ classdef nd2
             % Save the ND2 file to our MAT file format.
             np_file = strrep(file, 'nd2', 'mat');
             version = Program.information.version;
-            Program.GUI.dialogues.resolve();
+            Program.Handlers.dialogue.resolve();
 
-            Program.GUI.dialogues.add_task('Writing metadata...');
+            Program.Handlers.dialogue.add_task('Writing metadata...');
             save(np_file, 'version', 'data', 'info', 'prefs', 'worm', '-v7.3');
-            Program.GUI.dialogues.resolve();
+            Program.Handlers.dialogue.resolve();
 
-            Program.GUI.dialogues.add_task('Running Nikon write routine...');
+            Program.Handlers.dialogue.add_task('Running Nikon write routine...');
             DataHandling.Helpers.nd2.write_data(np_file, f);
-            Program.GUI.dialogues.resolve();
+            Program.Handlers.dialogue.resolve();
+        end
+
+        function dimension_struct = get_dimensions(file)
+            dimension_struct = struct( ...
+                'order', {char(file.getDimensionOrder)}, ...
+                'nx', {file.getSizeX}, ...
+                'ny', {file.getSizeY}, ...
+                'nz', {file.getSizeZ}, ...
+                'nc', {file.getSizeC}, ...
+                'nt', {file.getSizeT});
         end
 
         function channel_struct = get_channels(reader)            
@@ -597,7 +265,7 @@ classdef nd2
         end
 
         function [sorted_names, permute_record] = autosort(channels)
-            Program.GUI.dialogues.add_task('Interpreting channel names...');
+            Program.Handlers.dialogue.add_task('Interpreting channel names...');
             channels = string(channels(:));
             n_names = numel(channels);
         
@@ -634,7 +302,7 @@ classdef nd2
                 permute_record = [permute_record; unmatched_idx];
             end
 
-            Program.GUI.dialogues.resolve();
+            Program.Handlers.dialogue.resolve();
         end
 
         function obj = get_plane(file, varargin)
@@ -650,13 +318,15 @@ classdef nd2
                 file = Program.GUIPreferences.instance().image_dir;
             end
 
+            t = Program.GUIHandling.current_frame; % Retrieve the current time frame from GUI.
+
             % Set up input parser to handle variable input arguments
             p = inputParser;
             addOptional(p, 'x', 1:file.getSizeX);
             addOptional(p, 'y', 1:file.getSizeY);
             addOptional(p, 'z', 1:file.getSizeZ);
             addOptional(p, 'c', 1:file.getSizeC);
-            addOptional(p, 't', 1);
+            addOptional(p, 't', t);
             parse(p, varargin{:});
         
             % Determine starting positions for extraction (zero-based)
@@ -712,7 +382,7 @@ classdef nd2
         end
 
         function write_data(np_file, nd2_reader)
-            Program.GUI.dialogues.step('Performing pre-write memory analysis...');
+            Program.Handlers.dialogue.step('Performing pre-write memory analysis...');
             np_write = matfile(np_file, "Writable", true);
         
             nx = nd2_reader.getSizeX;
@@ -747,32 +417,32 @@ classdef nd2
             ttl_bytes = ny * nx * nz * nc * nt * bytes_per_el;
 
             if ttl_bytes <= max_arr
-                Program.GUI.dialogues.step('Reading entire Nikon volume...');
-                d_cell = bfopen(char(source.getCurrentFile));
+                Program.Handlers.dialogue.step('Reading entire Nikon volume...');
+                d_cell = bfopen(char(nd2_reader.getCurrentFile));
 
                 d_cell = d_cell{1};
                 n_planes = length(d_cell);
                 data = zeros(ny, nx, nz, nc, nt, dclass);
 
                 for pidx = 1:n_planes
-                    Program.GUI.dialogues.set_value(pidx/n_planes);
+                    Program.Handlers.dialogue.set_value(pidx/n_planes);
                     [~, z, c, t] = DataHandling.Helpers.nd2.parse_plane_idx(d_cell{pidx, 2});
                     
                     if nt > 1 
-                        Program.GUI.dialogues.step(sprintf( ...
+                        Program.Handlers.dialogue.step(sprintf( ...
                             'Caching plane %.f/%.f (z = %.f, c = %.f, t = %.f)', ...
                             pidx, n_planes, z, c, t));
                         data(:, :, z, c, t) = d_cell{pidx, 1};
 
                     else
-                        Program.GUI.dialogues.step(sprintf( ...
+                        Program.Handlers.dialogue.step(sprintf( ...
                             'Caching plane %.f/%.f (z = %.f, c = %.f)', ...
                             pidx, n_planes, z, c));
                         data(:, :, z, c) = d_cell{pidx, 1};
                     end
                 end
 
-                Program.GUI.dialogues.step(sprintf( ...
+                Program.Handlers.dialogue.step(sprintf( ...
                     'Writing %.f planes to file...', n_planes));
                 np_write.data = data;
                 
@@ -789,8 +459,8 @@ classdef nd2
                     t_start = 1;
                     while t_start <= nt
                         t_end = min(t_start + chunk_size_t - 1, nt);
-                        Program.GUI.dialogues.set_value(t_end/nt);
-                        Program.GUI.dialogues.step(sprintf( ...
+                        Program.Handlers.dialogue.set_value(t_end/nt);
+                        Program.Handlers.dialogue.step(sprintf( ...
                             'Frames %.f-%.f (out of %.f)', ...
                             t_start, t_end, nt));
             
@@ -820,8 +490,8 @@ classdef nd2
                     while z_start <= nz
                         z_end = min(z_start + chunk_size_z - 1, nz);
 
-                        Program.GUI.dialogues.set_value(z_end/nt);
-                        Program.GUI.dialogues.step(sprintf( ...
+                        Program.Handlers.dialogue.set_value(z_end/nt);
+                        Program.Handlers.dialogue.step(sprintf( ...
                             'Slices %.f-%.f (out of %.f)', ...
                             z_start, z_end, nz));
             
@@ -841,6 +511,8 @@ classdef nd2
                 end
             end
         end
+
+
 
         function scale = parse_scale(reader, pfx)
             key_map = DataHandling.Helpers.nd2.key_map;

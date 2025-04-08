@@ -31,6 +31,61 @@ classdef java
             end
         end
 
+        function [keys, values, count] = search_key(metadata, query)
+            keys = {};
+            values = {};
+            keySet = metadata.keySet();
+            if isempty(keySet)
+                warning('Global metadata has no keys.');
+            else
+                % Create an iterator over the keys
+                keyIter = keySet.iterator();
+                while keyIter.hasNext()
+                    k = keyIter.next();
+                    if ~isempty(k)
+                        val = metadata.get(k);
+
+                        if contains(lower(char(k)), lower(query))
+                            keys{end+1} = char(k);
+                            values{end+1} = val;
+                        end
+                    end
+                end
+            end
+        
+            count = numel(values);
+        end
+
+        function valStr = value_to_string(val)
+            % Convert a Java-based metadata value to a MATLAB string
+            if isempty(val)
+                valStr = '[empty]';
+                return;
+            end
+            
+            % Handle various Java/MATLAB types
+            if isa(val, 'java.lang.String')
+                % Convert Java string to MATLAB char array
+                valStr = char(val);
+            elseif isa(val, 'java.lang.Number')
+                % Convert Java numeric type to MATLAB double
+                valStr = num2str(double(val));
+            elseif isa(val, 'java.lang.Boolean')
+                % Convert Java Boolean to 'true'/'false'
+                valStr = char(val.toString());
+            elseif islogical(val)
+                % MATLAB logical
+                if val
+                    valStr = 'true';
+                else
+                    valStr = 'false';
+                end
+            else
+                % Other or unhandled object type, just show class name
+                valStr = sprintf('[%s]', class(val));
+            end
+        end
+
         function valid_str = to_valid(raw_str)
             % Converts an input string to a valid MATLAB field name by replacing or truncating characters.
             %
