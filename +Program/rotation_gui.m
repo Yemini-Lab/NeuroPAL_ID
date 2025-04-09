@@ -1,46 +1,82 @@
 classdef rotation_gui
-    %ROTATION_GUI Summary of this class goes here
-    %   Detailed explanation goes here
-    
-    properties (Constant)
-        symbols = struct( ...
-            'in_gui', {{'↺', '⦝', '⦬', 'OK', 'X'}}, ...
-            'out_gui', {{'↔', '↕'}});
+    %ROTATION_GUI This class is responsible for handling all functionality
+    % related to the crop/rotate GUI triggered by the preprocessing tab.
+    %
+    %   Note that it relies on the rotation stack property of the
+    %   visualize_light app instance, which keeps track of relevant
+    %   handles as well as caching of values between volumes.
+    %
+    %   This class is very outdated and needs to be reworked once time
+    %   permits.
 
+    properties (Constant)
+        % The symbols featured in the rotation GUI.
+        symbols = struct( ...
+            'in_gui', {{'↺', '⦝', '⦬', 'OK', 'X'}}, ...     % Symbols to be drawn in the background box at the top right of the rotation roi.
+            'out_gui', {{'↔', '↕'}});                        %  Symbols to be drawn outside of the background box at the top right of the rotation roi.
+
+        % Default settings for drawing the rotation gui.
         settings = struct( ...
-            'font_size', {20}, ...
-            'stroke_size', {12}, ...
-            'vertical_offset', {20}, ...
-            'box_padding', {[0 0]});
+            'font_size', {20}, ...                           % Font size.
+            'stroke_size', {12}, ...                         % Size of the stroke around each symbol.
+            'vertical_offset', {20}, ...                     % Optional vertical offset for each symbol.
+            'box_padding', {[0 0]});                         % Padding around the background box containing the symbols.
     end
     
     methods (Static)
 
         function draw(app, roi)
+            %DRAW Creates the in-axes rotation gui.
+            %
+            %   Inputs:
+            %   - app: Running app instance.
+            %   - roi: An freehand ROI object.
+
+            % We first call the close function to avoid double drawing.
             Program.rotation_gui.close(app);
 
-            % Prompt the image manipulation panel to load its crop config.
+            % Prompt the image manipulation panel to load its cropping
+            % configuration (i.e. resizing the panel & toggling component
+            % visibilities).
             gui_sidebar = Program.GUI.preprocessing_gui().sidebar;
             parent_panel = gui_sidebar.panel_instances.image_manipulation();
             parent_panel.set_display_configuration('crop');
             
             if ~isa(roi, 'images.roi.Freehand') || strcmp(roi.Tag, 'redraw') 
+                % If the passed roi is not a freehand ROI or has been tagged
+                % for redrawing, convert the input into a freehand ROI.
                 app.rotation_stack.roi = Program.GUIHandling.rect_to_freehand(roi);
-                app.rotation_stack.cache.(app.VolumeDropDown.Value) = struct('angle', {0});
+                
+                % Then initialize the rotation cache for this volume type.
+                app.rotation_stack.cache.(app.VolumeDropDown.Value) = ...
+                    struct('angle', {0});
             end
             
+            % Get the axes to which the roi was drawn.
             axes = app.rotation_stack.roi.Parent;
+
+            % Get the symbols we'll be using to draw our rotation gui.
             symbols = Program.rotation_gui.symbols.in_gui;
+
+            % Get the number of symbols.
             sym_count = sum(cellfun(@length, symbols));
 
-            font_size = Program.rotation_gui.settings.font_size;
-            stroke_size = Program.rotation_gui.settings.stroke_size;
-            vertical_offset = Program.rotation_gui.settings.vertical_offset;
-            box_padding = Program.rotation_gui.settings.box_padding;
+            % Get the default settings for our rotation gui.
+            font_size = Program.rotation_gui.settings.font_size;                % Font size of the symbols drawn. 
+            stroke_size = Program.rotation_gui.settings.stroke_size;            % The size of the stroke drawn around each symbol.
+            vertical_offset = Program.rotation_gui.settings.vertical_offset;    % An optional vertical offset.
+            box_padding = Program.rotation_gui.settings.box_padding;            % The size of the padding around the background box on which the symbols will be drawn.
 
-            corners = Program.rotation_gui.get_edges(app, app.rotation_stack.roi.Position);
+            % Get the corners of the roi.
+            corners = Program.rotation_gui.get_edges(app, ...
+                app.rotation_stack.roi.Position);
+
+            % From these, get the top right corner (which is where we'll be
+            % be drawing the rotation gui.
             top_right_corner = corners(3:-1:2);
             
+            % Calculate the dimensions of the background box on which the
+            % symbols will be drawn.
             bg_width = font_size*sym_count + stroke_size*length(symbols) + box_padding(1)/2;
             bg_height = font_size + stroke_size + box_padding(2);
             bg_xmin = top_right_corner(1) - bg_width;
@@ -52,17 +88,36 @@ classdef rotation_gui
                 [bg_xmin, bg_ymin+bg_height];
                 [bg_xmin+bg_width, bg_ymin+bg_height]];
 
-            app.rotation_stack.gui{end+1} = images.roi.Freehand(app.rotation_stack.roi.Parent, 'Position', bg_pos, 'Color', [0.1 0.1 0.1], 'FaceAlpha', 0.7, ...
-                'InteractionsAllowed', 'none', 'MarkerSize', 1e-99, 'LineWidth', 1e-99);
+            % Draw the background box as a freehand roi.
+            app.rotation_stack.gui{end+1} = images.roi.Freehand( ...
+                app.rotation_stack.roi.Parent, 'Position', bg_pos, ...
+                'Color', [0.1 0.1 0.1], 'FaceAlpha', 0.7, ...
+                'InteractionsAllowed', 'none', 'MarkerSize', 1e-99, ...
+                'LineWidth', 1e-99);
 
-            % Construct rotation symbols
+            % Initialize a variable that will help us account for
+            % multi-character symbols.
             multi_string = 0;
+
+            % For each symbol in the top right box...
             for n = 1:length(symbols)
+                % Get the symbol string.
                 symbol = symbols{n};
-                symbol_x = bg_xmin + (((font_size)*(n-1))/n + stroke_size)*n + box_padding(1) / 2 + multi_string/2;
+
+                % Calculate the symbol's x position.
+                symbol_x = bg_xmin + (((font_size)*(n-1))/n + stroke_size)*n + ...
+                    box_padding(1) / 2 + multi_string/2;
+
+                % Calculate the symbol's y position.
                 symbol_y = bg_ymin + bg_height/2;
+
+                % Calculate any addition horizontal padding that may be
+                % required due to the number of characters contained within
+                % the symbol.
                 multi_string = multi_string + font_size * (length(symbol)-1);
 
+                % Define the symbol's color based on which symbol we're
+                % dealing with.
                 switch symbol
                     case 'OK'
                         color = 'green';
@@ -72,73 +127,123 @@ classdef rotation_gui
                         color = 'white';
                 end
 
-                app.rotation_stack.gui{end+1} = text(axes, symbol_x, symbol_y, symbol, ...
+                % Draw the symbol and add it to the rotation stack.
+                app.rotation_stack.gui{end+1} = text(axes, ...
+                    symbol_x, symbol_y, symbol, ...
                     'Color', color, ...
-                    'FontName', 'MonoSpace', 'FontSize', font_size, 'FontWeight', 'bold', ...
+                    'FontName', 'MonoSpace', 'FontSize', font_size, ...
+                    'FontWeight', 'bold', ...
                     'ButtonDownFcn', @(src, event) Program.rotation_gui.trigger(app, event), ...
                     'Tag', 'rot_symbol');
             end
 
-            % Construct scaling symbols
+            % For each scaling symbol...
             for n = 1:length(Program.rotation_gui.symbols.out_gui)
+                % Get the symbol string.
                 scale = Program.rotation_gui.symbols.out_gui{n};
+
+                % Get the edges of the roi.
                 pos = Program.rotation_gui.get_edges(app);
                 
+                % Check which type of scaling symbol we're dealing with and
+                % calculate its coordinates. Note that we calculate two
+                % sets of coordinates because each scaling symbol is drawn
+                % twice, once on each end of its appropriate edge.
                 if strcmp(scale, '↔')
-                    x1 = pos(1) - Program.rotation_gui.settings.font_size;
+                    x1 = pos(1) - font_size;
                     y1 = (pos(2) + pos(4)) / 2;
                     
-                    x2 = pos(3) - Program.rotation_gui.settings.font_size;
+                    x2 = pos(3) - font_size;
                     y2 = (pos(2) + pos(4)) / 2;
                     
                 elseif strcmp(scale, '↕')
-                    x1 = (pos(1) + pos(3)) / 2 - Program.rotation_gui.settings.font_size;
+                    x1 = (pos(1) + pos(3)) / 2 - font_size;
                     y1 = pos(2);
                     
-                    x2 = (pos(1) + pos(3)) / 2 - Program.rotation_gui.settings.font_size;
+                    x2 = (pos(1) + pos(3)) / 2 - font_size;
                     y2 = pos(4);
                 end
                 
+                % Draw the scaling symbols and add them to the rotation
+                % stack.
                 app.rotation_stack.gui{end+1} = text(axes, x1, y1, scale, ...
                     'Color', 'white', ...
-                    'FontName', 'MonoSpace', 'FontSize', Program.rotation_gui.settings.font_size*2, ...
+                    'FontName', 'MonoSpace', 'FontSize', font_size*2, ...
                     'ButtonDownFcn', @(src, event) Program.rotation_gui.trigger(app, event), ...
                     'Tag', num2str(n));
             
                 app.rotation_stack.gui{end+1} = text(axes, x2, y2, scale, ...
                     'Color', 'white', ...
-                    'FontName', 'MonoSpace', 'FontSize', Program.rotation_gui.settings.font_size*2, ...
+                    'FontName', 'MonoSpace', 'FontSize', font_size*2, ...
                     'ButtonDownFcn', @(src, event) Program.rotation_gui.trigger(app, event), ...
                     'Tag', num2str(n+2));
             end
 
-            app.rotation_stack.listeners{end+1} = addlistener(app.rotation_stack.roi, 'MovingROI', @(src, event) Program.rotation_gui.update(app, event, 'move'));
-            app.rotation_stack.listeners{end+1} = addlistener(app.CELL_ID, 'WindowMousePress', @(~,~) Program.GUIHandling.mouse_poll(app, 1));
-            app.rotation_stack.listeners{end+1} = addlistener(app.CELL_ID, 'WindowMouseRelease', @(~,~) Program.GUIHandling.mouse_poll(app, 0));
-            set(app.CELL_ID, 'WindowButtonMotionFcn', @(~,~) Program.GUIHandling.mouse_poll(app));
+            % Assign the update() function to the roi's MovingROI listener. 
+            app.rotation_stack.listeners{end+1} = addlistener( ...
+                app.rotation_stack.roi, 'MovingROI', @(src, event) ...
+                Program.rotation_gui.update(app, event, 'move'));
+
+            % Assign the mouse_poll() function to mouse press & release
+            % listeners in order to track click & drag actions.
+            app.rotation_stack.listeners{end+1} = addlistener( ...
+                app.CELL_ID, 'WindowMousePress', @(~,~) ...
+                Program.GUIHandling.mouse_poll(app, 1));
+
+            app.rotation_stack.listeners{end+1} = addlistener( ...
+                app.CELL_ID, 'WindowMouseRelease', @(~,~) ...
+                Program.GUIHandling.mouse_poll(app, 0));
+
+            set(app.CELL_ID, 'WindowButtonMotionFcn', @(~,~) ...
+                Program.GUIHandling.mouse_poll(app));
         end
 
         function update(app, event, mode)
+            %UPDATE Handles manipulation of the rotation gui. Note that
+            % this needs to be refactored into three separate functions
+            % (move, scale, and rotate) once time allows.
+            %
+            %   Inputs:
+            %   - app: Running app instance.
+            %   - event: An event struct retrieved from a rotation gui
+            %       callback.
+            %   - mode: One of 'move', 'scale', or 'rotate'.
+
+            % Check which manipulation was requested...
             switch mode
                 case 'move'
-                    [~, tr_idx] = max(event.PreviousPosition(:,1) + event.PreviousPosition(:,2) * 1e-6);
+                    % If we're moving the rotation gui, calculate the
+                    % difference between (x, y) difference between the
+                    % previous top right corner and the new top right
+                    % corner.
+                    [~, tr_idx] = max(event.PreviousPosition(:,1) + ...
+                        event.PreviousPosition(:,2) * 1e-6);
                     old_tr = event.PreviousPosition(tr_idx, :);
         
-                    [~, tr_idx] = max(event.CurrentPosition(:,1) + event.CurrentPosition(:,2) * 1e-6);
+                    [~, tr_idx] = max(event.CurrentPosition(:,1) + ...
+                        event.CurrentPosition(:,2) * 1e-6);
                     new_tr = event.CurrentPosition(tr_idx, :);
         
                     xy_diff = old_tr - new_tr;
         
+                    % Update the position of each item in the rotation 
+                    % stack gui accordingly.
                     for n = 1:length(app.rotation_stack.gui)
                         if isa(app.rotation_stack.gui{n}, 'images.roi.Freehand')
-                            app.rotation_stack.gui{n}.Position = app.rotation_stack.gui{n}.Position - (event.PreviousPosition-event.CurrentPosition);
+                            app.rotation_stack.gui{n}.Position = ...
+                                app.rotation_stack.gui{n}.Position - ...
+                                (event.PreviousPosition-event.CurrentPosition);
                         else
-                            app.rotation_stack.gui{n}.Position(1:2) = app.rotation_stack.gui{n}.Position(1:2) - xy_diff;
+                            app.rotation_stack.gui{n}.Position(1:2) = ...
+                                app.rotation_stack.gui{n}.Position(1:2) ...
+                                - xy_diff;
                         end
                     end
 
                 case 'scale'
-                    t_dim = find(strcmp(event.Source.String, Program.rotation_gui.symbols.out_gui));
+                    % If we're changing the scale of the rotation roi...
+                    t_dim = find(strcmp(event.Source.String, ...
+                        Program.rotation_gui.symbols.out_gui));
                     target_edge = str2double(event.Source.Tag);
                     theta = app.rotation_stack.cache.(app.VolumeDropDown.Value).angle;
 
@@ -177,72 +282,158 @@ classdef rotation_gui
 
 
                 case 'rotate'
-                    app.rotation_stack.cache.(app.VolumeDropDown.Value).angle = app.rotation_stack.cache.(app.VolumeDropDown.Value).angle + event.variable;
-                    R = [cosd(event.variable), -sind(event.variable); sind(event.variable), cosd(event.variable)];
+                    % If we're rotating the gui, get the current volume
+                    % type.
+                    volume_type = app.VolumeDropDown.Value;
+                    
+                    % Update this volume type's cached angle with this new
+                    % theta.
+                    app.rotation_stack.cache.(volume_type).angle = ...
+                        app.rotation_stack.cache.(volume_type).angle + ...
+                        event.variable;
 
+                    % Assemble a rotation matrix.
+                    R = [cosd(event.variable), -sind(event.variable); ...
+                        sind(event.variable), cosd(event.variable)];
+
+                    % Calculate the center of the ROI.
                     roi_center = mean(app.rotation_stack.roi.Position, 1);
-                    app.rotation_stack.roi.Position = ((app.rotation_stack.roi.Position - roi_center) * R') + roi_center;
 
+                    % Use the rotation matrix to rotate the ROI.
+                    app.rotation_stack.roi.Position = ( ...
+                        (app.rotation_stack.roi.Position - roi_center) * R') ...
+                        + roi_center;
+
+                    % Iterate over each rotationg ui element and rotate it
+                    % appropriately based on the rotation matrix.
                     for n = 1:length(app.rotation_stack.gui)
                         if ~isa(app.rotation_stack.gui{n}, 'images.roi.Freehand')
-                            app.rotation_stack.gui{n}.Position(1:2) = ((app.rotation_stack.gui{n}.Position(1:2) - roi_center) * R') + roi_center;
-                            set(app.rotation_stack.gui{n}, 'Rotation', app.rotation_stack.gui{n}.Rotation - event.variable);
+                            app.rotation_stack.gui{n}.Position(1:2) = ( ...
+                                (app.rotation_stack.gui{n}.Position(1:2) ...
+                                - roi_center) * R') + roi_center;
+
+                            set(app.rotation_stack.gui{n}, 'Rotation', ...
+                                app.rotation_stack.gui{n}.Rotation ...
+                                - event.variable);
+
                         else
-                            app.rotation_stack.gui{n}.Position = ((app.rotation_stack.gui{n}.Position - roi_center) * R') + roi_center;
+                            app.rotation_stack.gui{n}.Position = ( ...
+                                (app.rotation_stack.gui{n}.Position ...
+                                - roi_center) * R') + roi_center;
                         end
                     end
             end
         end
 
         function trigger(app, event)
+            %TRIGGER This function handles callbacks for each symbol.
+            %
+            %   Inputs:
+            %   - app: Running app instance.
+            %   - event: Event info generated by callback.
+
+            % From the passed event info, get a struct that we can edit.
             event = Program.GUIHandling.event2struct(event);
+
+            % Change the color of the symbol that triggered the callback to
+            % indicate that the user's click was registered.
             event.Source.Color = [0 1 1];
 
+            % Check which symbol was interacted with...
             switch event.Source.String
                 case '⦝'
+                    % If the right angle symbol, specify an angle of 90 and
+                    % add it to the event struct.
                     event.variable = 90;
+
+                    % Call update().
                     Program.rotation_gui.update(app, event, 'rotate')
     
                 case '⦬'
+                    % If the acute angle symbol, specify an angle of 45 and
+                    % add it to the event struct.
                     event.variable = 45;
+
+                    % Call update().
                     Program.rotation_gui.update(app, event, 'rotate')
     
                 case 'OK'
+                    % If the user clicked OK, call preview their result.
                     Program.rotation_gui.preview_output(app);
                     return
     
                 case 'X'
+                    % If the user clicked X, call close the rotation gui.
                     Program.rotation_gui.close(app);
                     return
 
                 otherwise
-
+                    % If the user clicked a symbol that relies on
+                    % click & drag functionality, check which symbol that
+                    % is.
                     switch event.Source.String
                         case '↺'
+                            % If it's the rotation symbol, set the click &
+                            % drag direction to 1 (representing right of
+                            % click location).
                             drag_direction = 1;
+
+                            % Define a rotation factor of 1/3.5 -- this
+                            % ensures that gui isn't rotating significantly
+                            % faster than the user intends.
                             factor = 1/3.5;
+
+                            % Set the mode to "rotate".
                             mode = 'rotate';
+
                         case Program.rotation_gui.symbols.out_gui
-                            drag_direction = find(ismember(Program.rotation_gui.symbols.out_gui, event.Source.String));
+                            % If it's one of the scaling symbols, set the
+                            % click & drag direction according to which
+                            % symbol we're dealing with.
+                            drag_direction = find(ismember( ...
+                                Program.rotation_gui.symbols.out_gui, ...
+                                event.Source.String));
+
+                            % Define a rotation factor of 1.5.
                             factor = 1.5;
+
+                            % Set the mode to "scale".
                             mode = 'scale';
                         otherwise
                             return
                     end
 
+                    % Initiate a variable which is 1 while the mouse
+                    % button remains clicked.
                     cct = 1;
+
+                    % Initiate another variable which keeps track of the
+                    % total distance that the cursor has been dragged.
                     d_sync = 0;
                     %set(app.CELL_ID, 'Pointer', 'custom', 'PointerShapeCData', NaN(16,16))
 
+                    % While the mouse button remains clicked...
                     while cct
-                        if any(app.mouse.drag.delta ~= 0) && any(d_sync ~= app.mouse.drag.debt)
+                        % If the mouse has been moved since we last
+                        % checked...
+                        if any(app.mouse.drag.delta ~= 0) && ...
+                                any(d_sync ~= app.mouse.drag.debt)
+
+                            % Rotate the GUI accordingly.
                             event.variable = app.mouse.drag.delta(drag_direction)*factor;
                             Program.rotation_gui.update(app, event, mode)
                         end
 
+                        % Update the total distance that the cursor has
+                        % been dragged.
                         d_sync = app.mouse.drag.debt;
+
+                        % Call a short, explicit pause. This allows us to
+                        % bypass a known MATLAB bug.
                         pause(0.03)
 
+                        % If the mouse is no longer in a clicked state,
+                        % exit this loop.
                         if ~app.mouse.state
                             cct = 0;
                         end
@@ -251,6 +442,7 @@ classdef rotation_gui
                     %set(app.CELL_ID, 'Pointer', 'arrow')
             end
 
+            % Reset the symbol's color.
             event.Source.Color = 'white';
         end
 
