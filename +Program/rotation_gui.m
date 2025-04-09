@@ -516,14 +516,29 @@ classdef rotation_gui
         end
 
         function close(app)
+            %CLOSE Closes the rotation gui and clears any related
+            % properties.
+            %
+            %   Inputs:
+            %   - app: Running app instance.
+
+            % Delete the roi.
             delete(app.rotation_stack.roi);
 
+            % Call delete() on every element of the rotation gui.
             cellfun(@delete, app.rotation_stack.gui);
+
+            % Clear the gui field of the rotation stack struct.
             app.rotation_stack.gui = {};
 
+            % Call delete() on every listener of the rotation gui.
             cellfun(@delete, app.rotation_stack.listeners);
+
+            % Clear the listeners field of the rotation stack struct.
             app.rotation_stack.listeners = {};
 
+            % Promp the preprocessing sidebar to reset its display
+            % configuration and close the cropping interface.
             gui_sidebar = Program.GUI.preprocessing_gui().sidebar;
             parent_panel = gui_sidebar.panel_instances.image_manipulation;
             parent_panel.set_display_configuration('reset');
