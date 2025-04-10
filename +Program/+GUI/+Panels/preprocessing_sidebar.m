@@ -15,7 +15,8 @@ classdef preprocessing_sidebar
             persistent sidebar_instance
 
             % If uninitialized...
-            if isempty(sidebar_instance)
+            if isempty(sidebar_instance) || ...
+                    ~isgraphics(sidebar_instance.grid)
                 % Get running app instance.
                 app = Program.ProgramInfo.app;
 

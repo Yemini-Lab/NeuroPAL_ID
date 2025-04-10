@@ -18,7 +18,7 @@ classdef image_editing_gui
             persistent panel_instance
 
             % If uninitiated...
-            if isempty(panel_instance)
+            if isempty(panel_instance) || ~isgraphics(panel_instance.grid)
                 % Get running app instance.
                 app = Program.ProgramInfo.app;
 
@@ -196,6 +196,11 @@ classdef image_editing_gui
             row_height = obj.grid.RowHeight;
             row_height{3} = height_in_pixels;
             obj.grid.RowHeight = row_height;
+        end
+
+        function obj = delete(obj)
+            clear persistent;
+            clear java;
         end
     end
 end

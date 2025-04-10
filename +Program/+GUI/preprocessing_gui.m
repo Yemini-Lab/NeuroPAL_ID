@@ -23,7 +23,8 @@ classdef preprocessing_gui
             persistent gui_instance
 
             % If uninitialized...
-            if isempty(gui_instance)
+            if isempty(gui_instance) || ...
+                    ~isgraphics(gui_instance.canvas.grid)
                 % Update persistent instance with constructed object.
                 gui_instance = obj;
 
@@ -384,6 +385,14 @@ classdef preprocessing_gui
             % Set code equal to whether the total bytes exceed either the
             % maximum array size or our preprocessing threshold.
             code = exceeds_maximum_array_size || exceeds_maximum_bytes;
+        end
+
+        function delete()
+            %DELETE This function is called when the GUI is closed, such as
+            % on program close or crash.
+
+            % Clear all persistent variables.
+            clear java;
         end
     end
 end

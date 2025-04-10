@@ -29,7 +29,8 @@ classdef image_editing_canvas
             persistent canvas_instance
 
             % If uninitiated...
-            if isempty(canvas_instance)
+            if isempty(canvas_instance) || ... 
+                    ~isgraphics(canvas_instance.grid)
                 % Get running app instance.
                 app = Program.ProgramInfo.app;
 
