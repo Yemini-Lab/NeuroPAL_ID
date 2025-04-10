@@ -208,7 +208,7 @@ classdef GUIHandling
             persistent app_handle
 
             if any(isempty(app_handle)) || any(isa(app_handle, "handle")) && any(~isvalid(app_handle))
-                window_handle = Program.GUIHandling.window_fig();
+                window_handle = Program.ProgramInfo.window();
                 app_handle = window_handle.RunningAppInstance;
             end
 
@@ -216,7 +216,7 @@ classdef GUIHandling
         end
 
         function sync_channels(event)
-            app = Program.GUIHandling.app;
+            app = Program.ProgramInfo.app;
             previous_value = event.PreviousValue;
             new_value = event.Value;
             channels = {app.ProcRDropDown, app.ProcGDropDown, app.ProcBDropDown, app.ProcWDropDown, app.ProcGFPDropDown, app.DICDropDown};
@@ -714,7 +714,7 @@ classdef GUIHandling
         end
 
         function rgb = get_rgb()
-            app = Program.GUIHandling.app;
+            app = Program.ProgramInfo.app;
             rgb = [ ...
                 find(ismember(app.proc_c1_dropdown.Items, app.proc_c1_dropdown.Value)) ...
                 find(ismember(app.proc_c2_dropdown.Items, app.proc_c2_dropdown.Value)) ...
