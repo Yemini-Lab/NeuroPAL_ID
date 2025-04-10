@@ -1061,25 +1061,47 @@ classdef GUIHandling
 
 
         function freehand_roi = rect_to_freehand(roi)
+            %RECT_TO_FREEHAND This function converts rectangle ROIs to
+            % freehand ROIs. This is useful in cases where rectangle ROIs
+            % require rotating, which MATLAB does not support outside of a
+            % certain workarounds (e.g. rotate, hgtransform) which all come
+            % with various trade-offs.
+            %
+            %   Inputs:
+            %   - roi: Rectangle ROI.
+            %
+            %   Outputs:
+            %   - freehand_roi: Freehand roi.
+
+            % Confirm that the input is not a freehand ROI.
             if ~isa(roi, 'images.roi.Freehand')
+                % Get the dimensions of the rectangle.
                 xmin = roi.Position(1);
                 ymin = roi.Position(2);
                 width = roi.Position(3);
                 height = roi.Position(4);
                 
+                % Calculate the four coordinates to pass to the freehand
+                % ROI.
                 tr = [xmin + width, ymin];
                 tl = [xmin, ymin];
                 bl = [xmin, ymin + height];
                 br = [xmin + width, ymin + height];
     
+                % Assemble position array.
                 fh_pos = [tr; tl; bl; br];
             else
                 fh_pos = roi.Position;
             end
 
-            freehand_roi = images.roi.Freehand(roi.Parent, 'Position', fh_pos, ...
-                'FaceAlpha', 0.4, 'Color', [0.1 0.1 0.1], 'StripeColor', 'm', 'InteractionsAllowed', 'translate', 'Tag', 'rot_roi');
+            % Create the freehand roi.
+            freehand_roi = images.roi.Freehand(roi.Parent, ...
+                'Position', fh_pos, ...
+                'FaceAlpha', 0.4, 'Color', [0.1 0.1 0.1], ...
+                'StripeColor', 'm', 'InteractionsAllowed', 'translate', ...
+                'Tag', 'rot_roi');
 
+            % Delete the original roi.
             delete(roi)
         end
 
