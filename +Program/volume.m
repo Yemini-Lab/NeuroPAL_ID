@@ -91,7 +91,7 @@ classdef volume < handle
 
             % If there's an active progress dialogue, add a step indicating
             % that we're currently creating a new volume.
-            Program.GUI.dialogues.add_step('Creating volume');
+            Program.GUI.dialogues.step('Creating volume');
 
             if nargin == 0
                 % If no path was given, raise an error.
