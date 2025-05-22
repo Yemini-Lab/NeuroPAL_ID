@@ -70,12 +70,12 @@ function apply(volume, action)
 
         for a=1:length(actions)
             Program.dlg.step(sprintf('Applying %s...', actions{a}));
-            processed_data = Methods.ChunkyMethods.apply_vol( ...
+            data = Methods.ChunkyMethods.apply_vol( ...
                 app, actions{a}, data);
         end
 
         Program.dlg.step('Writing all at once...');
-        target_file.data = processed_data;        
+        target_file.data = data;        
         Program.dlg.resolve();
     else
         use_framewise_chunks = volume.is_video && (volume.nt > volume.nz);
