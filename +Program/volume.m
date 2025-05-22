@@ -419,6 +419,15 @@ classdef volume < handle
                 otherwise
             end
         end
+
+        function validate_channels(obj)
+            for ch = 1:length(obj.channels)
+                if isequal(obj.channels{ch}.fluorophore, 'NA')
+                    obj.channels(ch) = [];
+                    obj.nc = obj.nc - 1;
+                end
+            end
+        end
     end
 
     methods (Access = private)
