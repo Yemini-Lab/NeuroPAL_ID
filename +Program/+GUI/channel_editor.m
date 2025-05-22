@@ -99,6 +99,10 @@ classdef channel_editor < handle
                     "BackgroundColor", channel.styling.background, ...
                     "FontColor", channel.styling.font);
 
+                if gui_idx > length(obj.rows)
+                    obj.add_channel(1)
+                end
+
                 components = obj.rows{gui_idx};
                 components.cb.Value = channel.is_rgb;
 
