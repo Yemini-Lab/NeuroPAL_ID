@@ -110,8 +110,8 @@ classdef channel < dynamicprops
             idx = obj.gui_idx;
 
             obj.gui = Program.GUI.channel_editor.request_row(idx);
-
             histogram_panel = Program.GUI.Panels.histograms.get_panel(idx);
+            
             obj.gui.histogram = histogram_panel.histogram_axes;
             obj.gui.sliders = histogram_panel.histogram_slider;
             obj.gui.gamma_field = histogram_panel.gamma_ef;

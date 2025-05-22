@@ -5,6 +5,7 @@ function mount_volume(volume)
     Program.GUI.channel_editor.populate(volume);
     Program.GUI.Panels.histograms.populate(volume);
     
+    volume.validate_channels();
     cellfun(@(x)(x.assign_gui()), volume.channels);
     Program.GUI.set_gammas(volume);
     volume.update_channels();
