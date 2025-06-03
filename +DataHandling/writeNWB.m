@@ -24,12 +24,30 @@ classdef writeNWB
 
             % Grab NWB-compatible data from visualize_light.mlapp
             progress.Message = 'Loading volume data...';
-            ctx.colormap.data = Program.GUIHandling.global_grab('NeuroPAL ID', 'image_data');
-            ctx.video.info = Program.GUIHandling.global_grab('NeuroPAL ID', 'video_info');
-
-            ctx.neurons.colormap = Program.GUIHandling.global_grab('NeuroPAL ID', 'image_neurons');
-            ctx.neurons.video = Methods.ChunkyMethods.stream_neurons('annotations');
-            ctx.neurons.activity_data = Program.GUIHandling.global_grab('NeuroPAL ID', 'activity_table');
+            
+            % Check what data is actually available
+            colormap_data = Program.GUIHandling.global_grab('NeuroPAL ID', 'image_data');
+            video_info = Program.GUIHandling.global_grab('NeuroPAL ID', 'video_info');
+            
+            % Determine what data types we have
+            has_colormap = ~isempty(colormap_data);
+            has_video = ~isempty(video_info);
+            
+            if ~has_colormap && ~has_video
+                error('No image or video data available');
+            end
+            
+            % Only populate data structures for available data types
+            if has_colormap
+                ctx.colormap.data = colormap_data;
+                ctx.neurons.colormap = Program.GUIHandling.global_grab('NeuroPAL ID', 'image_neurons');
+            end
+            
+            if has_video
+                ctx.video.info = video_info;
+                ctx.neurons.video = Methods.ChunkyMethods.stream_neurons('annotations');
+                ctx.neurons.activity_data = Program.GUIHandling.global_grab('NeuroPAL ID', 'activity_table');
+            end
 
             % Build nwb file.
             progress.Message = 'Initializing file...';
@@ -54,12 +72,12 @@ classdef writeNWB
                 ctx.build.file.general_devices.set(name, new_device);
 
                 % If current device was selected as colormap microscope,
-                % save the object for later.
-                if strcmp(name, ctx.colormap.device)
+                % save the object for later (only if we have colormap data).
+                if has_colormap && strcmp(name, ctx.colormap.device)
                     ctx.colormap.device = new_device;
                 end
 
-                if strcmp(name, ctx.video.device)
+                if has_video && strcmp(name, ctx.video.device)
                     ctx.video.device = new_device;
                 end
             end
@@ -75,14 +93,13 @@ classdef writeNWB
             ctx.build.processing_modules = struct( ...
                 'CalciumActivity', types.core.ProcessingModule('description', 'Calcium time series metadata, segmentation, and fluorescence data.'), ...
                 'ProgramSettings', types.core.ProcessingModule('description', 'Various NeuroPAL_ID settings which specify how the colormap is processed once loaded into the program.'));
-            %ctx.build.file.processing.nwbdatainterface = types.untyped.Set(ctx.optical_metadata.order, ctx.optical_metadata.channels);
 
-            % Create required volume objects.
-            if ctx.flags.NeuroPAL_Volume
+            % Create required volume objects only if we have the corresponding data.
+            if has_colormap && ctx.flags.NeuroPAL_Volume
                 progress.Message = 'Populating NeuroPAL volume...';
                 ctx.colormap.imaging_volume = DataHandling.writeNWB.create_volume('colormap', 'imaging', ctx);
                 ctx.build.modules.acquisition.NeuroPALImVol = ctx.colormap.imaging_volume;
-    
+
                 ctx.colormap.multichannel_volume = DataHandling.writeNWB.create_volume('colormap', 'multichannel', ctx);
                 ctx.build.modules.acquisition.NeuroPALImageRaw = ctx.colormap.multichannel_volume;
                 
@@ -100,28 +117,28 @@ classdef writeNWB
                 ctx.build.modules.processing.NeuroPAL_IDSettings = ctx.colormap.settings;
             end
 
-            if ctx.flags.Neurons || ctx.flags.Neuronal_Identities
+            if has_colormap && (ctx.flags.Neurons || ctx.flags.Neuronal_Identities)
                 progress.Message = 'Populating neuronal identities...';
                 ctx.neurons.colormap = DataHandling.writeNWB.create_segmentation('colormap', ctx);
                 ctx.build.modules.processing.ColormapNeurons =  ctx.neurons.colormap;
             end
 
-            if ctx.flags.Video_Volume
+            if has_video && ctx.flags.Video_Volume
                 progress.Message = 'Populating video volume...';
                 ctx.video.imaging_volume = DataHandling.writeNWB.create_volume('video', 'imaging', ctx);
                 ctx.build.modules.acquisition.CalciumImVol = ctx.video.imaging_volume;
-    
+
                 ctx.video.multichannel_volume = DataHandling.writeNWB.create_volume('video', 'multichannel', ctx);
                 ctx.build.modules.acquisition.CalciumImageSeries = ctx.video.multichannel_volume;
             end
 
-            if ctx.flags.Tracking_ROIs
+            if has_video && ctx.flags.Tracking_ROIs
                 progress.Message = 'Populating tracking ROIs...';
                 ctx.neurons.video = DataHandling.writeNWB.create_segmentation('video', ctx);
                 ctx.build.modules.processing.TrackedNeuronROIs = ctx.neurons.video;
             end
 
-            if ctx.flags.Neuronal_Activity
+            if has_video && ctx.flags.Neuronal_Activity
                 progress.Message = 'Populating neuronal activity...';
                 ctx.neurons.activity = DataHandling.writeNWB.create_traces(ctx);
                 ctx.build.modules.processing.ActivityTraces = ctx.neurons.activity;
@@ -145,7 +162,7 @@ classdef writeNWB
                 ctx.build.modules.processing.StimulusInfo = ctx.stim_table;
             end
 
-
+            % Rest of the function remains the same...
             % Check if NWB file to be saved already exists.
             progress.Message = 'Writing to file...';
             
@@ -192,7 +209,6 @@ classdef writeNWB
             if ~exist(path, "file")
                 % If not, save.
                 nwbExport(ctx.build.file, path);
-
             else
                 % If it does, save file after appending a "-new" suffix.
                 existing_nwb = nwbRead(path);
@@ -200,7 +216,6 @@ classdef writeNWB
                 existing_nwb.processing = types.untyped.Set(existing_nwb.processing, nwbfile.processing);
                 existing_nwb.general_subject = nwbfile.general_subject;
                 nwbExport(nwbfile, strrep(path, '.nwb', '-new.nwb'))
-
             end
 
             % Return code 0 to indicate that there were no issues.
