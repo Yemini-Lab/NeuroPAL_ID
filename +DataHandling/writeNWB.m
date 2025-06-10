@@ -61,11 +61,11 @@ classdef writeNWB
             progress.Message = 'Parsing hardware data...';
             % Iterate over hardware devices
             for eachDevice=1:size(device_table, 1)
-
-                % Get relevant name, description, & manufacturer.
-                name = device_table(eachDevice, 1);
-                desc = device_table(eachDevice, 2);
-                manu = device_table(eachDevice, 3);
+                
+                % Get relevant name, description, & manufacturer, ensuring they are char arrays
+                name = char(device_table{eachDevice, 1});
+                desc = char(device_table{eachDevice, 2});
+                manu = char(device_table{eachDevice, 3});
 
                 % Create device object & add to device array.
                 new_device = DataHandling.writeNWB.create_device(name, desc, manu);
@@ -73,11 +73,11 @@ classdef writeNWB
 
                 % If current device was selected as colormap microscope,
                 % save the object for later (only if we have colormap data).
-                if has_colormap && strcmp(name, ctx.colormap.device)
+                if has_colormap && strcmp(strtrim(char(name)), strtrim(char(ctx.colormap.device)))
                     ctx.colormap.device = new_device;
                 end
 
-                if has_video && strcmp(name, ctx.video.device)
+                if has_video && strcmp(strtrim(char(name)), strtrim(char(ctx.video.device)))
                     ctx.video.device = new_device;
                 end
             end
