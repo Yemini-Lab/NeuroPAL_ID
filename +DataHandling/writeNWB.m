@@ -162,7 +162,6 @@ classdef writeNWB
                 ctx.build.modules.processing.StimulusInfo = ctx.stim_table;
             end
 
-            % Rest of the function remains the same...
             % Check if NWB file to be saved already exists.
             progress.Message = 'Writing to file...';
             
@@ -206,16 +205,24 @@ classdef writeNWB
                 ctx.build.file.processing.set(name, module);
             end
 
+            % Fix imaging plane device references before export
+            try
+                ctx.build.file = DataHandling.writeNWB.fix_imaging_plane_export(ctx.build.file);
+            catch ME
+                warning('Could not fix imaging plane references: %s', ME.message);
+            end
+
             if ~exist(path, "file")
                 % If not, save.
                 nwbExport(ctx.build.file, path);
             else
                 % If it does, save file after appending a "-new" suffix.
                 existing_nwb = nwbRead(path);
-                existing_nwb.acquisition = types.untyped.Set(existing_nwb.acquisition, nwbfile.acquisition);
-                existing_nwb.processing = types.untyped.Set(existing_nwb.processing, nwbfile.processing);
-                existing_nwb.general_subject = nwbfile.general_subject;
-                nwbExport(nwbfile, strrep(path, '.nwb', '-new.nwb'))
+                existing_nwb.acquisition = types.untyped.Set(existing_nwb.acquisition, ctx.build.file.acquisition);
+                existing_nwb.processing = types.untyped.Set(existing_nwb.processing, ctx.build.file.processing);
+                existing_nwb.general_subject = ctx.build.file.general_subject;
+                new_path = strrep(path, '.nwb', '-new.nwb');
+                nwbExport(existing_nwb, new_path);
             end
 
             % Return code 0 to indicate that there were no issues.
@@ -326,11 +333,28 @@ classdef writeNWB
                         'reference_frame', ['Worm ', ctx.worm.body_part]);
                 case 'multichannel'
                     if strcmp(preset, 'colormap')
+                        original_data = ctx.(preset).data;
+                        if isa(original_data, 'double')
+                            % Get data range
+                            data_min = min(original_data(:));
+                            data_max = max(original_data(:));
+                            
+                            if data_max > data_min
+                                scaled_data = (original_data - data_min) / (data_max - data_min) * 18446744073709551615;
+                                scaled_data = min(scaled_data, 18446744073709551615);
+                            else
+                                scaled_data = original_data * 18446744073709551615;
+                            end
+                            converted_data = uint64(round(scaled_data));
+                        else
+                            converted_data = uint64(original_data);
+                        end
+                        
                         nwb_volume = types.ndx_multichannel_volume.MultiChannelVolume( ...
                             'description', ctx.(preset).description, ...
                             'RGBW_channels', ctx.(preset).prefs.RGBW, ...
-                            'data', uint64(ctx.(preset).data), ...
-                            'imaging_volume', types.untyped.SoftLink(ctx.(preset).imaging_volume));
+                            'data', converted_data, ...
+                            'imaging_volume', types.untyped.SoftLink('/general/optophysiology/NeuroPALImVol'));
                     elseif strcmp(preset, 'video')
                         rf_app = Program.GUIHandling.get_parent_app(Program.GUIHandling.global_grab('NeuroPAL ID', 'CELL_ID'));
                         video_preview = zeros([ctx.(preset).info.ny ctx.(preset).info.nx ctx.(preset).info.nz ctx.(preset).info.nc 2]);
@@ -339,7 +363,7 @@ classdef writeNWB
                         
 
                         data_pipe = types.untyped.DataPipe( ...
-                            'data', uint64(video_preview), ...
+                            'data', uint16(video_preview), ...
                             'maxSize', [ctx.(preset).info.ny ctx.(preset).info.nx ctx.(preset).info.nz ctx.(preset).info.nc ctx.(preset).info.nt], ...
                             'axis', 5);
 
@@ -352,7 +376,7 @@ classdef writeNWB
                             'description', ctx.(preset).description, ...
                             'data', data_pipe, ...
                             'device', ctx.(preset).device, ...
-                            'imaging_volume', types.untyped.SoftLink(ctx.(preset).imaging_volume));
+                            'imaging_volume', types.untyped.SoftLink('/general/optophysiology/CalciumImVol'));
                     end
             end
         end
@@ -402,6 +426,59 @@ classdef writeNWB
                 'data_unit', 'lumens', ...
                 'starting_time_rate', 1.0, ...
                 'starting_time', 0.0);
+        end
+
+        function nwb_obj = fix_imaging_plane_export(nwb_obj)
+            % Fix imaging plane device references before export
+            
+            try
+                % Ensure general optophysiology structure exists
+                if ~isprop(nwb_obj, 'general_optophysiology') || isempty(nwb_obj.general_optophysiology)
+                    return;
+                end
+                
+                imaging_planes = nwb_obj.general_optophysiology;
+                
+                % Ensure devices exist
+                if ~isprop(nwb_obj, 'general_devices') || isempty(nwb_obj.general_devices)
+                    % Create a default device if none exists
+                    device = types.core.Device('description', 'Default imaging device');
+                    nwb_obj.general_devices = types.untyped.Set();
+                    nwb_obj.general_devices.set('default_device', device);
+                    default_device_ref = types.untyped.SoftLink('/general/devices/default_device');
+                else
+                    devices = nwb_obj.general_devices;
+                    device_keys = keys(devices);
+                    if ~isempty(device_keys)
+                        % Use reference to existing device
+                        default_device_ref = types.untyped.SoftLink(['/general/devices/' device_keys{1}]);
+                    else
+                        % Create a default device
+                        device = types.core.Device('description', 'Default imaging device');
+                        devices.set('default_device', device);
+                        default_device_ref = types.untyped.SoftLink('/general/devices/default_device');
+                    end
+                end
+                
+                % Fix each imaging plane's device reference
+                if isa(imaging_planes, 'types.untyped.Set')
+                    plane_keys = keys(imaging_planes);
+                    for i = 1:length(plane_keys)
+                        plane = imaging_planes.get(plane_keys{i});
+                        if isempty(plane.device) || ~isa(plane.device, 'types.untyped.SoftLink')
+                            fprintf('Fixing device reference for imaging plane: %s\n', plane_keys{i});
+                            plane.device = default_device_ref;
+                        end
+                    end
+                end
+                
+            catch ME
+                warning('Could not fix imaging plane device references: %s', ME.message);
+                fprintf('Stack trace:\n');
+                for i = 1:length(ME.stack)
+                    fprintf('  %s (line %d)\n', ME.stack(i).name, ME.stack(i).line);
+                end
+            end
         end
     end
 end
