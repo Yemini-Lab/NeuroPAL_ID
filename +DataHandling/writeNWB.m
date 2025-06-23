@@ -37,16 +37,34 @@ classdef writeNWB
                 error('No image or video data available');
             end
             
+            % Validate required context fields
+            required_ctx_fields = {'worm', 'author'};
+            for field = required_ctx_fields
+                if ~isfield(ctx, field{1})
+                    error('Missing required context field: %s', field{1});
+                end
+            end
+            
             % Only populate data structures for available data types
             if has_colormap
                 ctx.colormap.data = colormap_data;
                 ctx.neurons.colormap = Program.GUIHandling.global_grab('NeuroPAL ID', 'image_neurons');
+                
+                % Validate colormap data structure
+                if ~isnumeric(colormap_data) || ndims(colormap_data) < 3
+                    error('Invalid colormap data format');
+                end
             end
             
             if has_video
                 ctx.video.info = video_info;
                 ctx.neurons.video = Methods.ChunkyMethods.stream_neurons('annotations');
                 ctx.neurons.activity_data = Program.GUIHandling.global_grab('NeuroPAL ID', 'activity_table');
+                
+                % Validate video info structure
+                if ~isstruct(video_info)
+                    error('Video info must be a structure');
+                end
             end
 
             % Build nwb file.
@@ -98,6 +116,11 @@ classdef writeNWB
             if has_colormap && ctx.flags.NeuroPAL_Volume
                 progress.Message = 'Populating NeuroPAL volume...';
                 ctx.colormap.imaging_volume = DataHandling.writeNWB.create_volume('colormap', 'imaging', ctx);
+                
+                % Initialize acquisition module if it doesn't exist
+                if ~isfield(ctx.build.modules, 'acquisition')
+                    ctx.build.modules.acquisition = struct();
+                end
                 ctx.build.modules.acquisition.NeuroPALImVol = ctx.colormap.imaging_volume;
 
                 ctx.colormap.multichannel_volume = DataHandling.writeNWB.create_volume('colormap', 'multichannel', ctx);
@@ -114,18 +137,32 @@ classdef writeNWB
                     'gammas', gammas, ...
                     'id', types.hdmf_common.ElementIdentifiers('data', 0:length(gammas)-1));
 
+                % Initialize processing module if it doesn't exist
+                if ~isfield(ctx.build.modules, 'processing')
+                    ctx.build.modules.processing = struct();
+                end
                 ctx.build.modules.processing.NeuroPAL_IDSettings = ctx.colormap.settings;
             end
 
             if has_colormap && (ctx.flags.Neurons || ctx.flags.Neuronal_Identities)
                 progress.Message = 'Populating neuronal identities...';
                 ctx.neurons.colormap = DataHandling.writeNWB.create_segmentation('colormap', ctx);
+                
+                % Initialize processing module if it doesn't exist
+                if ~isfield(ctx.build.modules, 'processing')
+                    ctx.build.modules.processing = struct();
+                end
                 ctx.build.modules.processing.ColormapNeurons =  ctx.neurons.colormap;
             end
 
             if has_video && ctx.flags.Video_Volume
                 progress.Message = 'Populating video volume...';
                 ctx.video.imaging_volume = DataHandling.writeNWB.create_volume('video', 'imaging', ctx);
+                
+                % Initialize acquisition module if it doesn't exist
+                if ~isfield(ctx.build.modules, 'acquisition')
+                    ctx.build.modules.acquisition = struct();
+                end
                 ctx.build.modules.acquisition.CalciumImVol = ctx.video.imaging_volume;
 
                 ctx.video.multichannel_volume = DataHandling.writeNWB.create_volume('video', 'multichannel', ctx);
@@ -135,12 +172,22 @@ classdef writeNWB
             if has_video && ctx.flags.Tracking_ROIs
                 progress.Message = 'Populating tracking ROIs...';
                 ctx.neurons.video = DataHandling.writeNWB.create_segmentation('video', ctx);
+                
+                % Initialize processing module if it doesn't exist
+                if ~isfield(ctx.build.modules, 'processing')
+                    ctx.build.modules.processing = struct();
+                end
                 ctx.build.modules.processing.TrackedNeuronROIs = ctx.neurons.video;
             end
 
             if has_video && ctx.flags.Neuronal_Activity
                 progress.Message = 'Populating neuronal activity...';
                 ctx.neurons.activity = DataHandling.writeNWB.create_traces(ctx);
+                
+                % Initialize processing module if it doesn't exist
+                if ~isfield(ctx.build.modules, 'processing')
+                    ctx.build.modules.processing = struct();
+                end
                 ctx.build.modules.processing.ActivityTraces = ctx.neurons.activity;
             end
 
@@ -153,13 +200,17 @@ classdef writeNWB
                         ctx.neurons.stim_table = ctx.neurons.stim_file;
                 end
 
-                ctx.neurons.stim_table = types.core.AnnotationSeries( ...
+                stim_series = types.core.AnnotationSeries( ...
                     'name', 'StimulusInfo', ...
                     'description', 'Denotes which stimulus was released on which frames.', ...
                     'timestamps', ctx.neurons.stim_table{:, 1}, ...
                     'data', ctx.neurons.stim_table{:, 2});
 
-                ctx.build.modules.processing.StimulusInfo = ctx.stim_table;
+                % Initialize processing module if it doesn't exist
+                if ~isfield(ctx.build.modules, 'processing')
+                    ctx.build.modules.processing = struct();
+                end
+                ctx.build.modules.processing.StimulusInfo = stim_series;
             end
 
             % Check if NWB file to be saved already exists.
@@ -184,7 +235,7 @@ classdef writeNWB
                             ctx.build.file.general_optophysiology.set(obj_name, obj_data);
 
                         case {'types.hdmf_common.DynamicTable', 'types.core.PlaneSegmentation', 'types.ndx_multichannel_volume.VolumeSegmentation'}
-                            if ismember(obj_data.colnames, 'gammas')
+                            if any(ismember('gammas', obj_data.colnames))
                                 ctx.build.processing_modules.('ProgramSettings').dynamictable.set(obj_name, obj_data);
                             else
                                 ctx.build.processing_modules.('CalciumActivity').dynamictable.set(obj_name, obj_data);
@@ -212,17 +263,37 @@ classdef writeNWB
                 warning('Could not fix imaging plane references: %s', ME.message);
             end
 
-            if ~exist(path, "file")
-                % If not, save.
-                nwbExport(ctx.build.file, path);
-            else
-                % If it does, save file after appending a "-new" suffix.
-                existing_nwb = nwbRead(path);
-                existing_nwb.acquisition = types.untyped.Set(existing_nwb.acquisition, ctx.build.file.acquisition);
-                existing_nwb.processing = types.untyped.Set(existing_nwb.processing, ctx.build.file.processing);
-                existing_nwb.general_subject = ctx.build.file.general_subject;
-                new_path = strrep(path, '.nwb', '-new.nwb');
-                nwbExport(existing_nwb, new_path);
+            % Export NWB file with error handling
+            try
+                if ~exist(path, "file")
+                    % Save new file
+                    progress.Message = 'Exporting NWB file...';
+                    nwbExport(ctx.build.file, path);
+                    fprintf('Successfully saved NWB file: %s\n', path);
+                else
+                    % Merge with existing file
+                    progress.Message = 'Merging with existing NWB file...';
+                    warning('File %s already exists. Creating merged file with "-new" suffix.', path);
+                    
+                    existing_nwb = nwbRead(path);
+                    
+                    % Merge data structures safely
+                    if ~isempty(ctx.build.file.acquisition)
+                        existing_nwb.acquisition = types.untyped.Set(existing_nwb.acquisition, ctx.build.file.acquisition);
+                    end
+                    if ~isempty(ctx.build.file.processing)
+                        existing_nwb.processing = types.untyped.Set(existing_nwb.processing, ctx.build.file.processing);
+                    end
+                    if ~isempty(ctx.build.file.general_subject)
+                        existing_nwb.general_subject = ctx.build.file.general_subject;
+                    end
+                    
+                    new_path = strrep(path, '.nwb', '-new.nwb');
+                    nwbExport(existing_nwb, new_path);
+                    fprintf('Successfully saved merged NWB file: %s\n', new_path);
+                end
+            catch ME
+                error('Failed to export NWB file: %s\nStack trace:\n%s', ME.message, getReport(ME));
             end
 
             % Return code 0 to indicate that there were no issues.
@@ -287,12 +358,25 @@ classdef writeNWB
                 ex_lambda = optical_table(eachChannel, 3);
                 ex_low = optical_table(eachChannel, 4);
                 ex_high = optical_table(eachChannel, 5);
-                ex_range = [str2num(ex_low{1}), str2num(ex_high{1})];
+                
+                % Use str2double instead of deprecated str2num
+                try
+                    ex_range = [str2double(ex_low{1}), str2double(ex_high{1})];
+                catch
+                    warning('Could not parse excitation range for channel %d, using defaults', eachChannel);
+                    ex_range = [400, 500]; % Default range
+                end
 
                 em_lambda = optical_table(eachChannel, 6);
                 em_low = optical_table(eachChannel, 7);
                 em_high = optical_table(eachChannel, 8);
-                em_range = [str2num(em_low{1}), str2num(em_high{1})];
+                
+                try
+                    em_range = [str2double(em_low{1}), str2double(em_high{1})];
+                catch
+                    warning('Could not parse emission range for channel %d, using defaults', eachChannel);
+                    em_range = [500, 600]; % Default range
+                end
             
                 OptChan = types.ndx_multichannel_volume.OpticalChannelPlus( ...
                     'name', name, ...
@@ -304,7 +388,14 @@ classdef writeNWB
                     );
                 
                 OptChannels = [OptChannels, OptChan];
-                new_line = sprintf('%s-%s-%dnm', ex_lambda{1}, em_lambda{1}, str2num(em_high{1}) - str2num(em_low{1}));
+                
+                % Create reference string with proper error handling
+                try
+                    bandwidth = str2double(em_high{1}) - str2double(em_low{1});
+                    new_line = sprintf('%s-%s-%dnm', ex_lambda{1}, em_lambda{1}, round(bandwidth));
+                catch
+                    new_line = sprintf('%s-%s-default', ex_lambda{1}, em_lambda{1});
+                end
                 OptChanRefData = [OptChanRefData, new_line];
             end           
             
@@ -335,18 +426,29 @@ classdef writeNWB
                     if strcmp(preset, 'colormap')
                         original_data = ctx.(preset).data;
                         if isa(original_data, 'double')
-                            % Get data range
+                            % Get data range and determine appropriate scaling
                             data_min = min(original_data(:));
                             data_max = max(original_data(:));
                             
+                            % Use more conservative scaling to preserve precision
+                            % Scale to uint16 range unless data requires larger range
                             if data_max > data_min
-                                scaled_data = (original_data - data_min) / (data_max - data_min) * 18446744073709551615;
-                                scaled_data = min(scaled_data, 18446744073709551615);
+                                data_range = data_max - data_min;
+                                if data_range <= 1.0
+                                    % Normalized data (0-1), scale to uint16
+                                    scaled_data = (original_data - data_min) / data_range * 65535;
+                                    converted_data = uint16(round(scaled_data));
+                                else
+                                    % Larger range, use uint32 for better precision
+                                    scaled_data = (original_data - data_min) / data_range * 4294967295;
+                                    converted_data = uint32(round(scaled_data));
+                                end
                             else
-                                scaled_data = original_data * 18446744073709551615;
+                                % Constant data
+                                converted_data = uint16(zeros(size(original_data)));
                             end
-                            converted_data = uint64(round(scaled_data));
                         else
+                            % Already integer type, convert to uint64 for consistency
                             converted_data = uint64(original_data);
                         end
                         
@@ -357,13 +459,29 @@ classdef writeNWB
                             'imaging_volume', types.untyped.SoftLink('/general/optophysiology/NeuroPALImVol'));
                     elseif strcmp(preset, 'video')
                         rf_app = Program.GUIHandling.get_parent_app(Program.GUIHandling.global_grab('NeuroPAL ID', 'CELL_ID'));
-                        video_preview = zeros([ctx.(preset).info.ny ctx.(preset).info.nx ctx.(preset).info.nz ctx.(preset).info.nc 2]);
-                        video_preview(:, :, :, :, 1) = rf_app.retrieve_frame(1);
-                        video_preview(:, :, :, :, 2) = rf_app.retrieve_frame(2);
                         
+                        % Validate video info fields
+                        required_fields = {'ny', 'nx', 'nz', 'nc', 'nt'};
+                        for field = required_fields
+                            if ~isfield(ctx.(preset).info, field{1}) || isempty(ctx.(preset).info.(field{1}))
+                                error('Missing required video info field: %s', field{1});
+                            end
+                        end
+                        
+                        % Create preview with first 2 frames for validation
+                        try
+                            video_preview = zeros([ctx.(preset).info.ny ctx.(preset).info.nx ctx.(preset).info.nz ctx.(preset).info.nc 2]);
+                            video_preview(:, :, :, :, 1) = rf_app.retrieve_frame(1);
+                            video_preview(:, :, :, :, 2) = rf_app.retrieve_frame(2);
+                        catch ME
+                            warning('Could not retrieve video frames: %s', ME.message);
+                            video_preview = zeros([ctx.(preset).info.ny ctx.(preset).info.nx ctx.(preset).info.nz ctx.(preset).info.nc 2]);
+                        end
 
+                        % TODO: Fix DataPipe to reference actual video source instead of preview
+                        % This currently only saves 2 frames - needs proper video streaming implementation
                         data_pipe = types.untyped.DataPipe( ...
-                            'data', uint16(video_preview), ...
+                            'data', uint64(video_preview), ...
                             'maxSize', [ctx.(preset).info.ny ctx.(preset).info.nx ctx.(preset).info.nz ctx.(preset).info.nc ctx.(preset).info.nt], ...
                             'axis', 5);
 
@@ -385,13 +503,17 @@ classdef writeNWB
             switch preset
                 case 'colormap'        
                     positions = ctx.neurons.(preset).get_positions;
+                    
+                    % Create proper SoftLink references
+                    imaging_volume_link = types.untyped.SoftLink('/general/optophysiology/NeuroPALImVol');
+                    
                     obj = types.ndx_multichannel_volume.VolumeSegmentation( ...
                         'colnames', {'voxel_mask'}, ...
                         'description', ctx.neurons.id_description, ...
                         'voxel_mask', types.hdmf_common.VectorData('description', 'Neuron ROIs', 'data', positions'), ...
                         'id', types.hdmf_common.ElementIdentifiers('data', 0:length(positions')-1), ...
-                        'imaging_volume', types.untyped.SoftLink(ctx.(preset).imaging_volume), ...
-                        'imaging_plane', types.untyped.SoftLink(ctx.(preset).imaging_volume));
+                        'imaging_volume', imaging_volume_link, ...
+                        'imaging_plane', imaging_volume_link);
 
                     labels = {};
                     for n=1:length(ctx.neurons.(preset).neurons)
@@ -402,6 +524,10 @@ classdef writeNWB
 
                 case 'video'
                     positions = ctx.neurons.(preset).positions;
+                    
+                    % Create proper SoftLink reference for video
+                    video_imaging_volume_link = types.untyped.SoftLink('/general/optophysiology/CalciumImVol');
+                    
                     obj = types.core.PlaneSegmentation( ...
                         'name', 'TrackedNeurons', ...
                         'colnames', {'voxel_mask', 'labels'}, ...
@@ -409,20 +535,45 @@ classdef writeNWB
                         'voxel_mask', types.hdmf_common.VectorData('description', 'Neuron ROIs', 'data', positions'), ...
                         'labels', types.hdmf_common.VectorData('description', 'Neuron IDs', 'data', ctx.neurons.(preset).labels), ...
                         'id', types.hdmf_common.ElementIdentifiers('data', 0:length(positions')-1), ...
-                        'imaging_plane', types.untyped.SoftLink(ctx.(preset).imaging_volume));
+                        'imaging_plane', video_imaging_volume_link);
             end
         end
 
         function obj = create_traces(ctx)
+            % Validate activity data exists
+            if isempty(ctx.neurons.activity_data)
+                error('No activity data available for trace creation');
+            end
+            
+            % Validate video segmentation exists
+            if isempty(ctx.neurons.video)
+                error('No video segmentation available for trace creation');
+            end
+            
+            % Create table region with proper indexing
+            num_rois = length(ctx.neurons.video);
+            roi_indices = 0:(num_rois-1);  % 0-based indexing for NWB
+            
             roi_table_region = types.hdmf_common.DynamicTableRegion( ...
                 'table', types.untyped.ObjectView(ctx.neurons.video), ...
                 'description', ctx.video.tracking_notes, ...
-                'data', (0:length(ctx.neurons.video)));
+                'data', roi_indices);
+
+            % Convert activity data and validate dimensions
+            activity_array = table2array(ctx.neurons.activity_data);
+            if size(activity_array, 2) ~= num_rois
+                warning('Activity data dimensions do not match number of ROIs. Adjusting...');
+                % Take minimum to avoid index errors
+                min_size = min(size(activity_array, 2), num_rois);
+                activity_array = activity_array(:, 1:min_size);
+                roi_indices = roi_indices(1:min_size);
+                roi_table_region.data = roi_indices;
+            end
 
             obj = types.core.RoiResponseSeries( ...
                 'name', 'SignalCalciumImResponseSeries', ...
                 'rois', roi_table_region, ...
-                'data', table2array(ctx.neurons.activity_data), ...
+                'data', activity_array, ...
                 'data_unit', 'lumens', ...
                 'starting_time_rate', 1.0, ...
                 'starting_time', 0.0);
