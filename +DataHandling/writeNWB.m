@@ -270,6 +270,9 @@ classdef writeNWB
                     progress.Message = 'Exporting NWB file...';
                     nwbExport(ctx.build.file, path);
                     fprintf('Successfully saved NWB file: %s\n', path);
+                    
+                    % Create companion ID file
+                    DataHandling.writeNWB.create_companion_id_file(path, progress);
                 else
                     % Merge with existing file
                     progress.Message = 'Merging with existing NWB file...';
@@ -291,6 +294,9 @@ classdef writeNWB
                     new_path = strrep(path, '.nwb', '-new.nwb');
                     nwbExport(existing_nwb, new_path);
                     fprintf('Successfully saved merged NWB file: %s\n', new_path);
+                    
+                    % Create companion ID file for merged file
+                    DataHandling.writeNWB.create_companion_id_file(new_path, progress);
                 end
             catch ME
                 error('Failed to export NWB file: %s\nStack trace:\n%s', ME.message, getReport(ME));
@@ -629,6 +635,63 @@ classdef writeNWB
                 for i = 1:length(ME.stack)
                     fprintf('  %s (line %d)\n', ME.stack(i).name, ME.stack(i).line);
                 end
+            end
+        end
+
+        function create_companion_id_file(nwb_path, progress)
+            %CREATE_COMPANION_ID_FILE Create companion _ID.mat file for saved NWB file
+            %
+            % This function creates the companion _ID.mat file that contains
+            % neuron annotations, detection parameters, and other analysis data
+            % when saving an NWB file with a custom name.
+            %
+            % Input:
+            %   nwb_path = path to the saved NWB file
+            %   progress = progress dialog structure (optional)
+            
+            try
+                if exist('progress', 'var') && ~isempty(progress)
+                    progress.Message = 'Creating companion ID file...';
+                end
+                
+                % Generate the companion ID file path
+                id_file_path = strrep(nwb_path, '.nwb', '_ID.mat');
+                
+                % Get current app instance to access neuron data
+                app = Program.app;
+                
+                % Check if we have neuron data to save
+                if isempty(app.image_neurons) || isempty(app.image_neurons.neurons)
+                    fprintf('No neuron data available to save in companion ID file.\n');
+                    return;
+                end
+                
+                % Prepare data for saving
+                version = Program.ProgramInfo.version;
+                neurons = app.image_neurons;
+                
+                % Get mp_params (matching pursuit parameters)
+                if isfield(app, 'mp_params') && ~isempty(app.mp_params)
+                    mp_params = app.mp_params;
+                    % Update k parameter to reflect current neuron count
+                    mp_params.k = length(neurons.neurons);
+                else
+                    % Create default mp_params if not available
+                    mp_params = [];
+                    mp_params.hnsz = [7, 7, 3]; % Default half neighborhood size
+                    mp_params.k = length(neurons.neurons);
+                    mp_params.exclusion_radius = 1.5;
+                    mp_params.min_eig_thresh = 0.1;
+                end
+                
+                % Save the companion ID file
+                save(id_file_path, 'version', 'neurons', 'mp_params', '-v7.3');
+                
+                fprintf('Successfully created companion ID file: %s\n', id_file_path);
+                
+            catch ME
+                warning('Failed to create companion ID file: %s', ME.message);
+                fprintf('Stack trace:\n%s\n', getReport(ME));
             end
         end
     end
