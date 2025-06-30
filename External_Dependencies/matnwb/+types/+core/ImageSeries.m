@@ -7,14 +7,13 @@ properties
     device; %  Device
     dimension; %  (int32) Number of pixels on x, y, (and z) axes.
     external_file; %  (char) Paths to one or more external file(s). The field is only present if format='external'. This is only relevant if the image series is stored in the file system as one or more image file(s). This field should NOT be used if the image is stored in another NWB file and that file is linked to this file.
-    external_file_starting_frame; %  (int32) Each external image may contain one or more consecutive frames of the full ImageSeries. This attribute serves as an index to indicate which frames each file contains, to facilitate random access. The 'starting_frame' attribute, hence, contains a list of frame numbers within the full ImageSeries of the first frame of each file listed in the parent 'external_file' dataset. Zero-based indexing is used (hence, the first element will always be zero). For example, if the 'external_file' dataset has three paths to files and the first file has 5 frames, the second file has 10 frames, and the third file has 20 frames, then this attribute will have values [0, 5, 15]. If there is a single external file that holds all of the frames of the ImageSeries (and so there is a single element in the 'external_file' dataset), then this attribute should have value [0].
+    external_file_starting_frame; %  (int32) Each external image may contain one or more consecutive frames of the full ImageSeries. This attribute serves as an index to indicate which frames each file contains, to faciliate random access. The 'starting_frame' attribute, hence, contains a list of frame numbers within the full ImageSeries of the first frame of each file listed in the parent 'external_file' dataset. Zero-based indexing is used (hence, the first element will always be zero). For example, if the 'external_file' dataset has three paths to files and the first file has 5 frames, the second file has 10 frames, and the third file has 20 frames, then this attribute will have values [0, 5, 15]. If there is a single external file that holds all of the frames of the ImageSeries (and so there is a single element in the 'external_file' dataset), then this attribute should have value [0].
     format; %  (char) Format of image. If this is 'external', then the attribute 'external_file' contains the path information to the image files. If this is 'raw', then the raw (single-channel) binary data is stored in the 'data' dataset. If this attribute is not present, then the default format='raw' case is assumed.
 end
 
 methods
     function obj = ImageSeries(varargin)
         % IMAGESERIES Constructor for ImageSeries
-        varargin = [{'data_conversion' types.util.correctType(1, 'single') 'data_offset' types.util.correctType(0, 'single') 'data_resolution' types.util.correctType(-1, 'single')} varargin];
         obj = obj@types.core.TimeSeries(varargin{:});
         
         
@@ -23,11 +22,6 @@ methods
         p.PartialMatching = false;
         p.StructExpand = false;
         addParameter(p, 'data',[]);
-        addParameter(p, 'data_continuity',[]);
-        addParameter(p, 'data_conversion',[]);
-        addParameter(p, 'data_offset',[]);
-        addParameter(p, 'data_resolution',[]);
-        addParameter(p, 'data_unit',[]);
         addParameter(p, 'device',[]);
         addParameter(p, 'dimension',[]);
         addParameter(p, 'external_file',[]);
@@ -35,11 +29,6 @@ methods
         addParameter(p, 'format',[]);
         misc.parseSkipInvalidName(p, varargin);
         obj.data = p.Results.data;
-        obj.data_continuity = p.Results.data_continuity;
-        obj.data_conversion = p.Results.data_conversion;
-        obj.data_offset = p.Results.data_offset;
-        obj.data_resolution = p.Results.data_resolution;
-        obj.data_unit = p.Results.data_unit;
         obj.device = p.Results.device;
         obj.dimension = p.Results.dimension;
         obj.external_file = p.Results.external_file;
@@ -84,96 +73,6 @@ methods
             valsz = size(val);
         end
         validshapes = {[Inf,Inf,Inf,Inf], [Inf,Inf,Inf]};
-        types.util.checkDims(valsz, validshapes);
-    end
-    function val = validate_data_continuity(obj, val)
-        val = types.util.checkDtype('data_continuity', 'char', val);
-        if isa(val, 'types.untyped.DataStub')
-            if 1 == val.ndims
-                valsz = [val.dims 1];
-            else
-                valsz = val.dims;
-            end
-        elseif istable(val)
-            valsz = [height(val) 1];
-        elseif ischar(val)
-            valsz = [size(val, 1) 1];
-        else
-            valsz = size(val);
-        end
-        validshapes = {[1]};
-        types.util.checkDims(valsz, validshapes);
-    end
-    function val = validate_data_conversion(obj, val)
-        val = types.util.checkDtype('data_conversion', 'single', val);
-        if isa(val, 'types.untyped.DataStub')
-            if 1 == val.ndims
-                valsz = [val.dims 1];
-            else
-                valsz = val.dims;
-            end
-        elseif istable(val)
-            valsz = [height(val) 1];
-        elseif ischar(val)
-            valsz = [size(val, 1) 1];
-        else
-            valsz = size(val);
-        end
-        validshapes = {[1]};
-        types.util.checkDims(valsz, validshapes);
-    end
-    function val = validate_data_offset(obj, val)
-        val = types.util.checkDtype('data_offset', 'single', val);
-        if isa(val, 'types.untyped.DataStub')
-            if 1 == val.ndims
-                valsz = [val.dims 1];
-            else
-                valsz = val.dims;
-            end
-        elseif istable(val)
-            valsz = [height(val) 1];
-        elseif ischar(val)
-            valsz = [size(val, 1) 1];
-        else
-            valsz = size(val);
-        end
-        validshapes = {[1]};
-        types.util.checkDims(valsz, validshapes);
-    end
-    function val = validate_data_resolution(obj, val)
-        val = types.util.checkDtype('data_resolution', 'single', val);
-        if isa(val, 'types.untyped.DataStub')
-            if 1 == val.ndims
-                valsz = [val.dims 1];
-            else
-                valsz = val.dims;
-            end
-        elseif istable(val)
-            valsz = [height(val) 1];
-        elseif ischar(val)
-            valsz = [size(val, 1) 1];
-        else
-            valsz = size(val);
-        end
-        validshapes = {[1]};
-        types.util.checkDims(valsz, validshapes);
-    end
-    function val = validate_data_unit(obj, val)
-        val = types.util.checkDtype('data_unit', 'char', val);
-        if isa(val, 'types.untyped.DataStub')
-            if 1 == val.ndims
-                valsz = [val.dims 1];
-            else
-                valsz = val.dims;
-            end
-        elseif istable(val)
-            valsz = [height(val) 1];
-        elseif ischar(val)
-            valsz = [size(val, 1) 1];
-        else
-            valsz = size(val);
-        end
-        validshapes = {[1]};
         types.util.checkDims(valsz, validshapes);
     end
     function val = validate_device(obj, val)

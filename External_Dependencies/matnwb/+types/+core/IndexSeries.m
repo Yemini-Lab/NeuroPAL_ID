@@ -20,7 +20,6 @@ methods
         p.PartialMatching = false;
         p.StructExpand = false;
         addParameter(p, 'data',[]);
-        addParameter(p, 'data_continuity',[]);
         addParameter(p, 'data_conversion',[]);
         addParameter(p, 'data_offset',[]);
         addParameter(p, 'data_resolution',[]);
@@ -29,7 +28,6 @@ methods
         addParameter(p, 'indexed_timeseries',[]);
         misc.parseSkipInvalidName(p, varargin);
         obj.data = p.Results.data;
-        obj.data_continuity = p.Results.data_continuity;
         obj.data_conversion = p.Results.data_conversion;
         obj.data_offset = p.Results.data_offset;
         obj.data_resolution = p.Results.data_resolution;
@@ -66,24 +64,6 @@ methods
             valsz = size(val);
         end
         validshapes = {[Inf]};
-        types.util.checkDims(valsz, validshapes);
-    end
-    function val = validate_data_continuity(obj, val)
-        val = types.util.checkDtype('data_continuity', 'char', val);
-        if isa(val, 'types.untyped.DataStub')
-            if 1 == val.ndims
-                valsz = [val.dims 1];
-            else
-                valsz = val.dims;
-            end
-        elseif istable(val)
-            valsz = [height(val) 1];
-        elseif ischar(val)
-            valsz = [size(val, 1) 1];
-        else
-            valsz = size(val);
-        end
-        validshapes = {[1]};
         types.util.checkDims(valsz, validshapes);
     end
     function val = validate_data_conversion(obj, val)

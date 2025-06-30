@@ -386,7 +386,7 @@ methods
                 io.writeDataset(fid, [fullpath '/grid_spacing'], obj.grid_spacing, 'forceArray');
             end
         end
-        if ~isempty(obj.grid_spacing) && ~isa(obj.grid_spacing, 'types.untyped.SoftLink') && ~isa(obj.grid_spacing, 'types.untyped.ExternalLink') && ~isempty(obj.grid_spacing_unit)
+        if ~isempty(obj.grid_spacing) && ~isa(obj.grid_spacing, 'types.untyped.SoftLink') && ~isa(obj.grid_spacing, 'types.untyped.ExternalLink')
             io.writeAttribute(fid, [fullpath '/grid_spacing/unit'], obj.grid_spacing_unit);
         end
         if ~isempty(obj.imaging_rate)
@@ -427,7 +427,7 @@ methods
                 io.writeDataset(fid, [fullpath '/origin_coords'], obj.origin_coords, 'forceArray');
             end
         end
-        if ~isempty(obj.origin_coords) && ~isa(obj.origin_coords, 'types.untyped.SoftLink') && ~isa(obj.origin_coords, 'types.untyped.ExternalLink') && ~isempty(obj.origin_coords_unit)
+        if ~isempty(obj.origin_coords) && ~isa(obj.origin_coords, 'types.untyped.SoftLink') && ~isa(obj.origin_coords, 'types.untyped.ExternalLink')
             io.writeAttribute(fid, [fullpath '/origin_coords/unit'], obj.origin_coords_unit);
         end
         if ~isempty(obj.reference_frame)

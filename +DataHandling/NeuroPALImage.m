@@ -178,7 +178,7 @@ classdef NeuroPALImage
                 save(image_file, 'version', 'prefs', 'worm', '-append', '-v7.3');
             end
             
-            % Open the ID file.
+            % Open the ID file or try to load neuron data from associated NWB file.
             version = 0;
             mp = [];
             mp.hnsz = round(round(3./info.scale')/2)*2+1;
@@ -191,7 +191,32 @@ classdef NeuroPALImage
             sp = [];
             neurons = [];
             id_file = strrep(image_file, '.mat', '_ID.mat');
-            if exist(id_file, 'file')
+            
+            % First, try to load from NWB file if it exists and companion ID file doesn't
+            nwb_file = strrep(image_file, '.mat', '.nwb');
+            if exist(nwb_file, 'file') && ~exist(id_file, 'file')
+                try
+                    fprintf('Attempting to load neuron data from NWB file: %s\n', nwb_file);
+                    nwb_data = nwbRead(nwb_file);
+                    [neurons_from_nwb, mp_from_nwb] = DataHandling.NeuroPALImage.loadNeuronDataFromNWB(nwb_data, worm.body, info.scale);
+                    
+                    if ~isempty(neurons_from_nwb) || ~isempty(mp_from_nwb)
+                        if ~isempty(neurons_from_nwb)
+                            neurons = neurons_from_nwb;
+                        end
+                        if ~isempty(mp_from_nwb)
+                            mp = mp_from_nwb;
+                        end
+                        version = ProgramInfo.version;
+                        fprintf('Successfully loaded neuron data from NWB file\n');
+                    end
+                catch ME
+                    warning('Failed to load neuron data from NWB file: %s', ME.message);
+                end
+            end
+            
+            % If we didn't get data from NWB, try the traditional ID file approach
+            if isempty(neurons) && exist(id_file, 'file')
                 
                 % Load the neurons file.
                 id_data = load(id_file);
@@ -512,10 +537,302 @@ classdef NeuroPALImage
             prefs.is_Z_LR = true;
             prefs.is_Z_flip = true;
 
-            % Save the ND2 file to our MAT file format.
+            % Save the NWB file to our MAT file format.
             np_file = strrep(nwb_file, '.nwb', '.mat');
             version = ProgramInfo.version;
             save(np_file, 'version', 'data', 'info', 'prefs', 'worm', '-v7.3');
+            
+            % Try to load neuron data and detection parameters from NWB file
+            [neurons, mp_params] = DataHandling.NeuroPALImage.loadNeuronDataFromNWB(image_data, worm.body, info.scale);
+            
+            % Note: Neuron data is now stored directly in NWB file - no companion ID file created
+        end
+        
+        function [neurons, mp_params] = loadNeuronDataFromNWB(nwb_data, body_part, scale)
+            %LOADNEURONDATAFROMNWB Load neuron annotations and detection parameters from NWB file
+            %
+            % This function extracts neuron data that was previously stored in companion ID files
+            % but is now embedded within the NWB file using the ndx-multichannel-volume extension.
+            %
+            % Input:
+            %   nwb_data = NWB file object loaded with nwbRead
+            %   body_part = worm body part ('Head', 'Tail', etc.)
+            %   scale = image scale for neuron creation
+            %
+            % Output:
+            %   neurons = Neurons.Image object with loaded neuron data
+            %   mp_params = detection parameters structure
+            
+            neurons = [];
+            mp_params = [];
+            
+            try
+                % Check if neuron annotation data exists in the NWB file
+                if ~any(ismember(nwb_data.processing.keys, 'NeuronAnnotations'))
+                    fprintf('No NeuronAnnotations processing module found in NWB file\n');
+                    return;
+                end
+                
+                neuron_module = nwb_data.processing.get('NeuronAnnotations');
+                fprintf('Found NeuronAnnotations processing module\n');
+                
+                % Load neuron annotations table
+                if any(ismember(neuron_module.dynamictable.keys, 'NeuronAnnotations'))
+                    annotations_table = neuron_module.dynamictable.get('NeuronAnnotations');
+                    
+                    % Extract annotation data
+                    user_annotations = annotations_table.vectordata.get('user_annotation').data.load();
+                    annotation_confidences = annotations_table.vectordata.get('annotation_confidence').data.load();
+                    is_annotation_on = annotations_table.vectordata.get('is_annotation_on').data.load();
+                    is_emphasized = annotations_table.vectordata.get('is_emphasized').data.load();
+                    deterministic_ids = annotations_table.vectordata.get('deterministic_id').data.load();
+                    probabilistic_ids_str = annotations_table.vectordata.get('probabilistic_ids').data.load();
+                    probabilistic_probs = annotations_table.vectordata.get('probabilistic_probs').data.load();
+                    ranks = annotations_table.vectordata.get('rank').data.load();
+                    
+                    % Convert pipe-separated probabilistic IDs back to matrix format
+                    % (The Neuron constructor expects probabilistic_ids as a matrix where each row is a neuron)
+                    fprintf('DEBUG: Converting %d probabilistic ID strings to matrix format...\n', length(probabilistic_ids_str));
+                    
+                    % First, convert strings to cell arrays
+                    prob_id_cells = cell(length(probabilistic_ids_str), 1);
+                    max_ids = 0;
+                    for i = 1:length(probabilistic_ids_str)
+                        if ~isempty(probabilistic_ids_str{i})
+                            split_ids = split(probabilistic_ids_str{i}, '|');
+                            % Ensure each ID is a character vector, not string
+                            prob_id_cells{i} = cellfun(@char, split_ids, 'UniformOutput', false);
+                            max_ids = max(max_ids, length(prob_id_cells{i}));
+                            if i == 1
+                                fprintf('DEBUG: First prob IDs: %s -> %s\n', probabilistic_ids_str{i}, strjoin(prob_id_cells{i}, ', '));
+                                fprintf('DEBUG: First ID type: %s\n', class(prob_id_cells{i}{1}));
+                            end
+                        else
+                            prob_id_cells{i} = {};
+                        end
+                    end
+                    
+                    % Convert to matrix format (pad with empty strings)
+                    if max_ids > 0
+                        probabilistic_ids = cell(length(probabilistic_ids_str), max_ids);
+                        for i = 1:length(probabilistic_ids_str)
+                            for j = 1:length(prob_id_cells{i})
+                                probabilistic_ids{i, j} = prob_id_cells{i}{j};
+                            end
+                            % Fill remaining columns with empty strings
+                            for j = (length(prob_id_cells{i}) + 1):max_ids
+                                probabilistic_ids{i, j} = '';
+                            end
+                        end
+                        fprintf('DEBUG: Created probabilistic_ids matrix of size %dx%d\n', size(probabilistic_ids, 1), size(probabilistic_ids, 2));
+                    else
+                        probabilistic_ids = {};
+                    end
+                    
+                    num_neurons = length(user_annotations);
+                    fprintf('Found %d neurons in annotations table\n', num_neurons);
+                    
+                    % Debug: Check the annotation status values
+                    fprintf('DEBUG: Sample is_annotation_on values: [%g, %g, %g, %g, %g]\n', ...
+                        is_annotation_on(1), is_annotation_on(2), is_annotation_on(3), is_annotation_on(4), is_annotation_on(5));
+                    fprintf('DEBUG: Unique is_annotation_on values: %s\n', mat2str(unique(is_annotation_on)));
+                else
+                    fprintf('No NeuronAnnotations table found in processing module\n');
+                    return;
+                end
+                
+                % Load neuron properties table
+                if any(ismember(neuron_module.dynamictable.keys, 'NeuronProperties'))
+                    properties_table = neuron_module.dynamictable.get('NeuronProperties');
+                    
+                    % Extract property data
+                    positions = properties_table.vectordata.get('positions').data.load();
+                    colors = properties_table.vectordata.get('colors').data.load();
+                    color_readouts = properties_table.vectordata.get('color_readouts').data.load();
+                    baselines = properties_table.vectordata.get('baselines').data.load();
+                    covariances_flat = properties_table.vectordata.get('covariances').data.load();
+                    aligned_xyzRGBs = properties_table.vectordata.get('aligned_xyzRGB').data.load();
+                    
+                    fprintf('DEBUG: Loaded property data shapes:\n');
+                    fprintf('  positions: %s\n', mat2str(size(positions)));
+                    fprintf('  colors: %s\n', mat2str(size(colors)));
+                    fprintf('  color_readouts: %s\n', mat2str(size(color_readouts)));
+                    fprintf('  baselines: %s\n', mat2str(size(baselines)));
+                    fprintf('  covariances_flat: %s\n', mat2str(size(covariances_flat)));
+                    fprintf('  aligned_xyzRGBs: %s\n', mat2str(size(aligned_xyzRGBs)));
+                    
+                    % Debug: Check actual position values
+                    if ~isempty(positions) && size(positions, 1) >= 3
+                        fprintf('DEBUG: Sample position values:\n');
+                        for debug_i = 1:min(3, size(positions, 1))
+                            fprintf('  Neuron %d positions: [%.3f, %.3f, %.3f]\n', debug_i, ...
+                                positions(debug_i, 1), positions(debug_i, 2), positions(debug_i, 3));
+                        end
+                        fprintf('  Position data type: %s\n', class(positions));
+                        fprintf('  Position range: X=[%.3f, %.3f], Y=[%.3f, %.3f], Z=[%.3f, %.3f]\n', ...
+                            min(positions(:,1)), max(positions(:,1)), ...
+                            min(positions(:,2)), max(positions(:,2)), ...
+                            min(positions(:,3)), max(positions(:,3)));
+                    end
+                    
+                    % Reshape covariances from flat format back to 3x3xN
+                    % The data was stored as reshape(permute(covariances, [3, 1, 2]), [num_neurons, 9])
+                    % So we need to reshape back and permute to get [3, 3, N] format expected by Neurons.Neuron.unmarshall
+                    if size(covariances_flat, 2) == 9 && size(covariances_flat, 1) == num_neurons
+                        % Data is stored as [num_neurons x 9], reshape back to [num_neurons, 3, 3] then permute to [3, 3, num_neurons]
+                        covariances_temp = reshape(covariances_flat, [num_neurons, 3, 3]);
+                        covariances = permute(covariances_temp, [2, 3, 1]); % [3, 3, num_neurons]
+                    elseif size(covariances_flat, 1) == 9 && size(covariances_flat, 2) == num_neurons
+                        % Data is stored as [9 x num_neurons], transpose and reshape
+                        covariances_temp = reshape(covariances_flat', [num_neurons, 3, 3]);
+                        covariances = permute(covariances_temp, [2, 3, 1]); % [3, 3, num_neurons]
+                    else
+                        fprintf('WARNING: Unexpected covariance data shape, creating default covariances\n');
+                        covariances = repmat(eye(3), [1, 1, num_neurons]);
+                    end
+                    
+                    fprintf('DEBUG: Reshaped covariances: %s\n', mat2str(size(covariances)));
+                    
+                    % The Neurons.Neuron.unmarshall function expects covariances(i,:,:) to work
+                    % This means we need covariances to be [num_neurons, 3, 3], not [3, 3, num_neurons]
+                    covariances = permute(covariances, [3, 1, 2]); % Convert to [num_neurons, 3, 3]
+                    fprintf('DEBUG: Final covariances for unmarshall: %s\n', mat2str(size(covariances)));
+                    fprintf('Found neuron properties for %d neurons\n', num_neurons);
+                else
+                    fprintf('No NeuronProperties table found in processing module\n');
+                    return;
+                end
+                
+                % Create superpixels structure for Neurons.Image constructor
+                sp = struct();
+                sp.positions = positions;
+                sp.color = colors;
+                sp.color_readout = color_readouts;
+                sp.baseline = baselines;
+                sp.covariances = covariances;
+                sp.aligned_xyzRGB = aligned_xyzRGBs;
+                
+                % Add annotation data
+                sp.annotation = user_annotations;
+                sp.annotation_confidence = annotation_confidences;
+                sp.is_annotation_on = is_annotation_on;
+                sp.is_emphasized = is_emphasized;
+                
+                % Add auto ID data
+                sp.deterministic_id = deterministic_ids;
+                sp.probabilistic_ids = probabilistic_ids;
+                sp.probabilistic_probs = probabilistic_probs;
+                sp.rank = ranks;
+                
+                % Debug the superpixels structure
+                fprintf('DEBUG: Superpixels structure fields and sizes:\n');
+                fields = fieldnames(sp);
+                for i = 1:length(fields)
+                    field = fields{i};
+                    value = sp.(field);
+                    if isnumeric(value)
+                        fprintf('  %s: %s %s\n', field, class(value), mat2str(size(value)));
+                    elseif iscell(value)
+                        fprintf('  %s: %s (length: %d)\n', field, class(value), length(value));
+                    else
+                        fprintf('  %s: %s\n', field, class(value));
+                    end
+                end
+                
+                % Load atlas version if available
+                if any(ismember(neuron_module.nwbdatainterface.keys, 'AtlasVersion'))
+                    fprintf('DEBUG: Loading atlas version...\n');
+                    atlas_version_data = neuron_module.nwbdatainterface.get('AtlasVersion');
+                    sp.atlas_version = atlas_version_data.data.load();
+                    fprintf('DEBUG: Loaded atlas version: %s\n', sp.atlas_version);
+                else
+                    fprintf('DEBUG: No atlas version found in NWB file\n');
+                end
+                
+                % Create neurons object
+                fprintf('DEBUG: Attempting to create Neurons.Image object...\n');
+                fprintf('DEBUG: Using scale: [%.6f, %.6f, %.6f]\n', scale(1), scale(2), scale(3));
+                fprintf('DEBUG: Using body_part: %s\n', body_part);
+                try
+                    neurons = Neurons.Image(sp, body_part, 'scale', scale);
+                    fprintf('Successfully loaded %d neurons from NWB file\n', num_neurons);
+                    
+                    % Debug: Check the actual positions in the created neurons object
+                    if ~isempty(neurons) && ~isempty(neurons.neurons) && length(neurons.neurons) >= 3
+                        fprintf('DEBUG: Checking created neuron positions:\n');
+                        for debug_i = 1:min(3, length(neurons.neurons))
+                            pos = neurons.neurons(debug_i).position;
+                            fprintf('  Created neuron %d position: [%.3f, %.3f, %.3f]\n', debug_i, pos(1), pos(2), pos(3));
+                        end
+                    end
+                catch neuron_create_ME
+                    fprintf('ERROR creating Neurons.Image: %s\n', neuron_create_ME.message);
+                    fprintf('Stack trace: %s\n', getReport(neuron_create_ME));
+                    
+                    % Try to diagnose the covariance issue
+                    fprintf('DEBUG: Investigating covariance issue...\n');
+                    fprintf('  covariances size: %s\n', mat2str(size(sp.covariances)));
+                    fprintf('  num_neurons: %d\n', num_neurons);
+                    if size(sp.covariances, 3) ~= num_neurons
+                        fprintf('  MISMATCH: covariances 3rd dimension (%d) != num_neurons (%d)\n', ...
+                            size(sp.covariances, 3), num_neurons);
+                        % Try to fix by creating default covariances
+                        fprintf('  Creating default identity covariances...\n');
+                        sp.covariances = repmat(eye(3), [1, 1, num_neurons]);
+                        neurons = Neurons.Image(sp, body_part, 'scale', scale);
+                        fprintf('Successfully created neurons with default covariances\n');
+                    else
+                        rethrow(neuron_create_ME);
+                    end
+                end
+                
+            catch ME
+                warning('Could not load neuron annotation data from NWB file: %s', ME.message);
+                fprintf('Stack trace: %s\n', getReport(ME));
+                neurons = [];
+            end
+            
+            try
+                % Load detection parameters
+                if any(ismember(nwb_data.processing.keys, 'DetectionParameters'))
+                    detection_module = nwb_data.processing.get('DetectionParameters');
+                    
+                    if any(ismember(detection_module.dynamictable.keys, 'DetectionParameters'))
+                        detection_table = detection_module.dynamictable.get('DetectionParameters');
+                        
+                        % Extract parameter data
+                        param_names = detection_table.vectordata.get('parameter_name').data.load();
+                        param_values = detection_table.vectordata.get('parameter_value').data.load();
+                        
+                        % Reconstruct mp_params structure
+                        mp_params = struct();
+                        for i = 1:length(param_names)
+                            param_name = param_names{i};
+                            param_value_str = param_values{i};
+                            
+                            % Convert string back to appropriate data type
+                            if contains(param_value_str, '[') && contains(param_value_str, ']')
+                                % Vector/matrix parameter
+                                mp_params.(param_name) = str2num(param_value_str);
+                            else
+                                % Scalar parameter
+                                param_value = str2double(param_value_str);
+                                if ~isnan(param_value)
+                                    mp_params.(param_name) = param_value;
+                                else
+                                    mp_params.(param_name) = param_value_str;
+                                end
+                            end
+                        end
+                        
+                        fprintf('Loaded detection parameters from NWB file\n');
+                    end
+                end
+                
+            catch ME
+                warning('Could not load detection parameters from NWB file: %s', ME.message);
+                mp_params = [];
+            end
         end
         
         function np_file = convertAny(any_file)

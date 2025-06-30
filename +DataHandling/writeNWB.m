@@ -13,6 +13,17 @@ classdef writeNWB
                 progress = struct();
             end
 
+            % Initialize MatNWB with compatible schema version
+            try
+                % Clear any cached schemas and regenerate with compatible version
+                fprintf('DEBUG: Initializing MatNWB with compatible schema...\n');
+                generateCore('2.6.0');
+                generateExtension('/Users/adamg/neuroPAL/ndx-multichannel-volume/spec/ndx-multichannel-volume.namespace.yaml');
+                fprintf('DEBUG: Successfully initialized NWB 2.6.0 with ndx-multichannel-volume\n');
+            catch ME
+                fprintf('DEBUG: Failed to set specific schema, using defaults: %s\n', ME.message);
+            end
+
             % Grab NWB-compatible metadata from nwbsave.mlapp
             progress.Message = 'Parsing metadata...';
             [ctx, device_table, optical_table] = Program.GUIHandling.read_gui(app);
@@ -21,6 +32,18 @@ classdef writeNWB
             % parts of the save routine to skip.
             progress.Message = 'Checking flags...';
             ctx.flags = Program.GUIHandling.global_grab('NeuroPAL ID', 'data_flags');
+            
+            % Debug: Print all flags
+            fprintf('\n=== DEBUG: Data Flags ===\n');
+            if isstruct(ctx.flags)
+                flag_names = fieldnames(ctx.flags);
+                for i = 1:length(flag_names)
+                    fprintf('Flag %s = %d\n', flag_names{i}, ctx.flags.(flag_names{i}));
+                end
+            else
+                fprintf('Warning: ctx.flags is not a struct: %s\n', class(ctx.flags));
+            end
+            fprintf('========================\n\n');
 
             % Grab NWB-compatible data from visualize_light.mlapp
             progress.Message = 'Loading volume data...';
@@ -28,6 +51,11 @@ classdef writeNWB
             % Check what data is actually available
             colormap_data = Program.GUIHandling.global_grab('NeuroPAL ID', 'image_data');
             video_info = Program.GUIHandling.global_grab('NeuroPAL ID', 'video_info');
+            
+            fprintf('=== DEBUG: Available Data ===\n');
+            fprintf('colormap_data: %s (size: %s)\n', class(colormap_data), mat2str(size(colormap_data)));
+            fprintf('video_info: %s\n', class(video_info));
+            fprintf('============================\n\n');
             
             % Determine what data types we have
             has_colormap = ~isempty(colormap_data);
@@ -48,7 +76,14 @@ classdef writeNWB
             % Only populate data structures for available data types
             if has_colormap
                 ctx.colormap.data = colormap_data;
-                ctx.neurons.colormap = Program.GUIHandling.global_grab('NeuroPAL ID', 'image_neurons');
+                ctx.neurons.image_neurons = Program.GUIHandling.global_grab('NeuroPAL ID', 'image_neurons');
+                
+                % Debug: Check if we got neuron data
+                if isempty(ctx.neurons.image_neurons)
+                    fprintf('Warning: No neuron data found from global_grab\n');
+                else
+                    fprintf('Found neuron data with %d neurons\n', length(ctx.neurons.image_neurons.neurons));
+                end
                 
                 % Validate colormap data structure
                 if ~isnumeric(colormap_data) || ndims(colormap_data) < 3
@@ -144,15 +179,107 @@ classdef writeNWB
                 ctx.build.modules.processing.NeuroPAL_IDSettings = ctx.colormap.settings;
             end
 
-            if has_colormap && (ctx.flags.Neurons || ctx.flags.Neuronal_Identities)
+            % Always save neuron data if it exists, regardless of flags
+            if has_colormap && ~isempty(ctx.neurons.image_neurons) && ~isempty(ctx.neurons.image_neurons.neurons)
                 progress.Message = 'Populating neuronal identities...';
-                ctx.neurons.colormap = DataHandling.writeNWB.create_segmentation('colormap', ctx);
+                fprintf('=== DEBUG: NEURON DATA PROCESSING ===\n');
+                fprintf('Number of neurons found: %d\n', length(ctx.neurons.image_neurons.neurons));
+                
+                % Sample first neuron for debugging
+                if length(ctx.neurons.image_neurons.neurons) > 0
+                    first_neuron = ctx.neurons.image_neurons.neurons(1);
+                    fprintf('First neuron data:\n');
+                    fprintf('  annotation: "%s" (type: %s)\n', char(first_neuron.annotation), class(first_neuron.annotation));
+                    fprintf('  position: [%g, %g, %g]\n', first_neuron.position(1), first_neuron.position(2), first_neuron.position(3));
+                    fprintf('  has color: %s\n', logical(~isempty(first_neuron.color)));
+                    fprintf('  deterministic_id: "%s" (type: %s)\n', char(first_neuron.deterministic_id), class(first_neuron.deterministic_id));
+                    if ~isempty(first_neuron.probabilistic_ids)
+                        fprintf('  probabilistic_ids: %s (type: %s, length: %d)\n', ...
+                            strjoin(cellfun(@char, first_neuron.probabilistic_ids, 'UniformOutput', false), ', '), ...
+                            class(first_neuron.probabilistic_ids), length(first_neuron.probabilistic_ids));
+                    else
+                        fprintf('  probabilistic_ids: empty\n');
+                    end
+                    % Check covariance data
+                    if ~isempty(first_neuron.covariance)
+                        fprintf('  covariance: %s, has NaN: %s\n', mat2str(size(first_neuron.covariance)), any(isnan(first_neuron.covariance(:))));
+                        fprintf('  covariance sample: [%g, %g, %g; %g, %g, %g; %g, %g, %g]\n', first_neuron.covariance(:)');
+                    else
+                        fprintf('  covariance: empty\n');
+                    end
+                    % Check annotation status
+                    if ~isempty(first_neuron.is_annotation_on)
+                        fprintf('  is_annotation_on: %g\n', first_neuron.is_annotation_on);
+                    else
+                        fprintf('  is_annotation_on: empty (will default to ON)\n');
+                    end
+                end
+                
+                % Only create segmentation if flags allow it
+                if (ctx.flags.Neurons || ctx.flags.Neuronal_Identities)
+                    ctx.neurons.colormap = DataHandling.writeNWB.create_segmentation('colormap', ctx);
+                    fprintf('Created segmentation data\n');
+                end
+                
+                % Always store neuron annotations and metadata in NWB file when neuron data exists
+                fprintf('Creating neuron annotations...\n');
+                ctx.neurons.annotations = DataHandling.writeNWB.create_neuron_annotations(ctx);
+                
+                fprintf('Creating detection parameters...\n');
+                ctx.neurons.detection_params = DataHandling.writeNWB.create_detection_params(ctx);
                 
                 % Initialize processing module if it doesn't exist
                 if ~isfield(ctx.build.modules, 'processing')
                     ctx.build.modules.processing = struct();
                 end
-                ctx.build.modules.processing.ColormapNeurons =  ctx.neurons.colormap;
+                
+                % Add segmentation only if it was created
+                if isfield(ctx.neurons, 'colormap') && ~isempty(ctx.neurons.colormap)
+                    ctx.build.modules.processing.ColormapNeurons = ctx.neurons.colormap;
+                    fprintf('Added segmentation to processing modules\n');
+                end
+                
+                % Add neuron annotations and detection parameters only if they were created
+                if ~isempty(ctx.neurons.annotations)
+                    ctx.build.modules.processing.NeuronAnnotations = ctx.neurons.annotations;
+                    fprintf('✓ Added neuron annotations processing module to NWB file\n');
+                    
+                    % Debug: check structure of annotations module
+                    ann_mod = ctx.neurons.annotations;
+                    fprintf('Annotations module type: %s\n', class(ann_mod));
+                    if isprop(ann_mod, 'dynamictable') && ~isempty(ann_mod.dynamictable)
+                        tables = ann_mod.dynamictable.keys;
+                        fprintf('Dynamic tables in annotations module: %s\n', strjoin(tables, ', '));
+                    end
+                else
+                    fprintf('⚠ Warning: Neuron annotations module is empty!\n');
+                end
+                
+                if ~isempty(ctx.neurons.detection_params)
+                    ctx.build.modules.processing.DetectionParameters = ctx.neurons.detection_params;
+                    fprintf('✓ Added detection parameters processing module to NWB file\n');
+                    
+                    % Debug: check structure of detection params module
+                    det_mod = ctx.neurons.detection_params;
+                    fprintf('Detection params module type: %s\n', class(det_mod));
+                    if isprop(det_mod, 'dynamictable') && ~isempty(det_mod.dynamictable)
+                        tables = det_mod.dynamictable.keys;
+                        fprintf('Dynamic tables in detection params module: %s\n', strjoin(tables, ', '));
+                    end
+                else
+                    fprintf('⚠ Warning: Detection parameters module is empty!\n');
+                end
+                
+                fprintf('✓ Successfully processed neuron annotation data for NWB file\n');
+                fprintf('=====================================\n\n');
+            else
+                if has_colormap
+                    if isempty(ctx.neurons.image_neurons)
+                        fprintf('Debug: No neuron data available for NWB export\n');
+                    elseif isempty(ctx.neurons.image_neurons.neurons)
+                        fprintf('Debug: Neuron object exists but contains no neurons\n');
+                    end
+                end
             end
 
             if has_video && ctx.flags.Video_Volume
@@ -241,11 +368,16 @@ classdef writeNWB
                                 ctx.build.processing_modules.('CalciumActivity').dynamictable.set(obj_name, obj_data);
                             end
 
+                        case 'types.core.ProcessingModule'
+                            % Handle ProcessingModule directly - add it to the file's processing modules
+                            ctx.build.file.processing.set(obj_name, obj_data);
+                            fprintf('Added ProcessingModule "%s" directly to file\n', obj_name);
+
                         case {'types.core.NWBDataInterface', 'types.core.TimeSeries', 'types.core.RoiResponseSeries'}
                             ctx.build.processing_modules.('CalciumActivity').nwbdatainterface.set(obj_name, obj_data);
 
                         otherwise
-                            class(obj_data)
+                            fprintf('Unhandled object type for %s: %s\n', obj_name, class(obj_data));
                     end
                 end
             end
@@ -268,11 +400,58 @@ classdef writeNWB
                 if ~exist(path, "file")
                     % Save new file
                     progress.Message = 'Exporting NWB file...';
+                    
+                    % Debug: List all processing modules before export
+                    fprintf('\n=== DEBUG: Processing modules in file ===\n');
+                    if ~isempty(ctx.build.file.processing)
+                        proc_keys = ctx.build.file.processing.keys;
+                        fprintf('Processing modules: %s\n', strjoin(proc_keys, ', '));
+                        for i = 1:length(proc_keys)
+                            key = proc_keys{i};
+                            mod = ctx.build.file.processing.get(key);
+                            fprintf('Module "%s" type: %s\n', key, class(mod));
+                            if isprop(mod, 'dynamictable') && ~isempty(mod.dynamictable)
+                                dt_keys = mod.dynamictable.keys;
+                                fprintf('  DynamicTables: %s\n', strjoin(dt_keys, ', '));
+                            end
+                        end
+                    else
+                        fprintf('No processing modules found!\n');
+                    end
+                    fprintf('==========================================\n\n');
+                    
                     nwbExport(ctx.build.file, path);
                     fprintf('Successfully saved NWB file: %s\n', path);
                     
-                    % Create companion ID file
-                    DataHandling.writeNWB.create_companion_id_file(path, progress);
+                    % Verify data was saved by reading it back
+                    fprintf('\n=== VERIFICATION: Reading back saved data ===\n');
+                    try
+                        saved_nwb = nwbRead(path);
+                        if any(ismember(saved_nwb.processing.keys, 'NeuronAnnotations'))
+                            fprintf('✓ NeuronAnnotations found in saved file\n');
+                            ann_mod = saved_nwb.processing.get('NeuronAnnotations');
+                            if any(ismember(ann_mod.dynamictable.keys, 'NeuronAnnotations'))
+                                ann_table = ann_mod.dynamictable.get('NeuronAnnotations');
+                                fprintf('✓ NeuronAnnotations table has %d rows\n', ann_table.height);
+                            else
+                                fprintf('⚠ NeuronAnnotations table not found in module\n');
+                            end
+                        else
+                            fprintf('⚠ NeuronAnnotations not found in saved file!\n');
+                        end
+                        
+                        if any(ismember(saved_nwb.processing.keys, 'DetectionParameters'))
+                            fprintf('✓ DetectionParameters found in saved file\n');
+                        else
+                            fprintf('⚠ DetectionParameters not found in saved file!\n');
+                        end
+                    catch verify_ME
+                        fprintf('⚠ Could not verify saved data: %s\n', verify_ME.message);
+                    end
+                    fprintf('============================================\n\n');
+                    
+                    % No longer create companion ID file - all data is in NWB
+                    fprintf('All neuron data saved within NWB file - no companion ID file needed.\n');
                 else
                     % Merge with existing file
                     progress.Message = 'Merging with existing NWB file...';
@@ -295,8 +474,8 @@ classdef writeNWB
                     nwbExport(existing_nwb, new_path);
                     fprintf('Successfully saved merged NWB file: %s\n', new_path);
                     
-                    % Create companion ID file for merged file
-                    DataHandling.writeNWB.create_companion_id_file(new_path, progress);
+                    % No longer create companion ID file for merged file
+                    fprintf('All neuron data saved within merged NWB file - no companion ID file needed.\n');
                 end
             catch ME
                 error('Failed to export NWB file: %s\nStack trace:\n%s', ME.message, getReport(ME));
@@ -308,6 +487,21 @@ classdef writeNWB
 
         function nwb_file = create_file(ctx)
             session_date = datetime(posixtime(ctx.worm.session_date),'ConvertFrom','posixtime', 'Format', 'yyyy-MM-dd HH:mm:ss');
+
+            % Force use of a compatible NWB schema version
+            try
+                % Try to use NWB 2.6.0 which should be more compatible
+                generateCore('2.6.0');
+                fprintf('DEBUG: Using NWB schema version 2.6.0\n');
+            catch
+                % Fall back to default if 2.6.0 is not available
+                try
+                    generateCore('2.5.0');
+                    fprintf('DEBUG: Using NWB schema version 2.5.0\n');
+                catch
+                    fprintf('DEBUG: Using default NWB schema version\n');
+                end
+            end
 
             nwb_file = NwbFile( ...
                 'session_description', ctx.author.data_description, ...
@@ -508,7 +702,7 @@ classdef writeNWB
         function obj = create_segmentation(preset, ctx)
             switch preset
                 case 'colormap'        
-                    positions = ctx.neurons.(preset).get_positions;
+                    positions = ctx.neurons.image_neurons.get_positions;
                     
                     % Create proper SoftLink references
                     imaging_volume_link = types.untyped.SoftLink('/general/optophysiology/NeuroPALImVol');
@@ -522,8 +716,8 @@ classdef writeNWB
                         'imaging_plane', imaging_volume_link);
 
                     labels = {};
-                    for n=1:length(ctx.neurons.(preset).neurons)
-                        labels{end+1} = ctx.neurons.(preset).neurons(n).annotation;
+                    for n=1:length(ctx.neurons.image_neurons.neurons)
+                        labels{end+1} = ctx.neurons.image_neurons.neurons(n).annotation;
                     end
 
                     obj.addColumn('neuron_ids', types.hdmf_common.VectorData('description', 'Neuron IDs', 'data', labels'));
@@ -639,60 +833,330 @@ classdef writeNWB
         end
 
         function create_companion_id_file(nwb_path, progress)
-            %CREATE_COMPANION_ID_FILE Create companion _ID.mat file for saved NWB file
+            %CREATE_COMPANION_ID_FILE DEPRECATED - Create companion _ID.mat file for saved NWB file
             %
-            % This function creates the companion _ID.mat file that contains
-            % neuron annotations, detection parameters, and other analysis data
-            % when saving an NWB file with a custom name.
-            %
-            % Input:
-            %   nwb_path = path to the saved NWB file
-            %   progress = progress dialog structure (optional)
+            % This function is deprecated. Neuron data is now stored directly in the NWB file
+            % using the ndx-multichannel-volume extension.
             
-            try
-                if exist('progress', 'var') && ~isempty(progress)
-                    progress.Message = 'Creating companion ID file...';
-                end
-                
-                % Generate the companion ID file path
-                id_file_path = strrep(nwb_path, '.nwb', '_ID.mat');
-                
-                % Get current app instance to access neuron data
-                app = Program.app;
-                
-                % Check if we have neuron data to save
-                if isempty(app.image_neurons) || isempty(app.image_neurons.neurons)
-                    fprintf('No neuron data available to save in companion ID file.\n');
-                    return;
-                end
-                
-                % Prepare data for saving
-                version = Program.ProgramInfo.version;
-                neurons = app.image_neurons;
-                
-                % Get mp_params (matching pursuit parameters)
-                if isfield(app, 'mp_params') && ~isempty(app.mp_params)
-                    mp_params = app.mp_params;
-                    % Update k parameter to reflect current neuron count
-                    mp_params.k = length(neurons.neurons);
-                else
-                    % Create default mp_params if not available
-                    mp_params = [];
-                    mp_params.hnsz = [7, 7, 3]; % Default half neighborhood size
-                    mp_params.k = length(neurons.neurons);
-                    mp_params.exclusion_radius = 1.5;
-                    mp_params.min_eig_thresh = 0.1;
-                end
-                
-                % Save the companion ID file
-                save(id_file_path, 'version', 'neurons', 'mp_params', '-v7.3');
-                
-                fprintf('Successfully created companion ID file: %s\n', id_file_path);
-                
-            catch ME
-                warning('Failed to create companion ID file: %s', ME.message);
-                fprintf('Stack trace:\n%s\n', getReport(ME));
+            warning('create_companion_id_file is deprecated. All neuron data is now stored within the NWB file.');
+            fprintf('No companion ID file created. All data is contained within the NWB file.\n');
+        end
+        
+        function annotations_module = create_neuron_annotations(ctx)
+            %CREATE_NEURON_ANNOTATIONS Create neuron annotations data structure for NWB file
+            %
+            % This function creates a comprehensive data structure containing all neuron
+            % annotation data that was previously stored in the companion ID file.
+            
+            neurons = ctx.neurons.image_neurons;
+            if isempty(neurons)
+                fprintf('Warning: No neurons object found in ctx.neurons.image_neurons\n');
+                annotations_module = [];
+                return;
             end
+            
+            if isempty(neurons.neurons)
+                fprintf('Warning: Neurons object exists but contains no neurons\n');
+                annotations_module = [];
+                return;
+            end
+            
+            fprintf('Creating neuron annotations for %d neurons\n', length(neurons.neurons));
+            
+            % Extract neuron annotation data
+            num_neurons = length(neurons.neurons);
+            annotations = cell(num_neurons, 1);
+            annotation_confidences = zeros(num_neurons, 1);
+            is_annotation_on = ones(num_neurons, 1); % Default to ON (1) instead of OFF (0)
+            is_emphasized = false(num_neurons, 1);
+            deterministic_ids = cell(num_neurons, 1);
+            probabilistic_ids_str = cell(num_neurons, 1); % Store as JSON-like strings
+            probabilistic_probs = zeros(num_neurons, 7);
+            ranks = zeros(num_neurons, 1);
+            positions = zeros(num_neurons, 3);
+            colors = zeros(num_neurons, 4);
+            color_readouts = zeros(num_neurons, 4);
+            baselines = zeros(num_neurons, 4);
+            covariances = zeros(3, 3, num_neurons);
+            aligned_xyzRGBs = zeros(num_neurons, 6);
+            
+            for i = 1:num_neurons
+                n = neurons.neurons(i);
+                
+                % User annotations
+                if isempty(n.annotation)
+                    annotations{i} = '';
+                else
+                    annotations{i} = char(string(n.annotation));
+                end
+                
+                if isempty(n.annotation_confidence)
+                    annotation_confidences(i) = 0;
+                else
+                    annotation_confidences(i) = n.annotation_confidence;
+                end
+                
+                % Force neurons to be ON if they have annotations
+                % Only set to OFF if explicitly intended to be hidden
+                if ~isempty(n.annotation) && ~strcmp(n.annotation, '')
+                    % If neuron has an annotation, it should be ON
+                    is_annotation_on(i) = 1;
+                elseif ~isempty(n.is_annotation_on) && ~isnan(n.is_annotation_on)
+                    is_annotation_on(i) = double(n.is_annotation_on); % Convert to double
+                else
+                    is_annotation_on(i) = 1; % Default to ON instead of OFF
+                end
+                
+                if isempty(n.is_emphasized)
+                    is_emphasized(i) = false;
+                else
+                    is_emphasized(i) = logical(n.is_emphasized);
+                end
+                
+                % Auto ID data
+                if isempty(n.deterministic_id)
+                    deterministic_ids{i} = '';
+                else
+                    deterministic_ids{i} = char(string(n.deterministic_id));
+                end
+                
+                if ~isempty(n.probabilistic_ids)
+                    % Convert cell array of IDs to a JSON-like string for storage
+                    id_strings = cell(length(n.probabilistic_ids), 1);
+                    for j = 1:length(n.probabilistic_ids)
+                        id_strings{j} = char(string(n.probabilistic_ids{j}));
+                    end
+                    probabilistic_ids_str{i} = strjoin(id_strings, '|'); % Use | as separator
+                else
+                    probabilistic_ids_str{i} = '';
+                end
+                if ~isempty(n.probabilistic_probs)
+                    num_prob_probs = min(length(n.probabilistic_probs), 7);
+                    probabilistic_probs(i, 1:num_prob_probs) = n.probabilistic_probs(1:num_prob_probs);
+                end
+                % Handle rank - ensure it's a scalar
+                if ~isempty(n.rank)
+                    if isscalar(n.rank)
+                        ranks(i) = n.rank;
+                    else
+                        ranks(i) = n.rank(1); % Take first element if it's an array
+                    end
+                else
+                    ranks(i) = 0; % Default value
+                end
+                
+                % Neuron properties - add safety checks
+                if ~isempty(n.position) && length(n.position) >= 3
+                    positions(i, :) = n.position(1:3);
+                else
+                    positions(i, :) = [0, 0, 0]; % Default position
+                end
+                
+                if ~isempty(n.color) && length(n.color) >= 4
+                    colors(i, :) = n.color(1:4);
+                else
+                    colors(i, :) = [0, 0, 0, 0]; % Default color
+                end
+                
+                if ~isempty(n.color_readout) && length(n.color_readout) >= 4
+                    color_readouts(i, :) = n.color_readout(1:4);
+                else
+                    color_readouts(i, :) = [0, 0, 0, 0]; % Default readout
+                end
+                
+                if ~isempty(n.baseline) && length(n.baseline) >= 4
+                    baselines(i, :) = n.baseline(1:4);
+                else
+                    baselines(i, :) = [0, 0, 0, 0]; % Default baseline
+                end
+                
+                if ~isempty(n.covariance) && size(n.covariance, 1) == 3 && size(n.covariance, 2) == 3
+                    covariances(:, :, i) = n.covariance;
+                else
+                    % Create default identity matrix if covariance is empty or wrong size
+                    covariances(:, :, i) = eye(3);
+                end
+                if ~isempty(n.aligned_xyzRGB) && length(n.aligned_xyzRGB) >= 6
+                    aligned_xyzRGBs(i, :) = n.aligned_xyzRGB(1:6);
+                end
+            end
+            
+            % Create NWB data structures for neuron annotations
+            fprintf('DEBUG: Creating DynamicTable with data types:\n');
+            fprintf('  annotations: %s (length: %d)\n', class(annotations), length(annotations));
+            fprintf('  annotation_confidences: %s (size: %s)\n', class(annotation_confidences), mat2str(size(annotation_confidences)));
+            fprintf('  is_annotation_on: %s (size: %s)\n', class(is_annotation_on), mat2str(size(is_annotation_on)));
+            fprintf('  is_emphasized: %s (size: %s)\n', class(is_emphasized), mat2str(size(is_emphasized)));
+            fprintf('  deterministic_ids: %s (length: %d)\n', class(deterministic_ids), length(deterministic_ids));
+            fprintf('  probabilistic_ids_str: %s (length: %d)\n', class(probabilistic_ids_str), length(probabilistic_ids_str));
+            fprintf('  probabilistic_probs: %s (size: %s)\n', class(probabilistic_probs), mat2str(size(probabilistic_probs)));
+            fprintf('  ranks: %s (size: %s)\n', class(ranks), mat2str(size(ranks)));
+            
+            % Check first few elements of cell arrays
+            if ~isempty(annotations)
+                fprintf('  First annotation: "%s" (class: %s)\n', annotations{1}, class(annotations{1}));
+            end
+            if ~isempty(deterministic_ids)
+                fprintf('  First deterministic_id: "%s" (class: %s)\n', deterministic_ids{1}, class(deterministic_ids{1}));
+            end
+            if ~isempty(probabilistic_ids_str)
+                fprintf('  First probabilistic_ids_str: "%s" (class: %s)\n', probabilistic_ids_str{1}, class(probabilistic_ids_str{1}));
+            end
+            
+            % Debug: Check annotation status after processing
+            fprintf('DEBUG: Annotation status summary:\n');
+            fprintf('  Neurons set to ON: %d\n', sum(is_annotation_on == 1));
+            fprintf('  Neurons set to OFF: %d\n', sum(is_annotation_on == 0));
+            fprintf('  Neurons with annotations: %d\n', sum(~cellfun(@isempty, annotations) & ~strcmp(annotations, '')));
+            
+            % Debug covariance data before reshaping
+            fprintf('DEBUG: Covariances before reshaping: %s\n', mat2str(size(covariances)));
+            if ~any(isnan(covariances(:)))
+                fprintf('  Covariances contain valid data\n');
+            else
+                fprintf('  WARNING: Covariances contain NaN values!\n');
+                fprintf('  Non-NaN count: %d out of %d\n', sum(~isnan(covariances(:))), numel(covariances));
+            end
+            
+            % Reshape for storage: [3,3,N] -> [N,9] 
+            covariances_for_storage = reshape(permute(covariances, [3, 1, 2]), [num_neurons, 9]);
+            fprintf('DEBUG: Covariances after reshaping for storage: %s\n', mat2str(size(covariances_for_storage)));
+            
+            annotations_table = types.hdmf_common.DynamicTable( ...
+                'description', 'Neuron annotation data including user IDs and auto IDs', ...
+                'colnames', {'user_annotation', 'annotation_confidence', 'is_annotation_on', 'is_emphasized', ...
+                           'deterministic_id', 'probabilistic_ids', 'probabilistic_probs', 'rank'}, ...
+                'user_annotation', types.hdmf_common.VectorData('description', 'User neuron annotations', 'data', annotations), ...
+                'annotation_confidence', types.hdmf_common.VectorData('description', 'User confidence in annotations', 'data', annotation_confidences), ...
+                'is_annotation_on', types.hdmf_common.VectorData('description', 'Whether neuron annotation is ON/OFF', 'data', is_annotation_on), ...
+                'is_emphasized', types.hdmf_common.VectorData('description', 'Whether neuron is emphasized (e.g., for mutations)', 'data', is_emphasized), ...
+                'deterministic_id', types.hdmf_common.VectorData('description', 'Deterministic neuron IDs from auto-ID', 'data', deterministic_ids), ...
+                'probabilistic_ids', types.hdmf_common.VectorData('description', 'Probabilistic neuron IDs from auto-ID (pipe-separated)', 'data', probabilistic_ids_str), ...
+                'probabilistic_probs', types.hdmf_common.VectorData('description', 'Probabilities for probabilistic IDs', 'data', probabilistic_probs), ...
+                'rank', types.hdmf_common.VectorData('description', 'Neuron ranking based on auto-ID confidence', 'data', ranks), ...
+                'id', types.hdmf_common.ElementIdentifiers('data', 0:num_neurons-1));
+            
+            % Create neuron properties table
+            properties_table = types.hdmf_common.DynamicTable( ...
+                'description', 'Neuron physical properties and measurements', ...
+                'colnames', {'positions', 'colors', 'color_readouts', 'baselines', 'covariances', 'aligned_xyzRGB'}, ...
+                'positions', types.hdmf_common.VectorData('description', 'Neuron 3D positions (x,y,z)', 'data', positions), ...
+                'colors', types.hdmf_common.VectorData('description', 'Neuron RGBW colors', 'data', colors), ...
+                'color_readouts', types.hdmf_common.VectorData('description', 'Neuron color readouts', 'data', color_readouts), ...
+                'baselines', types.hdmf_common.VectorData('description', 'Neuron baseline values', 'data', baselines), ...
+                'covariances', types.hdmf_common.VectorData('description', 'Neuron covariance matrices (Nx9 format: each row is a flattened 3x3 matrix)', 'data', covariances_for_storage), ...
+                'aligned_xyzRGB', types.hdmf_common.VectorData('description', 'Aligned neuron positions and colors', 'data', aligned_xyzRGBs), ...
+                'id', types.hdmf_common.ElementIdentifiers('data', 0:num_neurons-1));
+            
+            % Create processing module to hold both tables
+            annotations_module = types.core.ProcessingModule( ...
+                'description', 'Neuron annotations and properties data');
+            annotations_module.dynamictable.set('NeuronAnnotations', annotations_table);
+            annotations_module.dynamictable.set('NeuronProperties', properties_table);
+            
+            % Add atlas version if available
+            if isfield(neurons, 'atlas_version') && ~isempty(neurons.atlas_version)
+                atlas_info = types.hdmf_common.VectorData( ...
+                    'description', 'Atlas version information', ...
+                    'data', neurons.atlas_version);
+                annotations_module.nwbdatainterface.set('AtlasVersion', atlas_info);
+            end
+        end
+        
+        function detection_module = create_detection_params(ctx)
+            %CREATE_DETECTION_PARAMS Create detection parameters data structure for NWB file
+            %
+            % This function creates a data structure containing neuron detection parameters
+            % that were previously stored in the companion ID file as mp_params.
+            
+            % Get current app instance to access detection parameters
+            app = Program.app;
+            
+            % Get mp_params (matching pursuit parameters)
+            if isfield(app, 'mp_params') && ~isempty(app.mp_params)
+                mp_params = app.mp_params;
+            else
+                % Create default mp_params if not available
+                mp_params = struct();
+                mp_params.hnsz = [7, 7, 3]; % Default half neighborhood size
+                mp_params.k = 0; % Will be set to actual neuron count
+                mp_params.exclusion_radius = 1.5;
+                mp_params.min_eig_thresh = 0.1;
+            end
+            
+            % Update k parameter to reflect current neuron count
+            if isfield(ctx.neurons, 'image_neurons') && ~isempty(ctx.neurons.image_neurons) && ~isempty(ctx.neurons.image_neurons.neurons)
+                mp_params.k = length(ctx.neurons.image_neurons.neurons);
+            end
+            
+            % Create parameter data structures
+            param_names = fieldnames(mp_params);
+            param_descriptions = containers.Map();
+            param_descriptions('hnsz') = 'Half neighborhood size for neuron detection [x,y,z]';
+            param_descriptions('k') = 'Number of detected neurons';
+            param_descriptions('exclusion_radius') = 'Exclusion radius for nearby neuron removal';
+            param_descriptions('min_eig_thresh') = 'Minimum eigenvalue threshold for detection';
+            
+            % Convert parameters to a format suitable for NWB
+            param_data = cell(length(param_names), 1);
+            param_desc = cell(length(param_names), 1);
+            
+            fprintf('DEBUG: Detection parameters data types:\n');
+            
+            for i = 1:length(param_names)
+                param_name = param_names{i};
+                param_value = mp_params.(param_name);
+                
+                % Convert to string representation for storage
+                if isnumeric(param_value)
+                    if length(param_value) > 1
+                        param_data{i} = char(mat2str(param_value));
+                    else
+                        param_data{i} = char(num2str(param_value));
+                    end
+                else
+                    param_data{i} = char(string(param_value));
+                end
+                
+                if param_descriptions.isKey(param_name)
+                    param_desc{i} = char(param_descriptions(param_name));
+                else
+                    param_desc{i} = char(sprintf('Detection parameter: %s', param_name));
+                end
+                
+                fprintf('  %s: "%s" (type: %s)\n', param_name, param_data{i}, class(param_data{i}));
+            end
+            
+            % Ensure param_names are also character arrays
+            param_names_char = cellfun(@char, param_names, 'UniformOutput', false);
+            
+            fprintf('  param_names_char: %s (length: %d)\n', class(param_names_char), length(param_names_char));
+            fprintf('  param_data: %s (length: %d)\n', class(param_data), length(param_data));
+            fprintf('  param_desc: %s (length: %d)\n', class(param_desc), length(param_desc));
+            
+            % Create detection parameters table
+            detection_table = types.hdmf_common.DynamicTable( ...
+                'description', 'Neuron detection and matching pursuit parameters', ...
+                'colnames', {'parameter_name', 'parameter_value', 'parameter_description'}, ...
+                'parameter_name', types.hdmf_common.VectorData('description', 'Detection parameter names', 'data', param_names_char), ...
+                'parameter_value', types.hdmf_common.VectorData('description', 'Detection parameter values', 'data', param_data), ...
+                'parameter_description', types.hdmf_common.VectorData('description', 'Description of detection parameters', 'data', param_desc), ...
+                'id', types.hdmf_common.ElementIdentifiers('data', 0:length(param_names_char)-1));
+            
+            % Add program version information
+            version = Program.ProgramInfo.version;
+            version_char = char(string(version)); % Ensure it's a character array
+            version_table = types.hdmf_common.DynamicTable( ...
+                'description', 'NeuroPAL_ID software version information', ...
+                'colnames', {'software_version'}, ...
+                'software_version', types.hdmf_common.VectorData('description', 'NeuroPAL_ID software version', 'data', {version_char}), ...
+                'id', types.hdmf_common.ElementIdentifiers('data', 0));
+            
+            % Create processing module to hold detection parameters
+            detection_module = types.core.ProcessingModule( ...
+                'description', 'Neuron detection parameters and software version');
+            detection_module.dynamictable.set('DetectionParameters', detection_table);
+            detection_module.dynamictable.set('SoftwareVersion', version_table);
         end
     end
 end
