@@ -25,7 +25,19 @@ classdef Illustration
             % Worm neurons are ~2-4um in diameter so default to 8um MIP z-slices.
             z_MIP_def = num2str(round(8 / um_scale(3)));
             
-            % Prompt the user for the parameters.
+            % First, let user choose file format with dropdown
+            format_list = {'PDF', 'SVG'};
+            [format_idx, format_ok] = listdlg('PromptString', 'Select file format:', ...
+                                              'SelectionMode', 'single', ...
+                                              'ListString', format_list, ...
+                                              'InitialValue', 1, ...
+                                              'Name', 'File Format');
+            if ~format_ok
+                return;
+            end
+            file_format = lower(format_list{format_idx});
+            
+            % Prompt the user for the remaining parameters.
             start_z_str = ['Start Z-slice ' range_z_str];
             end_z_str = ['End Z-slice ' range_z_str];
             z_MIP_str = ['Z-slice thickness ' range_z_str];
@@ -34,12 +46,11 @@ classdef Illustration
             font_str = 'Font size';
             circle_weak_str = 'Circle Weak Neurons (yes/no)';
             circle_all_str = 'Circle All Neurons (yes/no)';
-            format_str = 'File format (pdf/svg)';
             prompt = {start_z_str, end_z_str, z_MIP_str, z_ID_str, ...
-                size_str, font_str, circle_weak_str, circle_all_str, format_str};
-            title = 'Save ID Image';
+                size_str, font_str, circle_weak_str, circle_all_str};
+            title = 'Save ID Image Parameters';
             dims = [1 35];
-            definput = {'1', max_z_str, z_MIP_def, '1', '2', '4', 'y', 'y', 'pdf'};
+            definput = {'1', max_z_str, z_MIP_def, '1', '2', '4', 'y', 'y'};
             answer = inputdlg(prompt, title, dims, definput);
             if isempty(answer)
                 return;
@@ -54,12 +65,6 @@ classdef Illustration
             font_size = round(str2double(answer{6}));
             is_circle_weak = ~isempty(answer{7}) && lower(answer{7}(1)) == 'y';
             is_circle_all = ~isempty(answer{8}) && lower(answer{8}(1)) == 'y';
-            file_format = lower(strtrim(answer{9}));
-            
-            % Validate file format
-            if ~ismember(file_format, {'pdf', 'svg'})
-                file_format = 'pdf'; % Default to PDF if invalid input
-            end
             
             % Sanitize the input values.
             if start_z < 1 || start_z > max_z
