@@ -34,11 +34,12 @@ classdef Illustration
             font_str = 'Font size';
             circle_weak_str = 'Circle Weak Neurons (yes/no)';
             circle_all_str = 'Circle All Neurons (yes/no)';
+            format_str = 'File format (pdf/svg)';
             prompt = {start_z_str, end_z_str, z_MIP_str, z_ID_str, ...
-                size_str, font_str, circle_weak_str, circle_all_str};
+                size_str, font_str, circle_weak_str, circle_all_str, format_str};
             title = 'Save ID Image';
             dims = [1 35];
-            definput = {'1', max_z_str, z_MIP_def, '1', '2', '4', 'y', 'y'};
+            definput = {'1', max_z_str, z_MIP_def, '1', '2', '4', 'y', 'y', 'pdf'};
             answer = inputdlg(prompt, title, dims, definput);
             if isempty(answer)
                 return;
@@ -53,6 +54,12 @@ classdef Illustration
             font_size = round(str2double(answer{6}));
             is_circle_weak = ~isempty(answer{7}) && lower(answer{7}(1)) == 'y';
             is_circle_all = ~isempty(answer{8}) && lower(answer{8}(1)) == 'y';
+            file_format = lower(strtrim(answer{9}));
+            
+            % Validate file format
+            if ~ismember(file_format, {'pdf', 'svg'})
+                file_format = 'pdf'; % Default to PDF if invalid input
+            end
             
             % Sanitize the input values.
             if start_z < 1 || start_z > max_z
@@ -262,10 +269,29 @@ classdef Illustration
                 end
                 
                 % Save the file.
-                save_file = [file '_' num2str(page_num) '.pdf'];
+                save_file = [file '_' num2str(page_num) '.' file_format];
                 fig.Renderer = 'Painters';
-                orient(fig, 'landscape');
-                print(fig, '-dpdf', '-fillpage', save_file);
+                
+                if strcmp(file_format, 'svg')
+                    % Configure figure for tight SVG output (no padding)
+                    fig.PaperPositionMode = 'auto';
+                    fig.InvertHardcopy = 'off';
+                    fig.Color = 'none'; % Transparent background
+                    
+                    % Set axes to fill the figure completely
+                    ax = gca;
+                    ax.Position = [0 0 1 1]; % Fill entire figure
+                    ax.XLim = [0.5 size(z_slice,2)+0.5];
+                    ax.YLim = [0.5 size(z_slice,1)+0.5];
+                    
+                    % Save as SVG with tight bounding box
+                    print(fig, '-dsvg', save_file);
+                else
+                    % Save as PDF (default)
+                    orient(fig, 'landscape');
+                    print(fig, '-dpdf', '-fillpage', save_file);
+                end
+                
                 close(fig);
             end
         end
