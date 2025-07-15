@@ -138,7 +138,7 @@ classdef Illustration
                 neuron_name = arrayfun(@(x) x.annotation, neurons, 'UniformOutput' , false);
                 neuron_pos(:,1:2) = neuron_pos(:,1:2) * image_size;
                 neuron_conf = arrayfun(@(x) x.annotation_confidence, neurons);
-                neuron_on = arrayfun(@(x) x.is_annotation_on, neurons);
+                neuron_on = arrayfun(@(x) double(x.is_annotation_on), neurons);
                 neuron_emphasized = arrayfun(@(x) x.is_emphasized, neurons);
             end
             
