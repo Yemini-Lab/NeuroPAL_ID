@@ -40,6 +40,49 @@ classdef nwb
             end
         end
 
+        function write(file, arr, varargin)
+            
+            p = inputParser();
+            addRequired(p, 'file');
+            addRequired(p, 'arr');
+
+            addParameter(p, 'cursor', []);
+            addParameter(p, 'mode', 'full'); % nwb doesn't support chunk writing, as of now
+
+            addParameter(p, 'x',    []);
+            addParameter(p, 'y',    []);
+            addParameter(p, 'z',    []);
+            addParameter(p, 'c',    []);
+            addParameter(p, 't',    []);
+
+            parse(p, file, arr, varargin{:});
+            
+            cursor = p.Results.cursor;
+
+            if isempty(cursor)
+                cursor = Program.GUI.cursor.generate(rmfield(p.Results, {'file', 'arr', 'cursor', 'mode'}));
+            elseif ~isa(cursor, 'Program.GUI.cursor')
+                cursor = Program.GUI.cursor.generate(size(arr), cursor);
+            else
+                cursor = p.Results.cursor;
+            end
+
+            if ndims(arr) < 5
+                chunk = arr( ...
+                    cursor.x1:cursor.x2, ...
+                    cursor.y1:cursor.y2, ...
+                    cursor.z1:cursor.z2, ...
+                    cursor.c1:cursor.c2);
+            else
+                chunk = arr( ...
+                    cursor.x1:cursor.x2, ...
+                    cursor.y1:cursor.y2, ...
+                    cursor.z1:cursor.z2, ...
+                    cursor.c1:cursor.c2, ...
+                    cursor.t1:cursor.t2);
+            end
+        end
+
         function metadata = get_metadata(obj)
             obj_class = class(obj);
             if startsWith(obj_class, 'types.ndx_multichannel_volume')

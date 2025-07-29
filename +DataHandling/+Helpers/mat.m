@@ -24,74 +24,193 @@ classdef mat
             save(path, '-struct', 'fstruct', '-v7.3');
         end
 
-        function write(varargin)
+        function write(file, arr, varargin)
             p = inputParser();
             addRequired(p, 'file');
             addRequired(p, 'arr');
-            addParameter(p, 't',    []);  % default means "all"
-            addParameter(p, 'z',    []);
-            addParameter(p, 'mode', 'chunk'); % default read mode
-            parse(p, varargin{:});
-            cursor = rmfield(p.Results, {'mode', 'file', 'arr'});
-            array = p.Results.arr;
+
+            addParameter(p, 'cursor', []);
+            addParameter(p, 'mode', 'chunk');
+
+            addParameter(p, 'x', []);
+            addParameter(p, 'y', []);
+            addParameter(p, 'z', []);
+            addParameter(p, 'c', []);
+            addParameter(p, 't', []);
+
+            parse(p, file, arr, varargin{:});
+
+            cursor = p.Results.cursor;
+            if isempty(cursor)
+                cursor = Program.GUI.cursor.generate(rmfield(p.Results, {'file', 'arr', 'cursor', 'mode'}));
+            elseif ~isa(cursor, 'Program.GUI.cursor')
+                cursor = Program.GUI.cursor.generate(size(arr), cursor);
+            else
+                cursor = p.Results.cursor;
+            end
 
             target_file = matfile(p.Results.file, 'Writable', true);
-            if isempty(cursor.t)
-                target_file.array(:, :, cursor.z, :) = array;
-            elseif isempty(cursor.z)
-                target_file.array(:, :, :, :, cursor.t) = array;
+
+            % Find main variable by largest size in file (might change later idk)
+            info = whos(target_file);
+            if isempty(info)
+                error('No variables found in MAT file to write to.');
+            end
+            [~, idx] = max([info.bytes]);
+            main_var = info(idx).name;
+
+
+            full_load = all(structfun(@isempty, cursor));
+            if full_load
+                target_file.(main_var) = arr;
             else
-                target_file.array(:, :, cursor.z, :, cursor.t) = array;
+                if ndims(arr) < 5
+                    target_file.(main_var)( ...
+                        cursor.x1:cursor.x2, ...
+                        cursor.y1:cursor.y2, ...
+                        cursor.z1:cursor.z2, ...
+                        cursor.c1:cursor.c2) = arr;
+                else
+                    target_file.(main_var)( ...
+                        cursor.x1:cursor.x2, ...
+                        cursor.y1:cursor.y2, ...
+                        cursor.z1:cursor.z2, ...
+                        cursor.c1:cursor.c2, ...
+                        cursor.t1:cursor.t2) = arr;
+                end
             end
         end
 
         function obj = get_reader(path)
+            if ~endsWith(path, 'NPAL.mat')
+                error('Non-mat file passed to mat get_reader function: \n%s', path)
+            end
             obj = matfile(path);
         end
 
-        function metadata = get_metadata(obj)
-            metadata = obj.read_obj.metadata;
+        function metadata = get_metadata(obj, varargin)
+            % Extracts metadata from a MAT file, with optional channels
+            cfg = Program.config();
+            p = inputParser();
+            addRequired(p, 'obj');
+            addParameter(p, 'channels', []);
+            parse(p, obj, varargin{:});
+            channels = p.Results.channels;
+
+            obj_class = class(obj);
+
+            switch obj_class
+                case 'matlab.io.MatFile'
+                    % Find main variable by largest size in file (might change later idk)
+                    info = whos(obj);
+                    if isempty(info)
+                        error('No variables found in MAT file.');
+                    end
+                    [~, idx] = max([info.bytes]);
+                    main_var = info(idx).name;
+                    arr = obj.(main_var);
+
+                    native_dims = size(arr);
+                    metadata = struct( ...
+                        'nx', {native_dims(1)}, ...
+                        'ny', {native_dims(2)}, ...
+                        'nz', {native_dims(3)}, ...
+                        'nc', {native_dims(4)}, ...
+                        'native_dims', {native_dims}, ...
+                        'dtype_str', {class(obj.data)});
+                    if length(native_dims) > 4
+                        metadata.nt = native_dims(5);
+                    else
+                        metadata.nt = 1;
+                    end
+                    if ~isempty(channels)
+                        metadata.channels = channels;
+                    end
+
+                    md_fields = cfg.default.fields.md_volume;
+
+                    % Check for additional metadata fields from config
+                    for i = 1:numel(md_fields)
+                        field = md_fields{i};
+                        if ~isfield(metadata, field)
+                            % Try to extract from file if present
+                            if isprop(obj, field)
+                                metadata.(field) = obj.(field);
+                            elseif isfield(arr, field)
+                                metadata.(field) = arr.(field);
+                            else
+                                metadata.(field) = [];
+                            end
+                        end
+                    end
+
+                    metadata = rmfield(metadata, setdiff(fieldnames(metadata), md_fields));
+
+                case 'Program.volume'
+                    metadata = DataHandling.Helpers.mat.get_metadata(obj.read_obj);
+
+                otherwise
+                    if ismember(obj_class, {'string', 'char'})
+                        obj = DataHandling.Helpers.mat.get_reader(obj);
+                        metadata = DataHandling.Helpers.mat.get_metadata(obj);
+                    else
+                        error('Invalid object of class %s passed to mat get_metadata function.', obj_class);
+                    end
+            end
         end
 
         function arr = read(obj, varargin)
-            p = inputParser();
-            addRequired(p, 'obj');
-            addParameter(p, 't',    []);  % default means "all"
-            addParameter(p, 'z',    []);
-            addParameter(p, 'c',    []);
-            addParameter(p, 'x',    []);
-            addParameter(p, 'y',    []);
-            addParameter(p, 'mode', 'chunk'); % default read mode
-            parse(p, obj, varargin{:});
-            cursor = rmfield(p.Results, {'mode', 'obj'});
-            is_volume = isa(obj, 'volume');
+            if nargin > 1 && ...
+                    ~isstruct(varargin{1}) && ...
+                    ~isa(varargin{1}, 'Program.GUI.cursor')
+                p = inputParser();
+                addRequired(p, 'obj');
+                addParameter(p, 'cursor', []);
+                addParameter(p, 'mode', 'chunk');
+
+                addParameter(p, 'x',    []);
+                addParameter(p, 'y',    []);
+                addParameter(p, 'z',    []);
+                addParameter(p, 'c',    []);
+                addParameter(p, 't',    []);
+
+                parse(p, obj, varargin{:});
+                
+                cursor = p.Results.cursor;
+                if isempty(cursor)
+                    cursor = Program.GUI.cursor.generate(rmfield(p.Results, {'obj', 'cursor', 'mode'}));
+                elseif ~isstruct(cursor) && ~isa(cursor, 'Program.GUI.cursor')
+                    cursor = Program.GUI.cursor.generate(cursor);
+                end
+            end
+
+            % Find main variable by largest size in file (might change later idk)
+            info = whos(target_file);
+            if isempty(info)
+                error('No variables found in MAT file to write to.');
+            end
+            [~, idx] = max([info.bytes]);
+            main_var = info(idx).name;
             
             if strcmp(p.Results.mode, 'chunk') || ~all(structfun(@isempty, cursor))
-                if is_volume
-                    native_dims = obj.native_dims;
-                    obj = obj.read_obj;
+                if length(size(obj.volume)) < 5
+                    arr = obj.(main_var)( ...
+                        cursor.x1:cursor.x2, ...
+                        cursor.y1:cursor.y2, ...
+                        cursor.z1:cursor.z2, ...
+                        cursor.c1:cursor.c2);
                 else
-                    native_dims = size(obj, 'array');
+                    arr = obj.(main_var)( ...
+                        cursor.x1:cursor.x2, ...
+                        cursor.y1:cursor.y2, ...
+                        cursor.z1:cursor.z2, ...
+                        cursor.c1:cursor.c2, ...
+                        cursor.t1:cursor.t2);
                 end
-    
-                [order, dims] = Helpers.interpret_dimensions(native_dims);
-                parameters = fieldnames(cursor);
-    
-                for p=1:length(parameters)
-                    parameter = parameters{p};
-                    if isempty(cursor.(parameter)) && isfield(dims, parameter)
-                        cursor.(parameter) = 1:dims.(parameter);
-                    end
-                end
-    
-                fn = fieldnames(cursor);
-                idx_cell = cellfun(@(f) cursor.(f), fn, 'UniformOutput', false);
-                idx_cell = idx_cell(1:length(native_dims));
-                indices = idx_cell(flip(order));
-                arr = obj.array(indices{:});
             else
-                arr = obj.array;
+                arr = obj.(main_var);
             end
+
         end
 
         %% Legacy

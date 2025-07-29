@@ -86,7 +86,7 @@ classdef npal
 
         function obj = get_reader(path)
             if ~endsWith(path, 'NPAL.mat')
-                error('Non-%s file passed to npal get_reader function: \n%s', Program.config.npal.fmt, path)
+                error('Non-npal file passed to npal get_reader function: \n%s', path)
             end
             
             obj = matfile(path);

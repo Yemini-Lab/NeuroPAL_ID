@@ -108,7 +108,7 @@ classdef cursor < handle
     end
 
     methods (Static, Access = public)
-        function cursor = generate(dims, varargin)
+        function cursor = generate(varargin)
             p = inputParser();
             addParameter(p, 'x', []);
             addParameter(p, 'y', []);
