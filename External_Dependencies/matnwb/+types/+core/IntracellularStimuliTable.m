@@ -6,10 +6,6 @@ classdef IntracellularStimuliTable < types.hdmf_common.DynamicTable & types.unty
 properties
     stimulus; % REQUIRED (TimeSeriesReferenceVectorData) Column storing the reference to the recorded stimulus for the recording (rows).
 end
-% OPTIONAL PROPERTIES
-properties
-    stimulus_template; %  (TimeSeriesReferenceVectorData) Column storing the reference to the stimulus template for the recording (rows).
-end
 
 methods
     function obj = IntracellularStimuliTable(varargin)
@@ -24,11 +20,9 @@ methods
         p.StructExpand = false;
         addParameter(p, 'description',[]);
         addParameter(p, 'stimulus',[]);
-        addParameter(p, 'stimulus_template',[]);
         misc.parseSkipInvalidName(p, varargin);
         obj.description = p.Results.description;
         obj.stimulus = p.Results.stimulus;
-        obj.stimulus_template = p.Results.stimulus_template;
         if strcmp(class(obj), 'types.core.IntracellularStimuliTable')
             cellStringArguments = convertContainedStringsToChars(varargin(1:2:end));
             types.util.checkUnset(obj, unique(cellStringArguments));
@@ -40,9 +34,6 @@ methods
     %% SETTERS
     function set.stimulus(obj, val)
         obj.stimulus = obj.validate_stimulus(val);
-    end
-    function set.stimulus_template(obj, val)
-        obj.stimulus_template = obj.validate_stimulus_template(val);
     end
     %% VALIDATORS
     
@@ -56,9 +47,6 @@ methods
     function val = validate_stimulus(obj, val)
         val = types.util.checkDtype('stimulus', 'types.core.TimeSeriesReferenceVectorData', val);
     end
-    function val = validate_stimulus_template(obj, val)
-        val = types.util.checkDtype('stimulus_template', 'types.core.TimeSeriesReferenceVectorData', val);
-    end
     %% EXPORT
     function refs = export(obj, fid, fullpath, refs)
         refs = export@types.hdmf_common.DynamicTable(obj, fid, fullpath, refs);
@@ -66,9 +54,6 @@ methods
             return;
         end
         refs = obj.stimulus.export(fid, [fullpath '/stimulus'], refs);
-        if ~isempty(obj.stimulus_template)
-            refs = obj.stimulus_template.export(fid, [fullpath '/stimulus_template'], refs);
-        end
     end
 end
 

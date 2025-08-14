@@ -59,7 +59,7 @@ methods
         else
             valsz = size(val);
         end
-        validshapes = {[Inf,Inf], [Inf]};
+        validshapes = {[Inf]};
         types.util.checkDims(valsz, validshapes);
     end
     function val = validate_data_continuity(obj, val)

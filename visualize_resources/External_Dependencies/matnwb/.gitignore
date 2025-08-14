@@ -1,0 +1,34 @@
+testResults.xml
+coverage.xml
+.ropeproject
+namespaces/
+workspace/
+*.asv
+*.swp
+.DS_Store
+
++tests/env.mat # Deprecated
+nwbtest.env
+
+# Ignore everything in the +types/ folder
++types/*
+
+# Explicitly include these subdirectories
+!+types/+core/
+!+types/+hdmf_common/
+!+types/+hdmf_experimental/
+!+types/+untyped/
+!+types/+util/
+
+# Ignore everything in the +types/ folder
++types/*
+
+# Explicitly include these subdirectories
+!+types/+core/
+!+types/+hdmf_common/
+!+types/+hdmf_experimental/
+!+types/+untyped/
+!+types/+util/
+
+docs/build
+docs/reports
