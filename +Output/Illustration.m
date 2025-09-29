@@ -25,7 +25,19 @@ classdef Illustration
             % Worm neurons are ~2-4um in diameter so default to 8um MIP z-slices.
             z_MIP_def = num2str(round(8 / um_scale(3)));
             
-            % Prompt the user for the parameters.
+            % First, let user choose file format with dropdown
+            format_list = {'PDF', 'SVG'};
+            [format_idx, format_ok] = listdlg('PromptString', 'Select file format:', ...
+                                              'SelectionMode', 'single', ...
+                                              'ListString', format_list, ...
+                                              'InitialValue', 1, ...
+                                              'Name', 'File Format');
+            if ~format_ok
+                return;
+            end
+            file_format = lower(format_list{format_idx});
+            
+            % Prompt the user for the remaining parameters.
             start_z_str = ['Start Z-slice ' range_z_str];
             end_z_str = ['End Z-slice ' range_z_str];
             z_MIP_str = ['Z-slice thickness ' range_z_str];
@@ -36,7 +48,7 @@ classdef Illustration
             circle_all_str = 'Circle All Neurons (yes/no)';
             prompt = {start_z_str, end_z_str, z_MIP_str, z_ID_str, ...
                 size_str, font_str, circle_weak_str, circle_all_str};
-            title = 'Save ID Image';
+            title = 'Save ID Image Parameters';
             dims = [1 35];
             definput = {'1', max_z_str, z_MIP_def, '1', '2', '4', 'y', 'y'};
             answer = inputdlg(prompt, title, dims, definput);
@@ -138,7 +150,7 @@ classdef Illustration
                 neuron_name = arrayfun(@(x) x.annotation, neurons, 'UniformOutput' , false);
                 neuron_pos(:,1:2) = neuron_pos(:,1:2) * image_size;
                 neuron_conf = arrayfun(@(x) x.annotation_confidence, neurons);
-                neuron_on = arrayfun(@(x) x.is_annotation_on, neurons);
+                neuron_on = arrayfun(@(x) double(x.is_annotation_on), neurons);
                 neuron_emphasized = arrayfun(@(x) x.is_emphasized, neurons);
             end
             
@@ -262,10 +274,29 @@ classdef Illustration
                 end
                 
                 % Save the file.
-                save_file = [file '_' num2str(page_num) '.pdf'];
+                save_file = [file '_' num2str(page_num) '.' file_format];
                 fig.Renderer = 'Painters';
-                orient(fig, 'landscape');
-                print(fig, '-dpdf', '-fillpage', save_file);
+                
+                if strcmp(file_format, 'svg')
+                    % Configure figure for tight SVG output (no padding)
+                    fig.PaperPositionMode = 'auto';
+                    fig.InvertHardcopy = 'off';
+                    fig.Color = 'none'; % Transparent background
+                    
+                    % Set axes to fill the figure completely
+                    ax = gca;
+                    ax.Position = [0 0 1 1]; % Fill entire figure
+                    ax.XLim = [0.5 size(z_slice,2)+0.5];
+                    ax.YLim = [0.5 size(z_slice,1)+0.5];
+                    
+                    % Save as SVG with tight bounding box
+                    print(fig, '-dsvg', save_file);
+                else
+                    % Save as PDF (default)
+                    orient(fig, 'landscape');
+                    print(fig, '-dpdf', '-fillpage', save_file);
+                end
+                
                 close(fig);
             end
         end

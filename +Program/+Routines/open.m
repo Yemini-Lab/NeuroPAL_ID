@@ -189,14 +189,18 @@ function open(path)
     if ~isempty(neurons)
         app.image_neurons = neurons;
         Program.GUIHandling.gui_lock(app, 'enable', 'neuron_gui');
+        fprintf('DEBUG: Set app.image_neurons with %d neurons\n', length(neurons.neurons));
     elseif contains(filename,'.nwb')
+        % For NWB files, even if neurons is empty, don't override with empty object
+        % The loadNP function should have already tried to load from NWB
+        fprintf('DEBUG: NWB file detected but no neurons loaded\n');
         
+        % Check for legacy NWB neuron data format for backwards compatibility
         nwb_data = nwbRead(filename);
-
-        if any(ismember(nwb_data.processing.keys, 'NeuroPAL')) & ...
-            (any(ismember(nwb_data.processing.get('NeuroPAL').nwbdatainterface.keys, 'NeuroPALSegmentation')) |  ...
-            any(ismember(nwb_data.processing.get('NeuroPAL').nwbdatainterface.keys, 'ImageSegmentation')) |  ...
-            any(ismember(nwb_data.processing.get('NeuroPAL').dynamictable.keys, 'VolumeSegmentation')) |  ...
+        if any(ismember(nwb_data.processing.keys, 'NeuroPAL')) && ...
+            (any(ismember(nwb_data.processing.get('NeuroPAL').nwbdatainterface.keys, 'NeuroPALSegmentation')) ||  ...
+            any(ismember(nwb_data.processing.get('NeuroPAL').nwbdatainterface.keys, 'ImageSegmentation')) ||  ...
+            any(ismember(nwb_data.processing.get('NeuroPAL').dynamictable.keys, 'VolumeSegmentation')) ||  ...
             any(ismember(nwb_data.processing.get('NeuroPAL').dynamictable.keys, 'NeuroPALNeurons')))
             read_nwb_neurons = 1;
         end             
@@ -204,6 +208,7 @@ function open(path)
         app.image_neurons = Neurons.Image([], worm.body, 'scale', app.image_um_scale');
     else
         app.image_neurons = Neurons.Image([], worm.body, 'scale', app.image_um_scale');
+        fprintf('DEBUG: Created empty Neurons.Image object\n');
     end
 
     % Restrict the slider to the z stack.
