@@ -211,7 +211,7 @@ classdef NeuroPALImage
                         fprintf('Successfully loaded neuron data from NWB file\n');
                     end
                 catch ME
-                    warning('Failed to load neuron data from NWB file: %s', ME.message);
+                    warning(ME.identifier, 'Failed to load neuron data from NWB file: %s', ME.message);
                 end
             end
             
@@ -271,8 +271,9 @@ classdef NeuroPALImage
                                 patch = Methods.Utils.subcube(data_zscored, ...
                                     round(sp.mean(i,:)), patch_hsize);
                                 sp.color_readout(i,:) = ...
-                                    nanmedian(reshape(patch, ...
-                                    [numel(patch)/size(patch, 4), size(patch, 4)]));
+                                    median(reshape(patch, ...
+                                    [numel(patch)/size(patch, 4), size(patch, 4)]), ...
+                                    'omitnan');
                             end
                         end
                         
@@ -543,7 +544,7 @@ classdef NeuroPALImage
             save(np_file, 'version', 'data', 'info', 'prefs', 'worm', '-v7.3');
             
             % Try to load neuron data and detection parameters from NWB file
-            [neurons, mp_params] = DataHandling.NeuroPALImage.loadNeuronDataFromNWB(image_data, worm.body, info.scale);
+            [~, ~] = DataHandling.NeuroPALImage.loadNeuronDataFromNWB(image_data, worm.body, info.scale);
             
             % Note: Neuron data is now stored directly in NWB file - no companion ID file created
         end
@@ -787,7 +788,7 @@ classdef NeuroPALImage
                 end
                 
             catch ME
-                warning('Could not load neuron annotation data from NWB file: %s', ME.message);
+                warning(ME.identifier, 'Could not load neuron annotation data from NWB file: %s', ME.message);
                 fprintf('Stack trace: %s\n', getReport(ME));
                 neurons = [];
             end
@@ -830,7 +831,7 @@ classdef NeuroPALImage
                 end
                 
             catch ME
-                warning('Could not load detection parameters from NWB file: %s', ME.message);
+                warning(ME.identifier, 'Could not load detection parameters from NWB file: %s', ME.message);
                 mp_params = [];
             end
         end
