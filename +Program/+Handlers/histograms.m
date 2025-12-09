@@ -61,7 +61,11 @@ classdef histograms
                     histogram(h_axes, chan_hist, ...
                         'FaceColor', reference.color, ...
                         'EdgeColor', reference.color)
-                    h_axes.XLim = [app.HidezerointensitypixelsCheckBox.Value, h_axes.XLim(2)];
+                    lower_bound = app.HidezerointensitypixelsCheckBox.Value;
+                    if h_axes.XLim(2) <= 1.0 && lower_bound == 1
+                        lower_bound = 0.001;
+                    end
+                    h_axes.XLim = [lower_bound, h_axes.XLim(2)];
 
                     n_max = Program.Handlers.channels.config{'max_channels'};
                     if c >= 4

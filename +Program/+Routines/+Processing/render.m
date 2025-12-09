@@ -21,6 +21,7 @@ function render()
         render_volume(:, :, :, 1) = 0;
     else
         Program.Handlers.dialogue.step('Computing red channel...');
+        if r.settings.gamma < 0.01; r.settings.gamma = 1; end
         render_volume(:, :, :, 1) = imadjustn(render_volume(:, :, :, 1), r.settings.low_high_in, r.settings.low_high_out, r.settings.gamma);
     end
 
@@ -28,6 +29,7 @@ function render()
         render_volume(:, :, :, 2) = 0;
     else
         Program.Handlers.dialogue.step('Computing green channel...');
+        if g.settings.gamma < 0.01; g.settings.gamma = 1; end
         render_volume(:, :, :, 2) = imadjustn(render_volume(:, :, :, 2), g.settings.low_high_in, g.settings.low_high_out, g.settings.gamma);
     end
 
@@ -35,6 +37,7 @@ function render()
         render_volume(:, :, :, 3) = 0;
     else
         Program.Handlers.dialogue.step('Computing blue channel...');
+        if b.settings.gamma < 0.01; b.settings.gamma = 1; end
         render_volume(:, :, :, 3) = imadjustn(render_volume(:, :, :, 3), b.settings.low_high_in, b.settings.low_high_out, b.settings.gamma);
     end
 
@@ -47,6 +50,7 @@ function render()
     
         % Adjust the gamma.
         if white.settings.gamma ~= 1
+            if white.settings.gamma < 0.01; white.settings.gamma = 1; end
             wchannel = imadjustn(wchannel, white.settings.low_high_in, white.settings.low_high_out, white.settings.gamma);
         end
     
@@ -63,6 +67,7 @@ function render()
     
         % Adjust the gamma.
         if dic.settings.gamma ~= 1
+            if dic.settings.gamma < 0.01; dic.settings.gamma = 1; end
             dic_channel = imadjustn(dic_channel, dic.settings.low_high_in, dic.settings.low_high_out, dic.settings.gamma);
         end
     
@@ -80,6 +85,7 @@ function render()
     
         % Adjust the gamma.
         if gfp.settings.gamma ~= 1
+            if gfp.settings.gamma < 0.01; gfp.settings.gamma = 1; end
             gfp_channel = imadjustn(gfp_channel, gfp.settings.low_high_in, gfp.settings.low_high_out, gfp.settings.gamma);
         end
     

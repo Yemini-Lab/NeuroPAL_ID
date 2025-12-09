@@ -289,8 +289,9 @@ classdef channels
                     app.(dd_handle).Items = names;
                 end
 
-                name = app.(dd_handle).Items{indices(c)};
-                if indices(c) ~= 0
+                idx = round(indices(c));
+                if idx > 0
+                    name = app.(dd_handle).Items{idx};
                     app.(dd_handle).Value = name;
                 end
             end
@@ -668,8 +669,8 @@ classdef channels
 
                         info_struct = struct( ...
                             'gamma', {app.(sprintf("%s_GammaEditField", grid_pfx{pfx})).Value}, ...
-                            'low_high_in', {[]}, ...
-                            'low_high_out', {[slider_vals(1)/hist_limit slider_vals(2)/hist_limit]});
+                            'low_high_in', {[slider_vals(1)/hist_limit slider_vals(2)/hist_limit]}, ...
+                            'low_high_out', {[]});
                         return
                     end
                 end
