@@ -668,22 +668,45 @@ classdef writeNWB
                             end
                         end
                         
-                        % Create preview with first 2 frames for validation
+                        % Initialize DataPipe with the first frame
                         try
-                            video_preview = zeros([ctx.(preset).info.ny ctx.(preset).info.nx ctx.(preset).info.nz ctx.(preset).info.nc 2]);
-                            video_preview(:, :, :, :, 1) = rf_app.retrieve_frame(1);
-                            video_preview(:, :, :, :, 2) = rf_app.retrieve_frame(2);
+                            fprintf('DEBUG: Initializing video export (Frame 1/%d)...\n', ctx.(preset).info.nt);
+                            first_frame = rf_app.retrieve_frame(1);
+                            
+                            % Ensure frame has correct dimensions (x, y, z, c)
+                            % DataPipe expects (x, y, z, c, t)
+                            
+                            data_pipe = types.untyped.DataPipe( ...
+                                'data', uint64(first_frame), ...
+                                'maxSize', [ctx.(preset).info.ny ctx.(preset).info.nx ctx.(preset).info.nz ctx.(preset).info.nc ctx.(preset).info.nt], ...
+                                'axis', 5);
+                                
+                            % Iteratively append the rest of the frames
+                            if ctx.(preset).info.nt > 1
+                                progress.Message = 'Exporting video frames...';
+                                for t = 2:ctx.(preset).info.nt
+                                    if mod(t, 10) == 0
+                                        fprintf('DEBUG: Exporting frame %d/%d\n', t, ctx.(preset).info.nt);
+                                        % Update progress bar if available (assuming progress is a uiprogressdlg or similar)
+                                        % progress.Value = t / ctx.(preset).info.nt; 
+                                    end
+                                    
+                                    frame = rf_app.retrieve_frame(t);
+                                    data_pipe.append(uint64(frame));
+                                end
+                            end
+                            fprintf('DEBUG: Video export complete.\n');
+                            
                         catch ME
-                            warning('Could not retrieve video frames: %s', ME.message);
-                            video_preview = zeros([ctx.(preset).info.ny ctx.(preset).info.nx ctx.(preset).info.nz ctx.(preset).info.nc 2]);
+                            warning('Video export failed: %s', ME.message);
+                            % Fallback to empty or partial data if export fails
+                            if ~exist('data_pipe', 'var')
+                                data_pipe = types.untyped.DataPipe( ...
+                                    'data', uint64(zeros([ctx.(preset).info.ny ctx.(preset).info.nx ctx.(preset).info.nz ctx.(preset).info.nc 1])), ...
+                                    'maxSize', [ctx.(preset).info.ny ctx.(preset).info.nx ctx.(preset).info.nz ctx.(preset).info.nc ctx.(preset).info.nt], ...
+                                    'axis', 5);
+                            end
                         end
-
-                        % TODO: Fix DataPipe to reference actual video source instead of preview
-                        % This currently only saves 2 frames - needs proper video streaming implementation
-                        data_pipe = types.untyped.DataPipe( ...
-                            'data', uint64(video_preview), ...
-                            'maxSize', [ctx.(preset).info.ny ctx.(preset).info.nx ctx.(preset).info.nz ctx.(preset).info.nc ctx.(preset).info.nt], ...
-                            'axis', 5);
 
                         if ~isfield(ctx.(preset), 'scan_rate')
                             ctx.(preset).scan_line_rate = 1;
