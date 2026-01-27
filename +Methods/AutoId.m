@@ -550,6 +550,46 @@ classdef AutoId < handle
             parallel_tb = ver('parallel');
             if isempty(parallel_tb)
                 is_parallel = false;
+                parallel_reason = 'Parallel Computing Toolbox not installed.';
+            elseif exist('gcp', 'file') ~= 2
+                is_parallel = false;
+                parallel_reason = 'gcp not available on path.';
+            else
+                try
+                    has_license = license('test','Distrib_Computing_Toolbox');
+                catch
+                    has_license = false;
+                end
+                if ~has_license
+                    is_parallel = false;
+                    parallel_reason = 'Parallel Computing Toolbox license not available.';
+                end
+            end
+
+            % Log parallel status.
+            app = [];
+            try
+                app = Program.app;
+            catch
+            end
+            if ~is_parallel
+                msg = sprintf('AutoID: running in serial mode (%s)', parallel_reason);
+                fprintf('%s\n', msg);
+                if ~isempty(app) && isvalid(app)
+                    try
+                        app.logEvent('AutoID', msg, 0);
+                    catch
+                    end
+                end
+            else
+                msg = 'AutoID: running in parallel mode.';
+                fprintf('%s\n', msg);
+                if ~isempty(app) && isvalid(app)
+                    try
+                        app.logEvent('AutoID', msg, 0);
+                    catch
+                    end
+                end
             end
                                     
             % Setup the progress bar.
@@ -567,13 +607,27 @@ classdef AutoId < handle
             % Compute the alignment.
             num_tests = 2*length(AutoId.theta);
 
-            for idx = 1:length(AutoId.theta)
-                if is_parallel
-                    
-                    % Start the parallel pool.
+            % Start the parallel pool if needed.
+            if is_parallel
+                try
                     if isempty(obj.pool) || ~isvalid(obj.pool) || ~obj.pool.Connected
                         obj.pool = parpool('threads');
                     end
+                catch ME
+                    is_parallel = false;
+                    msg = sprintf('AutoID: failed to start parallel pool, falling back to serial. (%s)', ME.message);
+                    fprintf('%s\n', msg);
+                    if ~isempty(app) && isvalid(app)
+                        try
+                            app.logEvent('AutoID', msg, 0);
+                        catch
+                        end
+                    end
+                end
+            end
+
+            for idx = 1:length(AutoId.theta)
+                if is_parallel
                     
                     % Allocate memory.
                     %f = parallel.FevalFuture.empty(2*length(AutoId.theta),0);
@@ -623,7 +677,20 @@ classdef AutoId < handle
             end
             
             % Terminate the existing parallel session.
-            delete(gcp('nocreate'));
+            if exist('gcp', 'file') == 2
+                try
+                    delete(gcp('nocreate'));
+                catch ME
+                    msg = sprintf('AutoID: failed to close parallel pool. (%s)', ME.message);
+                    fprintf('%s\n', msg);
+                    if ~isempty(app) && isvalid(app)
+                        try
+                            app.logEvent('AutoID', msg, 0);
+                        catch
+                        end
+                    end
+                end
+            end
             
             % Done.
             try
@@ -798,4 +865,3 @@ classdef AutoId < handle
         end
     end
 end
-
