@@ -3,6 +3,7 @@ classdef AutoDetect < handle
    properties % Public Access
         options = []
         supervoxels = []
+        use_fmincon = true
         
         fsize
         szext
@@ -12,10 +13,25 @@ classdef AutoDetect < handle
    
    methods(Access=private)
       function obj = AutoDetect()
-        obj.options = optimoptions('fmincon', 'Display', 'off');
-        obj.options.MaxFunEvals = 5000;
-        obj.options.MaxIter = 5000;
-        obj.options.StepTolerance = 1e-10;
+        has_fmincon = exist('fmincon', 'file') == 2;
+        has_optimopts = exist('optimoptions', 'file') == 2;
+        has_license = true;
+        try
+            has_license = license('test','Optimization_Toolbox');
+        catch
+            has_license = false;
+        end
+
+        obj.use_fmincon = has_fmincon && has_optimopts && has_license;
+        if obj.use_fmincon
+            obj.options = optimoptions('fmincon', 'Display', 'off');
+            obj.options.MaxFunEvals = 5000;
+            obj.options.MaxIter = 5000;
+            obj.options.StepTolerance = 1e-10;
+        else
+            % Fall back to fminsearch with penalties if Optimization Toolbox is missing.
+            obj.options = optimset('Display', 'off', 'MaxFunEvals', 5000, 'MaxIter', 5000);
+        end
       end
    end
    
@@ -97,9 +113,9 @@ classdef AutoDetect < handle
            save(id_file, 'version', 'neurons', 'mp_params');
        end
        
-       function [c, ceq] = constrain_eigenvalues(x, lb, ub)
-           % Nonlinear inequality constraints (eigenvalues) for fmincon.
-           % Amin Nejat
+        function [c, ceq] = constrain_eigenvalues(x, lb, ub)
+            % Nonlinear inequality constraints (eigenvalues) for fmincon.
+            % Amin Nejat
            
            L = zeros(3, 3);
            L([1,2,3,5,6,9]) = x(4:9);
@@ -108,8 +124,47 @@ classdef AutoDetect < handle
            v = sort(eig(variances));
            c = -[v'-lb, ub-v'];
            
-           ceq = [];
-       end
+            ceq = [];
+        end
+
+        function val = penalized_cost(x, f, A_eq, b_eq, lb, ub, nonlcon, penalty_w)
+            % Penalized objective for fminsearch fallback when fmincon is unavailable.
+            val = f(x);
+
+            if ~isempty(lb) && ~isempty(ub)
+                low = lb - x;
+                high = x - ub;
+                if any(low > 0)
+                    val = val + penalty_w * sum(low(low > 0).^2);
+                end
+                if any(high > 0)
+                    val = val + penalty_w * sum(high(high > 0).^2);
+                end
+            end
+
+            if ~isempty(A_eq)
+                eq = A_eq * x' - b_eq;
+                val = val + penalty_w * sum(eq(:).^2);
+            end
+
+            if ~isempty(nonlcon)
+                try
+                    [c, ceq] = nonlcon(x);
+                catch
+                    c = [];
+                    ceq = [];
+                end
+                if ~isempty(c)
+                    c_violation = c(c > 0);
+                    if ~isempty(c_violation)
+                        val = val + penalty_w * sum(c_violation.^2);
+                    end
+                end
+                if ~isempty(ceq)
+                    val = val + penalty_w * sum(ceq(:).^2);
+                end
+            end
+        end
         
         function resid = gaussian_cost(x, vol, norm_factor)
         % Calculating residual between a multi-color Gaussian function and the
@@ -428,7 +483,13 @@ classdef AutoDetect < handle
             
             
             f = @(x) Methods.AutoDetect.gaussian_cost(x', bpatch, norm);
-            x_hat = fmincon(f, x0, [], [], A_eq, b_eq, lb, ub, nonlcon, obj.options);
+            if obj.use_fmincon
+                x_hat = fmincon(f, x0, [], [], A_eq, b_eq, lb, ub, nonlcon, obj.options);
+            else
+                penalty_w = 1e6;
+                penalized = @(x) Methods.AutoDetect.penalized_cost(x, f, A_eq, b_eq, lb, ub, nonlcon, penalty_w);
+                x_hat = fminsearch(penalized, x0, obj.options);
+            end
             
             [shape, ~, ~, cov, col] = Methods.AutoDetect.get_gaussian(x_hat, [2*obj.fsize+1, obj.szext(4)], norm);
             bas = x_hat(12+obj.szext(4):11+2*obj.szext(4))*x_hat(11);
