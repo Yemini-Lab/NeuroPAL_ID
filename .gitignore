@@ -89,6 +89,7 @@ octave-core
 .NeuroPAL_ID_prefs.mat
 visualize_light_prefs.mat
 visualize
+visualize_light.mlapp.bak
 # *.prj - keep this
 .NeuroPAL_ID_prefs.mat
 visualize_resources/icon.icns
