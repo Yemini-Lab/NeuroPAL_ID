@@ -510,6 +510,17 @@ classdef GUIHandling
         %% Log Tab
 
         function fade_log(t, hLabel)
+            if ~isvalid(hLabel) || ~isvalid(t)
+                try
+                    if isvalid(t)
+                        stop(t);
+                        delete(t);
+                    end
+                catch
+                end
+                return
+            end
+
             currentColor = hLabel.FontColor;
             newColor = min(currentColor + [0.02 0.02 0.02], [0.9 0.9 0.9]);
             hLabel.FontColor = newColor;
@@ -695,9 +706,15 @@ classdef GUIHandling
                                 [~, ~, nz_data, ~] = size(app.proc_image, 'data');
                                 z_idx = min(package.coords(3), nz_data);
                                 slice = app.proc_image.data(:, :, z_idx, c_load);
+                                if ndims(slice) == 3
+                                    slice = reshape(slice, size(slice,1), size(slice,2), 1, size(slice,3));
+                                end
                             case 'Video'
                                 slice = app.retrieve_frame(package.coords(4));
                                 slice = slice(:, :, package.coords(3), :);
+                                if ndims(slice) == 3
+                                    slice = reshape(slice, size(slice,1), size(slice,2), 1, size(slice,3));
+                                end
                         end
                     end
 

@@ -416,7 +416,16 @@ classdef channels
                 cb_handle = app.(sprintf(Program.Handlers.channels.handles{'pp_cb'}, c));
                 if cb_handle.Value
                     dd_handle = app.(sprintf(Program.Handlers.channels.handles{'pp_dd'}, c));
-                    indices(c) = find(strcmp(dd_handle.Items, dd_handle.Value));
+                    items = dd_handle.Items;
+                    if isempty(items)
+                        idx = 0;
+                    else
+                        idx = find(strcmp(string(items), string(dd_handle.Value)), 1);
+                        if isempty(idx)
+                            idx = 0;
+                        end
+                    end
+                    indices(c) = idx;
                 end
             end
 
@@ -616,7 +625,11 @@ classdef channels
                 value_list = app.proc_c1_dropdown.Items;
                 for n=n_max+1:n_rows
                     target_component_string = sprintf(Program.Handlers.channels.handles{'pp_dd'}, n);
-                    idx.other{end+1} = find(strcmp(value_list, app.(target_component_string).Value));
+                    tmp_idx = find(strcmp(value_list, app.(target_component_string).Value), 1);
+                    if isempty(tmp_idx)
+                        tmp_idx = 0;
+                    end
+                    idx.other{end+1} = tmp_idx;
                 end
 
             else
@@ -642,7 +655,10 @@ classdef channels
                         end
                 end
                 
-                idx = find(strcmp(value_list, app.(target_component_string).Value));
+                idx = find(strcmp(value_list, app.(target_component_string).Value), 1);
+                if isempty(idx)
+                    idx = 0;
+                end
             end
         end
 
@@ -684,4 +700,3 @@ classdef channels
 
     end
 end
-

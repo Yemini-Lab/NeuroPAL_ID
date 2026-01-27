@@ -136,9 +136,38 @@ function render()
 
     Program.Handlers.dialogue.step('Rendering volume data...');
     if app.ProcShowMIPCheckBox.Value
-        image(squeeze(max(render_volume, [], 3)), 'Parent', app.proc_xyAxes);
+        frame = squeeze(max(render_volume, [], 3));
     else
-        image(squeeze(render_volume), 'Parent', app.proc_xyAxes);
+        z_idx = min(max(round(z), 1), size(render_volume, 3));
+        frame = squeeze(render_volume(:, :, z_idx, :));
+    end
+
+    % Ensure frame is displayable.
+    if ndims(frame) == 2
+        image(frame, 'Parent', app.proc_xyAxes);
+    elseif ndims(frame) == 3
+        if size(frame, 3) >= 3
+            if size(frame, 3) > 3
+                frame = frame(:, :, 1:3);
+            end
+            image(frame, 'Parent', app.proc_xyAxes);
+        else
+            msg = sprintf('Processing render: unexpected frame size %s', mat2str(size(frame)));
+            fprintf('%s\n', msg);
+            try
+                app.logEvent('Processing', msg, 0);
+            catch
+            end
+            error('Processing render: invalid frame size %s', mat2str(size(frame)));
+        end
+    else
+        msg = sprintf('Processing render: unexpected frame size %s', mat2str(size(frame)));
+        fprintf('%s\n', msg);
+        try
+            app.logEvent('Processing', msg, 0);
+        catch
+        end
+        error('Processing render: invalid frame size %s', mat2str(size(frame)));
     end
 
     if app.ProcPreviewZslowCheckBox.Value
@@ -146,4 +175,3 @@ function render()
         image(squeeze(render_volume(:, y, :, :, :)), 'Parent', app.proc_yzAxes);
     end
 end
-
