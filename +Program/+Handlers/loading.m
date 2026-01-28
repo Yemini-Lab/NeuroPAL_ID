@@ -59,26 +59,29 @@ classdef loading
 
     methods (Static, Access = private)
         function fade_label(t, hLabel)
-            if ~isempty(hLabel)
-                currentColor = hLabel.FontColor;
-                newColor = min(currentColor + [0.02 0.02 0.02], [0.9 0.9 0.9]);
-            
-                if all(newColor == [0.9 0.9 0.9])
+            if isempty(hLabel) || ~isvalid(hLabel)
+                if isvalid(t)
                     stop(t);
                     delete(t);
-                    delete(hLabel);
-                    Program.Handlers.loading.current([]);
-
-                else
-                    hLabel.FontColor = newColor;
-                    
                 end
+                Program.Handlers.loading.current([]);
+                return
+            end
+
+            currentColor = hLabel.FontColor;
+            newColor = min(currentColor + [0.02 0.02 0.02], [0.9 0.9 0.9]);
+        
+            if all(newColor == [0.9 0.9 0.9])
+                if isvalid(t)
+                    stop(t);
+                    delete(t);
+                end
+                delete(hLabel);
+                Program.Handlers.loading.current([]);
 
             else
-                stop(t);
-                delete(t);
+                hLabel.FontColor = newColor;
             end
         end
     end
 end
-

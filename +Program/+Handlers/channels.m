@@ -291,8 +291,14 @@ classdef channels
 
                 idx = round(indices(c));
                 if idx > 0
-                    name = app.(dd_handle).Items{idx};
-                    app.(dd_handle).Value = name;
+                    items = app.(dd_handle).Items;
+                    if idx > numel(items)
+                        idx = numel(items);
+                    end
+                    if idx >= 1
+                        name = items{idx};
+                        app.(dd_handle).Value = name;
+                    end
                 end
             end
         end
