@@ -510,6 +510,17 @@ classdef GUIHandling
         %% Log Tab
 
         function fade_log(t, hLabel)
+            if ~isvalid(hLabel) || ~isvalid(t)
+                try
+                    if isvalid(t)
+                        stop(t);
+                        delete(t);
+                    end
+                catch
+                end
+                return
+            end
+
             currentColor = hLabel.FontColor;
             newColor = min(currentColor + [0.02 0.02 0.02], [0.9 0.9 0.9]);
             hLabel.FontColor = newColor;
@@ -692,10 +703,18 @@ classdef GUIHandling
                         switch app.VolumeDropDown.Value
                             case 'Colormap'
                                 safe_c = Program.Validation.noskip_index(c_max);
-                                slice = app.proc_image.data(:, :, package.coords(3), c_load);
+                                [~, ~, nz_data, ~] = size(app.proc_image, 'data');
+                                z_idx = min(package.coords(3), nz_data);
+                                slice = app.proc_image.data(:, :, z_idx, c_load);
+                                if ndims(slice) == 3
+                                    slice = reshape(slice, size(slice,1), size(slice,2), 1, size(slice,3));
+                                end
                             case 'Video'
                                 slice = app.retrieve_frame(package.coords(4));
                                 slice = slice(:, :, package.coords(3), :);
+                                if ndims(slice) == 3
+                                    slice = reshape(slice, size(slice,1), size(slice,2), 1, size(slice,3));
+                                end
                         end
                     end
 
@@ -857,11 +876,20 @@ classdef GUIHandling
 
         function set_thresholds(app, max_val)
             max_val = cast(max_val, 'double');
-            new_limits = [1 max(2, max_val)];
+            
+            if max_val <= 1.0
+                new_limits = [0 1];
+                tick_step = 0.2;
+                start_tick = 0;
+            else
+                new_limits = [1 max(2, max_val)];
+                tick_step = max(1, round(max_val/5));
+                start_tick = 1;
+            end
 
             app.ProcNoiseThresholdKnob.Limits = new_limits;
             app.ProcNoiseThresholdField.Limits = new_limits;
-            app.ProcNoiseThresholdKnob.MajorTicks = [1:round(max_val/5):max_val, max_val];
+            app.ProcNoiseThresholdKnob.MajorTicks = unique([start_tick:tick_step:new_limits(2), new_limits(2)]);
             app.ProcNoiseThresholdKnob.MajorTickLabels = string(app.ProcNoiseThresholdKnob.MajorTicks);
             Program.GUIHandling.shorten_knob_labels(app);
 

@@ -289,9 +289,16 @@ classdef channels
                     app.(dd_handle).Items = names;
                 end
 
-                name = app.(dd_handle).Items{indices(c)};
-                if indices(c) ~= 0
-                    app.(dd_handle).Value = name;
+                idx = round(indices(c));
+                if idx > 0
+                    items = app.(dd_handle).Items;
+                    if idx > numel(items)
+                        idx = numel(items);
+                    end
+                    if idx >= 1
+                        name = items{idx};
+                        app.(dd_handle).Value = name;
+                    end
                 end
             end
         end
@@ -415,7 +422,16 @@ classdef channels
                 cb_handle = app.(sprintf(Program.Handlers.channels.handles{'pp_cb'}, c));
                 if cb_handle.Value
                     dd_handle = app.(sprintf(Program.Handlers.channels.handles{'pp_dd'}, c));
-                    indices(c) = find(strcmp(dd_handle.Items, dd_handle.Value));
+                    items = dd_handle.Items;
+                    if isempty(items)
+                        idx = 0;
+                    else
+                        idx = find(strcmp(string(items), string(dd_handle.Value)), 1);
+                        if isempty(idx)
+                            idx = 0;
+                        end
+                    end
+                    indices(c) = idx;
                 end
             end
 
@@ -615,7 +631,11 @@ classdef channels
                 value_list = app.proc_c1_dropdown.Items;
                 for n=n_max+1:n_rows
                     target_component_string = sprintf(Program.Handlers.channels.handles{'pp_dd'}, n);
-                    idx.other{end+1} = find(strcmp(value_list, app.(target_component_string).Value));
+                    tmp_idx = find(strcmp(value_list, app.(target_component_string).Value), 1);
+                    if isempty(tmp_idx)
+                        tmp_idx = 0;
+                    end
+                    idx.other{end+1} = tmp_idx;
                 end
 
             else
@@ -641,7 +661,10 @@ classdef channels
                         end
                 end
                 
-                idx = find(strcmp(value_list, app.(target_component_string).Value));
+                idx = find(strcmp(value_list, app.(target_component_string).Value), 1);
+                if isempty(idx)
+                    idx = 0;
+                end
             end
         end
 
@@ -668,8 +691,8 @@ classdef channels
 
                         info_struct = struct( ...
                             'gamma', {app.(sprintf("%s_GammaEditField", grid_pfx{pfx})).Value}, ...
-                            'low_high_in', {[]}, ...
-                            'low_high_out', {[slider_vals(1)/hist_limit slider_vals(2)/hist_limit]});
+                            'low_high_in', {[slider_vals(1)/hist_limit slider_vals(2)/hist_limit]}, ...
+                            'low_high_out', {[]});
                         return
                     end
                 end
@@ -683,4 +706,3 @@ classdef channels
 
     end
 end
-

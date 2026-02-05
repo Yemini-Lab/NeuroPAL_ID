@@ -192,8 +192,8 @@ classdef Utils
 
             fields = fieldnames(unionsp);
 
-            for t = 1: length(sp1)
-                for field_index = 1: size(fields)
+            for t = 1:length(sp1)
+                for field_index = 1:numel(fields)
                     try
                         unionsp(t).(fields{field_index})(end+1:end+size(sp2(t).(fields{field_index}),1),:,:,:,:) = sp2(t).(fields{field_index})(:,:,:,:,:);
                     catch
@@ -211,8 +211,8 @@ classdef Utils
 
             fields = fieldnames(subsp);
 
-            for t = 1: length(sp)
-                for field_index = 1: size(fields)
+            for t = 1:length(sp)
+                for field_index = 1:numel(fields)
                     try
                         subsp(t).(fields{field_index}) = sp(t).(fields{field_index})(subset,:,:,:,:);
                     catch
@@ -227,4 +227,3 @@ classdef Utils
         end
     end
 end
-

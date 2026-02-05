@@ -177,6 +177,69 @@ classdef NeuroPALImage
                 version = ProgramInfo.version;
                 save(image_file, 'version', 'prefs', 'worm', '-append', '-v7.3');
             end
+
+            % Sanitize prefs to avoid invalid channel indices in the GUI.
+            if ~isfield(prefs, 'RGBW') || isempty(prefs.RGBW)
+                prefs.RGBW = nan(1, 4);
+            end
+            if ~isfield(prefs, 'DIC')
+                prefs.DIC = nan;
+            end
+            if ~isfield(prefs, 'GFP')
+                prefs.GFP = nan;
+            end
+
+            nc = size(data, 4);
+            if nc < 1
+                prefs.RGBW = nan(1, 4);
+                prefs.DIC = nan;
+                prefs.GFP = nan;
+            else
+                prefs.RGBW = prefs.RGBW(:)';
+                if numel(prefs.RGBW) < 4
+                    prefs.RGBW(end+1:4) = nan;
+                end
+                prefs.RGBW = round(prefs.RGBW(1:4));
+                invalid_rgbw = isnan(prefs.RGBW) | prefs.RGBW < 1 | prefs.RGBW > nc;
+                if all(invalid_rgbw)
+                    prefs.RGBW = nan(1, 4);
+                    prefs.RGBW(1:min(4, nc)) = 1:min(4, nc);
+                else
+                    prefs.RGBW(invalid_rgbw) = 1;
+                end
+
+                % DIC: keep only a valid scalar index, otherwise NaN.
+                if isempty(prefs.DIC)
+                    prefs.DIC = nan;
+                elseif isscalar(prefs.DIC)
+                    if prefs.DIC < 1 || prefs.DIC > nc
+                        prefs.DIC = nan;
+                    end
+                else
+                    valid_dic = prefs.DIC(prefs.DIC >= 1 & prefs.DIC <= nc);
+                    if isempty(valid_dic)
+                        prefs.DIC = nan;
+                    else
+                        prefs.DIC = valid_dic(1);
+                    end
+                end
+
+                % GFP: keep only a valid scalar index, otherwise NaN.
+                if isempty(prefs.GFP)
+                    prefs.GFP = nan;
+                elseif isscalar(prefs.GFP)
+                    if prefs.GFP < 1 || prefs.GFP > nc
+                        prefs.GFP = nan;
+                    end
+                else
+                    valid_gfp = prefs.GFP(prefs.GFP >= 1 & prefs.GFP <= nc);
+                    if isempty(valid_gfp)
+                        prefs.GFP = nan;
+                    else
+                        prefs.GFP = valid_gfp(1);
+                    end
+                end
+            end
             
             % Open the ID file or try to load neuron data from associated NWB file.
             version = 0;

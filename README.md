@@ -61,7 +61,9 @@ For the latest compiled release that can be run independently of MATLAB, please 
    b. [Bioformats Toolbox](https://downloads.openmicroscopy.org/bio-formats/5.3.4/)
    c. [Image Processing Toolbox](https://www.mathworks.com/products/image.html)
    d. [Statistics and Machine Learning Toolbox](https://www.mathworks.com/products/statistics.html)
-   f. [requirements.txt](https://github.com/Yemini-Lab/NeuroPAL_ID/blob/master/requirements.txt) or [requirements-macos.txt](https://github.com/Yemini-Lab/NeuroPAL_ID/blob/master/requirements-macos.txt)
+   e. [Optimization Toolbox](https://www.mathworks.com/products/optimization.html)
+   f. [Parallel Computing Toolbox](https://www.mathworks.com/products/parallel-computing.html) (optional; enables parallel Auto-ID)
+   g. [requirements.txt](https://github.com/Yemini-Lab/NeuroPAL_ID/blob/master/requirements.txt) or [requirements-macos.txt](https://github.com/Yemini-Lab/NeuroPAL_ID/blob/master/requirements-macos.txt)
 3. Open Git Bash to your preferred working directory.
 4. Use `git clone https://github.com/Yemini-Lab/NeuroPAL_ID.git`
 5. Open `visualize_light.mlapp` in MATLAB's AppDesigner.

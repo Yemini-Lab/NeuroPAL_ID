@@ -21,6 +21,7 @@ function render()
         render_volume(:, :, :, 1) = 0;
     else
         Program.Handlers.dialogue.step('Computing red channel...');
+        if r.settings.gamma < 0.01; r.settings.gamma = 1; end
         render_volume(:, :, :, 1) = imadjustn(render_volume(:, :, :, 1), r.settings.low_high_in, r.settings.low_high_out, r.settings.gamma);
     end
 
@@ -28,6 +29,7 @@ function render()
         render_volume(:, :, :, 2) = 0;
     else
         Program.Handlers.dialogue.step('Computing green channel...');
+        if g.settings.gamma < 0.01; g.settings.gamma = 1; end
         render_volume(:, :, :, 2) = imadjustn(render_volume(:, :, :, 2), g.settings.low_high_in, g.settings.low_high_out, g.settings.gamma);
     end
 
@@ -35,6 +37,7 @@ function render()
         render_volume(:, :, :, 3) = 0;
     else
         Program.Handlers.dialogue.step('Computing blue channel...');
+        if b.settings.gamma < 0.01; b.settings.gamma = 1; end
         render_volume(:, :, :, 3) = imadjustn(render_volume(:, :, :, 3), b.settings.low_high_in, b.settings.low_high_out, b.settings.gamma);
     end
 
@@ -47,6 +50,7 @@ function render()
     
         % Adjust the gamma.
         if white.settings.gamma ~= 1
+            if white.settings.gamma < 0.01; white.settings.gamma = 1; end
             wchannel = imadjustn(wchannel, white.settings.low_high_in, white.settings.low_high_out, white.settings.gamma);
         end
     
@@ -63,6 +67,7 @@ function render()
     
         % Adjust the gamma.
         if dic.settings.gamma ~= 1
+            if dic.settings.gamma < 0.01; dic.settings.gamma = 1; end
             dic_channel = imadjustn(dic_channel, dic.settings.low_high_in, dic.settings.low_high_out, dic.settings.gamma);
         end
     
@@ -80,6 +85,7 @@ function render()
     
         % Adjust the gamma.
         if gfp.settings.gamma ~= 1
+            if gfp.settings.gamma < 0.01; gfp.settings.gamma = 1; end
             gfp_channel = imadjustn(gfp_channel, gfp.settings.low_high_in, gfp.settings.low_high_out, gfp.settings.gamma);
         end
     
@@ -130,9 +136,38 @@ function render()
 
     Program.Handlers.dialogue.step('Rendering volume data...');
     if app.ProcShowMIPCheckBox.Value
-        image(squeeze(max(render_volume, [], 3)), 'Parent', app.proc_xyAxes);
+        frame = squeeze(max(render_volume, [], 3));
     else
-        image(squeeze(render_volume), 'Parent', app.proc_xyAxes);
+        z_idx = min(max(round(z), 1), size(render_volume, 3));
+        frame = squeeze(render_volume(:, :, z_idx, :));
+    end
+
+    % Ensure frame is displayable.
+    if ndims(frame) == 2
+        image(frame, 'Parent', app.proc_xyAxes);
+    elseif ndims(frame) == 3
+        if size(frame, 3) >= 3
+            if size(frame, 3) > 3
+                frame = frame(:, :, 1:3);
+            end
+            image(frame, 'Parent', app.proc_xyAxes);
+        else
+            msg = sprintf('Processing render: unexpected frame size %s', mat2str(size(frame)));
+            fprintf('%s\n', msg);
+            try
+                app.logEvent('Processing', msg, 0);
+            catch
+            end
+            error('Processing render: invalid frame size %s', mat2str(size(frame)));
+        end
+    else
+        msg = sprintf('Processing render: unexpected frame size %s', mat2str(size(frame)));
+        fprintf('%s\n', msg);
+        try
+            app.logEvent('Processing', msg, 0);
+        catch
+        end
+        error('Processing render: invalid frame size %s', mat2str(size(frame)));
     end
 
     if app.ProcPreviewZslowCheckBox.Value
@@ -140,4 +175,3 @@ function render()
         image(squeeze(render_volume(:, y, :, :, :)), 'Parent', app.proc_yzAxes);
     end
 end
-

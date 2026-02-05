@@ -150,8 +150,45 @@ classdef nd2
             info = struct('file', {file});                                      % Initialize info struct.
             info.scale = DataHandling.Helpers.nd2.parse_scale(f);               % Set image scale
 
-            info.channel_names = DataHandling.Helpers.nd2.get_channel_names(f);           % Get channel names.
-            channels = Program.Handlers.channels.parse_info(info.channel_names);          % Get channel indices from names.
+            % Get channel names.
+            channel_names = DataHandling.Helpers.nd2.get_channel_names(f);
+            if isempty(channel_names)
+                % Fall back to metadata parsing if Bio-Formats reports no channels.
+                try
+                    [nc_from_meta, ch_names_meta, ~] = DataHandling.Helpers.nd2.channels_from_file(file);
+                    if nc_from_meta > 0
+                        nc = nc_from_meta;
+                        channel_names = ch_names_meta;
+                    end
+                catch
+                    % Leave as-is; we'll guard below.
+                end
+            end
+
+            % If channel count is still zero but we have names, infer nc from names.
+            if nc == 0 && ~isempty(channel_names)
+                nc = numel(channel_names);
+            end
+
+            % Hard stop if we truly have no channels.
+            if nc == 0
+                error('ND2 file reports zero channels. Check Bio-Formats or ND2 metadata.');
+            end
+
+            % If channel names are still empty, assign defaults.
+            if isempty(channel_names)
+                channel_names = arrayfun(@(x) sprintf("Channel %d", x), 1:nc, 'UniformOutput', false);
+            end
+
+            info.channel_names = channel_names;                                         % Store channel names.
+            channels = Program.Handlers.channels.parse_info(info.channel_names);        % Get channel indices from names.
+
+            % If parsing yielded no matches, fall back to 1:nc so RGBW has valid indices.
+            if all(channels == 0)
+                max_nc = Program.Handlers.channels.config{'max_channels'};
+                channels = zeros(1, max_nc, 'double');
+                channels(1:nc) = 1:nc;
+            end
             
             [~, has_duplicate, duplicate_indices] = Program.Validation.check_for_duplicate_fluorophores(channels);
             if has_duplicate && ~isempty(duplicate_indices)
@@ -161,6 +198,14 @@ classdef nd2
             info.RGBW = arrayfun(@(x) find(channels == x), 1:4, 'UniformOutput', false);                    % Set RGBW indices.
             if iscell(info.RGBW)
                 info.RGBW = cell2mat(info.RGBW);
+            end
+            % Ensure RGBW is valid and within bounds.
+            if isempty(info.RGBW) || numel(info.RGBW) < 4
+                info.RGBW = nan(1, 4);
+                info.RGBW(1:min(4, nc)) = 1:min(4, nc);
+            else
+                info.RGBW = round(info.RGBW(1:4));
+                info.RGBW(info.RGBW < 1 | info.RGBW > nc) = 1;
             end
 
             info.DIC = find(ismember(channels, 5));                             % Set DIC if present, else set to 0.
@@ -181,7 +226,15 @@ classdef nd2
             % Initialize the user preferences.
             prefs.RGBW = info.RGBW;
             prefs.DIC = info.DIC;
+            if isempty(prefs.DIC) || prefs.DIC == 0
+                prefs.DIC = nan;
+            end
             prefs.GFP = info.GFP;
+            if isempty(prefs.GFP) || all(prefs.GFP == 0)
+                prefs.GFP = nan;
+            elseif numel(prefs.GFP) > 1
+                prefs.GFP = prefs.GFP(1);
+            end
             prefs.gamma = info.gamma;
             prefs.rotate.horizontal = false;
             prefs.rotate.vertical = false;
