@@ -833,7 +833,7 @@ Please add it to your desktop so you can easily find it.
       <file>${PROJECT_ROOT}\+Program\information.m</file>
       <file>${PROJECT_ROOT}\+Program\ProgramInfo.m</file>
       <file>${PROJECT_ROOT}\+Program\ProgramTests.m</file>
-      <file>${PROJECT_ROOT}\+Program\rotation_gui.m</file>
+      <file>${PROJECT_ROOT}\+Program\crop_rotate_gui.m</file>
       <file>${PROJECT_ROOT}\+Program\window.m</file>
       <file>${PROJECT_ROOT}\autoseg_window.mlapp</file>
       <file>${PROJECT_ROOT}\cache.mat</file>

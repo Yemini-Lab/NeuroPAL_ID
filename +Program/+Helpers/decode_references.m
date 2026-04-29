@@ -9,9 +9,11 @@ function reference_idx = decode_references(query)
             end
         end
 
-        reference_idx = find(strcmp(query, reference_values))+3;
+        reference_idx = find(strcmp(query, reference_values), 1) + 3;
+        if isempty(reference_idx)
+            reference_idx = [];
+        end
     else
         reference_idx = length(app.proc_channel_grid.RowHeight) - Program.Handlers.channels.config{'max_channels'};
     end
 end
-

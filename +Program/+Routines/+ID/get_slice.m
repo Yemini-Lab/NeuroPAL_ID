@@ -4,7 +4,7 @@ function get_slice(slider, view, ax)
     app = Program.app;
 
     % Sanity check the Z slice value.
-    z = round(app.ZSlider.Value);
+    z = Program.Helpers.gui_z_to_data_index(app.ZSlider.Value, size(app.image_data, 3), false);
     app.logEvent('Main',sprintf('Drawing slice %s...', string(z)), 0);
     app.ZSlider.Value = z;
 
@@ -15,9 +15,10 @@ function get_slice(slider, view, ax)
 
     % Flip the Z-axis.
     z_num = z;
-    if app.image_prefs.is_Z_flip
-        z = size(app.image_data,3) - z + 1;
-    end
+    z = Program.Helpers.gui_z_to_data_index(z_num, size(app.image_data, 3), app.image_prefs.is_Z_flip);
+    Program.Helpers.debug_event('IDSlice', ...
+        'z_gui=%d z_data=%d is_Z_flip=%d z_center=%d', ...
+        z_num, z, app.image_prefs.is_Z_flip, app.image_prefs.z_center);
 
     % Where are we in Z?
     background_color = [0.94,0.94,0.94];
@@ -42,7 +43,8 @@ function get_slice(slider, view, ax)
     % Clear the contents of the axis to draw the new Z-slice.
     cla(ax);
     % Create the slice at z for displaying in the axis.
-    xy = squeeze(view(:,:,z,:,:));
+    [xy, ~, z] = Program.Helpers.get_current_display_slice(app, 'main', view);
+    Program.Helpers.debug_array_summary('IDSlice', 'xy_slice', xy);
     % Display the current slice in the XY axis.
     gui_image = image(xy, 'Parent', ax); hold(ax, 'on');
 

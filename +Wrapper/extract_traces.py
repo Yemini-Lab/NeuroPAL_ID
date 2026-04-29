@@ -31,6 +31,7 @@ Options:
     --wlid_ref=<wlid_ref>               subset of neurons to extract by worldline_id.
 """
 
+import ast
 from docopt import docopt
 from scipy.optimize import curve_fit
 from scipy.signal import butter, filtfilt
@@ -46,6 +47,15 @@ from zephir.utils.utils import *
 import pandas as pd
 import getters
 import h5py
+
+
+def parse_literal_arg(value, name):
+    if value is None:
+        return None
+    try:
+        return ast.literal_eval(value)
+    except (SyntaxError, ValueError) as exc:
+        raise ValueError(f'Invalid literal for {name}: {value}') from exc
 
 
 def double_exp(t, a1, b1, a2, b2):
@@ -321,9 +331,9 @@ def main():
         n_cluster=int(args['--n_cluster']),
         nn_max=int(args['--nn_max']),
         rma_channel=int(args['--rma_channel']) if args['--rma_channel'] else None,
-        t_list=list(args['--t_list']) if args['--t_list'] else None,
+        t_list=parse_literal_arg(args['--t_list'], '--t_list') if args['--t_list'] else None,
         dist_thresh=float(args['--dist_thresh']),
-        wlid_ref=eval(args['--wlid_ref']) if args['--wlid_ref'] else None,
+        wlid_ref=parse_literal_arg(args['--wlid_ref'], '--wlid_ref') if args['--wlid_ref'] else None,
     )
 
 

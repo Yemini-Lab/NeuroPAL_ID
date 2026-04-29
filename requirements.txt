@@ -10,6 +10,8 @@ zephir
 pynwb
 hdmf
 tifffile
+czifile
+imagecodecs
 ndx-multichannel-volume
 h5py
 docopt

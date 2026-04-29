@@ -1,56 +1,70 @@
 function reset()
     app = Program.GUIHandling.app;
 
-    d = uiprogressdlg(app.CELL_ID, "Message", "Resetting volume...", "Title", "NeuroPAL_ID", "Indeterminate", "on");
-    
-    d.Message = "Clearing ROIs...";
-    switch app.VolumeDropDown.Value
-        case 'Colormap'
+    d = uiprogressdlg(app.CELL_ID, ...
+        "Message", "Resetting processing preview...", ...
+        "Title", "NeuroPAL_ID", ...
+        "Indeterminate", "on");
+
+    current_mode = lower(string(app.VolumeDropDown.Value));
+    snapshot = Program.GUIHandling.get_processing_defaults(app, current_mode);
+
+    d.Message = "Clearing temporary state...";
+    switch current_mode
+        case "colormap"
             app.volume_crop_roi = [];
-
-            vol_size = size(app.proc_image, 'data');
-
-            nx = vol_size(1);
-            ny = vol_size(2);
+            if isa(app.proc_image, 'matlab.io.MatFile')
+                app.image_data = app.proc_image.data;
+                app.image_data_zscored = Methods.Preprocess.zscore_frame(app.image_data);
+                try
+                    app.image_prefs = app.proc_image.prefs;
+                    app.image_gamma = Program.Helpers.expand_gamma( ...
+                        app.image_prefs.gamma, ...
+                        length(Program.GUIHandling.pos_prefixes));
+                catch
+                end
+            end
+            if isappdata(app.CELL_ID, 'proc_runtime_dirty')
+                rmappdata(app.CELL_ID, 'proc_runtime_dirty');
+            end
+            vol_size = Program.Helpers.processing_colormap_context(app).dims;
+            ny = vol_size(1);
+            nx = vol_size(2);
             nz = vol_size(3);
-
-        case 'Video'
+            nt = 1;
+        case "video"
             app.video_crop_roi = [];
-
             nx = app.video_info.nx;
             ny = app.video_info.ny;
             nz = app.video_info.nz;
+            nt = app.video_info.nt;
+        otherwise
+            nx = app.proc_xSlider.Limits(2);
+            ny = app.proc_ySlider.Limits(2);
+            nz = app.proc_zSlider.Limits(2);
+            nt = max(1, app.proc_tSlider.Limits(2));
     end
 
-    d.Message = "Resetting GUI...";
-    app.proc_xyAxes.XLim = [1, nx];
-    app.proc_xyAxes.YLim = [1, ny];
+    Program.GUIHandling.reset_processing_runtime_state(app);
 
-    app.proc_xzAxes.XLim = [1, nx];
-    app.proc_yzAxes.YLim = [1, ny];
+    d.Message = "Restoring controls...";
+    Program.Routines.GUI.set_limits(nx, ny, nz, nt);
+    app.proc_xEditField.Value = app.proc_xSlider.Value;
+    app.proc_yEditField.Value = app.proc_ySlider.Value;
+    app.proc_zEditField.Value = app.proc_zSlider.Value;
+    app.proc_tEditField.Value = app.proc_tSlider.Value;
 
-    app.proc_xSlider.Limits = [1, nx];
-    app.proc_ySlider.Limits = [1, ny];
-    app.proc_hor_zSlider.Limits = [1, nz];
-    app.proc_vert_zSlider.Limits = [1, nz];
+    if ~isempty(fieldnames(snapshot))
+        Program.GUIHandling.restore_processing_defaults(app, snapshot);
+    else
+        Program.GUIHandling.set_thresholds(app, 255);
+    end
 
-    app.proc_xSlider.Value = round(nx/2);
-    app.proc_ySlider.Value = round(ny/2);
-    app.proc_hor_zSlider.Value = round(nz/2);
-    app.proc_vert_zSlider.Value = round(nz/2);
-
-    d.Message = "Redrawing clean volume...";
-    app.flags = struct();
-    app.spectral_cache = struct( ...
-        'ch_db', {[]}, ...
-        'ch_px', {{}}, ...
-        'ch_val', {[]}, ...
-        'bg_px', {[]}, ...
-        'bg_val', {[]}, ...
-        'blurred_img', {[]});
-
+    d.Message = "Redrawing preview...";
     Program.Routines.Processing.render();
+    if strcmp(current_mode, "colormap")
+        Program.Helpers.sync_main_display_from_processing(app, true);
+    end
 
     close(d);
 end
-

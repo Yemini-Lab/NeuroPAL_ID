@@ -21,25 +21,20 @@ classdef loading
 
             current_loading_label = Program.Handlers.loading.current();
 
-            if isempty(current_loading_label)
-                app = Program.app;
-                tr_corner = app.CELL_ID.Position(3);
-                label_position = [tr_corner-525, app.TabGroup.Position(4)-23, 500, 23];
-    
-                hLabel = uilabel('Parent', app.CELL_ID, ...
-                    'Text', msg, ...
-                    'Position', label_position, ...
-                    'FontColor', [0 0 0], 'HorizontalAlignment', 'right');
-
-                app.load_graphic.Position(1) = tr_corner - 20;
-                app.load_graphic.Position(2) = label_position(2) + 3;
-                app.load_graphic.Visible = 'on';
-    
+            if isempty(current_loading_label) || ~Program.Handlers.loading.is_live_label(current_loading_label)
+                hLabel = Program.Handlers.loading.create_label(msg);
                 Program.Handlers.loading.current(hLabel);
                 drawnow;
+                return
+            end
 
-            elseif isprop(current_loading_label, 'Text')
-                current_loading_label.Text = msg;
+            hLabel = current_loading_label;
+            try
+                hLabel.Text = msg;
+            catch
+                hLabel = Program.Handlers.loading.create_label(msg);
+                Program.Handlers.loading.current(hLabel);
+                drawnow;
             end
         end
 
@@ -58,6 +53,40 @@ classdef loading
     end
 
     methods (Static, Access = private)
+        function tf = is_live_label(hLabel)
+            tf = ~isempty(hLabel);
+            if ~tf
+                return
+            end
+
+            try
+                tf = isvalid(hLabel) && isprop(hLabel, 'Text');
+            catch
+                tf = false;
+            end
+        end
+
+        function hLabel = create_label(msg)
+            app = Program.app;
+            tr_corner = app.CELL_ID.Position(3);
+            label_position = [tr_corner-525, app.TabGroup.Position(4)-23, 500, 23];
+
+            hLabel = uilabel('Parent', app.CELL_ID, ...
+                'Text', msg, ...
+                'Position', label_position, ...
+                'FontColor', [0 0 0], 'HorizontalAlignment', 'right');
+
+            if isprop(app, 'load_graphic') && ~isempty(app.load_graphic)
+                try
+                    app.load_graphic.Position(1) = tr_corner - 20;
+                    app.load_graphic.Position(2) = label_position(2) + 3;
+                    app.load_graphic.Visible = 'on';
+                catch
+                    % Ignore stale loading icon state during view transitions.
+                end
+            end
+        end
+
         function fade_label(t, hLabel)
             if isempty(hLabel) || ~isvalid(hLabel)
                 if isvalid(t)

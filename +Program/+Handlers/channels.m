@@ -11,8 +11,8 @@ classdef channels
             'pp_ref', {'proc_c%.f_ref'}, ...                                % Reference dropdowns.
             'pp_grid', {'EditChannelsGrid'}, ...                            % Grid.
             'pp_button', {'EditChannelsButton'}, ...                        % Edit channel button.
-            'pp_down', {{'1', 'down', '⮟'}}, ...                           % Buttons that move channels up in the grid.
-            'pp_up', {{'-1', 'up', '⮝'}});                                 % Buttons that move channels down in the grid.
+            'pp_down', {{'1', 'down', 'dn', '↓', '⮟'}}, ...                % Buttons that move channels down in the grid.
+            'pp_up', {{'-1', 'up', '↑', '⮝'}});                            % Buttons that move channels up in the grid.
 
         % Dictionary of channel colors and their respective fluorophores.
         fluorophore_map = dictionary( ...
@@ -279,6 +279,8 @@ classdef channels
                 end
             end
 
+            role_defaults = {'Red', 'Green', 'Blue', 'White', 'DIC', 'GFP'};
+
             for c=1:nc
                 cb_handle = sprintf(Program.Handlers.channels.handles{'pp_cb'}, c);
                 app.(cb_handle).Value = c <= 3;
@@ -287,6 +289,17 @@ classdef channels
 
                 if ~isempty(names)
                     app.(dd_handle).Items = names;
+                end
+
+                if c >= 4
+                    ref_handle = sprintf(Program.Handlers.channels.handles{'pp_ref'}, c);
+                    if isprop(app, ref_handle) && isvalid(app.(ref_handle))
+                        ref_items = string(app.(ref_handle).Items);
+                        target_role = string(role_defaults{min(c, numel(role_defaults))});
+                        if any(ref_items == target_role)
+                            app.(ref_handle).Value = char(target_role);
+                        end
+                    end
                 end
 
                 idx = round(indices(c));
@@ -314,78 +327,70 @@ classdef channels
                 'gfp', {gfp});
         end
 
+        function state = main_state(app)
+            if nargin < 1
+                app = Program.app;
+            end
+
+            gammas = Program.Helpers.expand_gamma(app.image_gamma, 6);
+            state = struct( ...
+                'r', Program.Handlers.channels.build_main_channel(app, 'r', 'Red', 'RDropDown', 'RCheckBox', gammas(1), [1 0 0]), ...
+                'g', Program.Handlers.channels.build_main_channel(app, 'g', 'Green', 'GDropDown', 'GCheckBox', gammas(2), [0 1 0]), ...
+                'b', Program.Handlers.channels.build_main_channel(app, 'b', 'Blue', 'BDropDown', 'BCheckBox', gammas(3), [0 0 1]), ...
+                'white', Program.Handlers.channels.build_main_channel(app, 'white', 'White', 'WDropDown', 'WCheckBox', gammas(4), [1 1 1]), ...
+                'dic', Program.Handlers.channels.build_main_channel(app, 'dic', 'DIC', 'DICDropDown', 'DICCheckBox', gammas(5), [0.42 0.42 0.42]), ...
+                'gfp', Program.Handlers.channels.build_main_channel(app, 'gfp', 'GFP', 'GFPDropDown', 'GFPCheckBox', gammas(6), [1 1 0]));
+        end
+
+        function state = processing_state(app)
+            if nargin < 1
+                app = Program.app;
+            end
+
+            n_rows = length(app.proc_channel_grid.RowHeight);
+            rows = repmat(Program.Handlers.channels.empty_processing_row(), 1, n_rows);
+            for row = 1:n_rows
+                rows(row) = Program.Handlers.channels.build_processing_row(app, row);
+            end
+
+            state = struct();
+            state.rows = rows;
+            state.r = rows(1);
+            state.g = Program.Handlers.channels.get_processing_role(rows, 'g');
+            state.b = Program.Handlers.channels.get_processing_role(rows, 'b');
+            state.white = Program.Handlers.channels.get_processing_role(rows, 'white');
+            state.dic = Program.Handlers.channels.get_processing_role(rows, 'dic');
+            state.gfp = Program.Handlers.channels.get_processing_role(rows, 'gfp');
+            state.other = rows(strcmp({rows.role_key}, 'other'));
+
+            enabled_rows = rows([rows.enabled]);
+            enabled_indices = unique([enabled_rows.source_idx]);
+            enabled_indices = enabled_indices(enabled_indices > 0);
+            state.enabled_source_indices = enabled_indices;
+
+            source_indices = [rows.source_idx];
+            source_indices = source_indices(source_indices > 0);
+            if isempty(source_indices)
+                state.max_source_idx = 0;
+            else
+                state.max_source_idx = max(source_indices);
+            end
+        end
+
         function [r, g, b, white, dic, gfp, other] = parse_channel_gui()
-            app = Program.app;
-            indices = Program.Handlers.channels.get_channel_idx();
-            references = lower(app.(sprintf(Program.Handlers.channels.handles{'pp_ref'}, 4)).Items);
-            nc = length(app.proc_channel_grid.RowHeight);
-
-            r = struct( ...
-                'idx', indices.r, ...
-                'bool', app.proc_c1_checkbox.Value, ...
-                'settings', Program.Handlers.channels.get_processing_info('r'));
-
-            if nc > 2
-                g = struct( ...
-                    'idx', indices.g, ...
-                    'bool', app.proc_c2_checkbox.Value, ...
-                    'settings', Program.Handlers.channels.get_processing_info('g'));
-            else
-                g = struct('idx', indices.r, 'bool', 0);
-            end
-
-            if nc > 2
-                b = struct( ...
-                    'idx', indices.b, ...
-                    'bool', app.proc_c3_checkbox.Value, ...
-                    'settings', Program.Handlers.channels.get_processing_info('b'));
-            else
-                b = struct('idx', indices.r, 'bool', 0);
-            end
-
-            if nc > 3
-                white = struct('idx', indices.white, 'settings', Program.Handlers.channels.get_processing_info('white'));
-                if ismember('white', references)
-                    white.bool = app.(sprintf(Program.Handlers.channels.handles{'pp_cb'}, Program.Helpers.decode_references('white'))).Value;
-                else
-                    white.bool = 0;
-                end
-    
-                dic = struct('idx', indices.dic, 'settings', Program.Handlers.channels.get_processing_info('dic'));
-                if ismember('dic', references)
-                    dic.bool = app.(sprintf(Program.Handlers.channels.handles{'pp_cb'}, Program.Helpers.decode_references('dic'))).Value;
-                else
-                    dic.bool = 0;
-                end
-    
-                gfp = struct('idx', indices.gfp, 'settings', Program.Handlers.channels.get_processing_info('gfp'));
-                if ismember('gfp', references)
-                    gfp.bool = app.(sprintf(Program.Handlers.channels.handles{'pp_cb'}, Program.Helpers.decode_references('gfp'))).Value;
-                else
-                    gfp.bool = 0;
-                end
-    
-                n_rows = length(app.proc_channel_grid.RowHeight);
-                n_max = Program.Handlers.channels.config{'max_channels'};
-                other = {};
-                for n=n_max+1:n_rows
-                    cb_handle = sprintf(Program.Handlers.channels.handles{'pp_cb'}, n);
-                    color_handle = sprintf(Program.Handlers.channels.handles{'pp_ref'}, n);
-                    other{end+1} = struct( ...
-                        'idx', indices.other(n-n_max), ...
-                        'bool', {app.(cb_handle).Value}, ...
-                        'color', {app.(color_handle).Value});
-                end
-            else
-                white = struct('bool', 0);
-                dic = struct('bool', 0);
-                gfp = struct('bool', 0);
-                other = {};
-            end
+            state = Program.Handlers.channels.processing_state();
+            r = Program.Handlers.channels.render_struct_from_row(state.r);
+            g = Program.Handlers.channels.render_struct_from_row(state.g);
+            b = Program.Handlers.channels.render_struct_from_row(state.b);
+            white = Program.Handlers.channels.render_struct_from_row(state.white);
+            dic = Program.Handlers.channels.render_struct_from_row(state.dic);
+            gfp = Program.Handlers.channels.render_struct_from_row(state.gfp);
+            other = cellfun(@Program.Handlers.channels.other_struct_from_row, ...
+                num2cell(state.other), 'UniformOutput', false);
         end        
 
         function bools = get_bools(mode)
-            app = Program.app;
+            state = Program.Handlers.channels.processing_state();
 
             if nargin < 1
                 mode = 'array';
@@ -393,49 +398,22 @@ classdef channels
 
             switch mode
                 case 'array'
-                    bools = [];
-                    for c=1:length(app.proc_channel_grid.RowHeight)
-                        handle = sprintf(Program.Handlers.channels.handles{'pp_cb'}, c);
-                        if app.(handle).Value
-                            dd_handle = sprintf(Program.Handlers.channels.handles{'pp_dd'}, c);
-                            idx = find(ismember(app.(dd_handle).Items, app.(dd_handle).Value));
-                            bools = [bools idx];
-                        end
-                    end
+                    bools = state.enabled_source_indices;
 
                 case 'struct'
                     bools = struct( ...
-                        'r', {app.(sprintf(Program.Handlers.channels.handles{'pp_cb'}, 1)).Value}, ...
-                        'g', {app.(sprintf(Program.Handlers.channels.handles{'pp_cb'}, 2)).Value}, ...
-                        'b', {app.(sprintf(Program.Handlers.channels.handles{'pp_cb'}, 3)).Value}, ...
-                        'white', {app.(sprintf(Program.Handlers.channels.handles{'pp_cb'}, 4)).Value}, ...
-                        'dic', {app.(sprintf(Program.Handlers.channels.handles{'pp_cb'}, 5)).Value}, ...
-                        'gfp', {app.(sprintf(Program.Handlers.channels.handles{'pp_cb'}, 6)).Value});
+                        'r', {state.r.enabled}, ...
+                        'g', {state.g.enabled}, ...
+                        'b', {state.b.enabled}, ...
+                        'white', {state.white.enabled}, ...
+                        'dic', {state.dic.enabled}, ...
+                        'gfp', {state.gfp.enabled});
             end
         end
 
         function max_idx = get_max_idx()
-            app = Program.app;
-            nc = length(app.proc_channel_grid.RowHeight);
-            indices = zeros([1, nc]);
-            for c=nc:-1:1
-                cb_handle = app.(sprintf(Program.Handlers.channels.handles{'pp_cb'}, c));
-                if cb_handle.Value
-                    dd_handle = app.(sprintf(Program.Handlers.channels.handles{'pp_dd'}, c));
-                    items = dd_handle.Items;
-                    if isempty(items)
-                        idx = 0;
-                    else
-                        idx = find(strcmp(string(items), string(dd_handle.Value)), 1);
-                        if isempty(idx)
-                            idx = 0;
-                        end
-                    end
-                    indices(c) = idx;
-                end
-            end
-
-            max_idx = max(indices);
+            state = Program.Handlers.channels.processing_state();
+            max_idx = state.max_source_idx;
         end
 
         function set_idx(order, ~)
@@ -462,41 +440,64 @@ classdef channels
         end
 
         function edit_channels()
+            Program.Handlers.channels.hide_edit_controls();
+        end
+
+        function hide_edit_controls()
             app = Program.app;
-            state = app.EditChannelsButton.Text;
+            handles = Program.Handlers.channels.get_handles();
 
-            switch state
-                case "Edit Channels"
-                    app.EditChannelsButton.Text = "Done Editing";
+            app.ProcessingGridLayout.ColumnWidth = {'1x', 292};
+            % The web ViewModel is fragile around hidden grid columns; keep
+            % the columns narrow rather than collapsing them to zero width.
+            app.proc_channel_grid.ColumnWidth = {15, 88, '1x', 8, 8, 8};
 
-                    for c=1:length(app.proc_channel_grid.RowHeight)
-                        dd_handle = sprintf(Program.Handlers.channels.handles{'pp_dd'}, c);
-                        ef_handle = sprintf(Program.Handlers.channels.handles{'pp_ef'}, c);
-        
-                        app.(ef_handle).Value = app.(dd_handle).Value;
-        
-                        app.(ef_handle).Visible = 'on';
-                        app.(dd_handle).Visible = 'off';
-                    end
+            for c=1:length(app.proc_channel_grid.RowHeight)
+                dd_handle = sprintf(Program.Handlers.channels.handles{'pp_dd'}, c);
+                up_handle = sprintf(handles.up, c);
+                down_handle = sprintf(handles.down, c);
+                delete_handle = sprintf(handles.delete, c);
 
-                case "Done Editing"
-                    app.EditChannelsButton.Text = "Edit Channels";
+                app.(dd_handle).Visible = 'on';
 
-                    new_channel_list = {};
-                    
-                    for c=1:length(app.proc_channel_grid.RowHeight)
-                        ef_handle = sprintf(Program.Handlers.channels.handles{'pp_ef'}, c);
-                        new_channel_list{end+1} = app.(ef_handle).Value;
-                        app.(ef_handle).Visible = 'off';
-                    end
-                    
-                    for c=1:length(app.proc_channel_grid.RowHeight)
-                        ef_handle = sprintf(Program.Handlers.channels.handles{'pp_ef'}, c);
-                        dd_handle = sprintf(Program.Handlers.channels.handles{'pp_dd'}, c);
-                        app.(dd_handle).Items = new_channel_list;
-                        app.(dd_handle).Value = app.(ef_handle).Value;
-                        app.(dd_handle).Visible = 'on';
-                    end
+                if isprop(app, down_handle) && isvalid(app.(down_handle))
+                    app.(down_handle).Visible = 'off';
+                end
+                if isprop(app, up_handle) && isvalid(app.(up_handle))
+                    app.(up_handle).Visible = 'off';
+                end
+                if isprop(app, delete_handle) && isvalid(app.(delete_handle))
+                    app.(delete_handle).Visible = 'off';
+                end
+            end
+
+            if isprop(app, 'EditChannelsButton') && isvalid(app.EditChannelsButton)
+                app.EditChannelsButton.Visible = 'off';
+            end
+        end
+
+        function hide_edit_buttons_only()
+            app = Program.app;
+            handles = Program.Handlers.channels.get_handles();
+
+            for c=1:length(app.proc_channel_grid.RowHeight)
+                up_handle = sprintf(handles.up, c);
+                down_handle = sprintf(handles.down, c);
+                delete_handle = sprintf(handles.delete, c);
+
+                if isprop(app, down_handle) && isvalid(app.(down_handle))
+                    app.(down_handle).Visible = 'off';
+                end
+                if isprop(app, up_handle) && isvalid(app.(up_handle))
+                    app.(up_handle).Visible = 'off';
+                end
+                if isprop(app, delete_handle) && isvalid(app.(delete_handle))
+                    app.(delete_handle).Visible = 'off';
+                end
+            end
+
+            if isprop(app, 'EditChannelsButton') && isvalid(app.EditChannelsButton)
+                app.EditChannelsButton.Visible = 'off';
             end
         end
 
@@ -558,31 +559,37 @@ classdef channels
             app.(ef).Visible = 'off';
 
             down = uibutton( ...
-                "Text", app.proc_c1_down.Text, ...
+                "Text", '↓', ...
+                "Tooltip", app.proc_c1_down.Tooltip, ...
                 "Parent", app.proc_c1_down.Parent, ...
                 "ButtonPushedFcn", @(src, event) Program.Routines.GUI.move_channel(event));
             down.Layout.Row = tc;
             down.Layout.Column = 4;
+            down.Visible = 'off';
 
             up = uibutton( ...
-                "Text", app.proc_c1_up.Text, ...
+                "Text", '↑', ...
+                "Tooltip", app.proc_c1_up.Tooltip, ...
                 "Parent", app.proc_c1_up.Parent, ...
                 "ButtonPushedFcn", @(src, event) Program.Routines.GUI.move_channel(event));
             up.Layout.Row = tc;
             up.Layout.Column = 5;
+            up.Visible = 'off';
 
             del = uibutton( ...
                 "Text", app.proc_c1_delete.Text, ...
+                "Tooltip", app.proc_c1_delete.Tooltip, ...
                 "FontWeight", app.proc_c1_delete.FontWeight, ...
                 "BackgroundColor", app.proc_c1_delete.BackgroundColor, ...
                 "Parent", app.proc_c1_delete.Parent, ...
                 "ButtonPushedFcn", @(src, event) Program.Routines.GUI.delete_channel(tc));
             del.Layout.Row = tc;
             del.Layout.Column = 6;
+            del.Visible = 'off';
         end
     end
 
-    methods (Static, Access = private)
+    methods (Static)
         function handles = get_handles()
             handles = struct( ...
                 'ref', {Program.Handlers.channels.handles{'pp_ref'}}, ...
@@ -613,64 +620,30 @@ classdef channels
         end
 
         function idx = get_channel_idx(query)
-            app = Program.app;
+            state = Program.Handlers.channels.processing_state();
             if nargin < 1
                 idx = struct( ...
-                    'r', {Program.Handlers.channels.get_channel_idx('r')}, ...
-                    'g', {Program.Handlers.channels.get_channel_idx('g')}, ...
-                    'b', {Program.Handlers.channels.get_channel_idx('b')}, ...
-                    'white', {Program.Handlers.channels.get_channel_idx('white')}, ...
-                    'dic', {Program.Handlers.channels.get_channel_idx('dic')}, ...
-                    'gfp', {Program.Handlers.channels.get_channel_idx('gfp')});
-                
-                idx.other = {};
-
-                n_rows = length(app.proc_channel_grid.RowHeight);
-                n_max = Program.Handlers.channels.config{'max_channels'};
-                
-                value_list = app.proc_c1_dropdown.Items;
-                for n=n_max+1:n_rows
-                    target_component_string = sprintf(Program.Handlers.channels.handles{'pp_dd'}, n);
-                    tmp_idx = find(strcmp(value_list, app.(target_component_string).Value), 1);
-                    if isempty(tmp_idx)
-                        tmp_idx = 0;
-                    end
-                    idx.other{end+1} = tmp_idx;
-                end
+                    'r', {state.r.source_idx}, ...
+                    'g', {state.g.source_idx}, ...
+                    'b', {state.b.source_idx}, ...
+                    'white', {state.white.source_idx}, ...
+                    'dic', {state.dic.source_idx}, ...
+                    'gfp', {state.gfp.source_idx});
+                idx.other = num2cell([state.other.source_idx]);
 
             else
-                value_list = app.proc_c1_dropdown.Items;
-
-                switch query
-                    case 'r'
-                        target_component_string = sprintf(Program.Handlers.channels.handles{'pp_dd'}, 1);
-
-                    case 'g'
-                        target_component_string = sprintf(Program.Handlers.channels.handles{'pp_dd'}, 2);
-
-                    case 'b'
-                        target_component_string = sprintf(Program.Handlers.channels.handles{'pp_dd'}, 3);
-
-                    otherwise
-                        target_reference = Program.Helpers.decode_references(query);
-                        if ~isempty(target_reference)
-                            target_component_string = sprintf(Program.Handlers.channels.handles{'pp_dd'}, target_reference);
-                        else
-                            idx = [];
-                            return
-                        end
-                end
-                
-                idx = find(strcmp(value_list, app.(target_component_string).Value), 1);
-                if isempty(idx)
-                    idx = 0;
+                row = Program.Handlers.channels.get_processing_role(state.rows, lower(string(query)));
+                if isempty(row.row)
+                    idx = [];
+                else
+                    idx = row.source_idx;
                 end
             end
         end
 
         function info_struct = get_processing_info(query)
             if nargin < 1
-                idx = struct( ...
+                info_struct = struct( ...
                     'r', {Program.Handlers.channels.get_processing_info('r')}, ...
                     'g', {Program.Handlers.channels.get_processing_info('g')}, ...
                     'b', {Program.Handlers.channels.get_processing_info('b')}, ...
@@ -679,29 +652,196 @@ classdef channels
                     'gfp', {Program.Handlers.channels.get_processing_info('gfp')});
 
             else
-                app = Program.app;
-                query = Program.Helpers.short_to_long(query);
-                grid_pfx = Program.Handlers.channels.names{'histogram_grid'};
-
-                for pfx=1:length(grid_pfx)
-                    label = sprintf("%s_Label", grid_pfx{pfx});
-                    if contains(app.(label).Text, query)
-                        slider_vals = app.(sprintf("%s_hist_slider", grid_pfx{pfx})).Value;
-                        hist_limit = app.(sprintf("%s_hist_slider", grid_pfx{pfx})).Limits(2);   
-
-                        info_struct = struct( ...
-                            'gamma', {app.(sprintf("%s_GammaEditField", grid_pfx{pfx})).Value}, ...
-                            'low_high_in', {[slider_vals(1)/hist_limit slider_vals(2)/hist_limit]}, ...
-                            'low_high_out', {[]});
-                        return
-                    end
-                end
-
-                info_struct = struct( ...
-                    'gamma', {1}, ...
-                    'low_high_in', {[]}, ...
-                    'low_high_out', {[]});
+                state = Program.Handlers.channels.processing_state();
+                row = Program.Handlers.channels.get_processing_role(state.rows, lower(string(query)));
+                info_struct = row.settings;
             end
+        end
+
+        function channel = build_main_channel(app, key, name, dd_handle, cb_handle, gamma, color)
+            idx = Program.Handlers.channels.dropdown_index(app.(dd_handle));
+            settings = Program.Handlers.channels.main_display_settings(app, key, gamma);
+            channel = struct( ...
+                'key', key, ...
+                'name', name, ...
+                'row', [], ...
+                'source_idx', idx, ...
+                'idx', idx, ...
+                'source_name', string(app.(dd_handle).Value), ...
+                'enabled', logical(app.(cb_handle).Value), ...
+                'bool', logical(app.(cb_handle).Value), ...
+                'color', color, ...
+                'settings', settings);
+        end
+
+        function settings = main_display_settings(app, key, gamma)
+            settings = struct('gamma', gamma, 'low_high_in', [], 'low_high_out', []);
+            if isempty(app) || ~isvalid(app) || ...
+                    ~Program.GUIHandling.processing_tab_rendered(app) || ...
+                    ~strcmpi(char(string(app.VolumeDropDown.Value)), 'Colormap')
+                return
+            end
+
+            try
+                state = Program.Handlers.channels.processing_state(app);
+                row = Program.Handlers.channels.get_processing_role(state.rows, lower(string(key)));
+            catch
+                return
+            end
+
+            if isempty(row) || row.row < 1 || row.source_idx < 1 || ~isstruct(row.settings)
+                return
+            end
+
+            if isfield(row.settings, 'low_high_in')
+                settings.low_high_in = row.settings.low_high_in;
+            end
+            if isfield(row.settings, 'low_high_out')
+                settings.low_high_out = row.settings.low_high_out;
+            end
+        end
+
+        function row = empty_processing_row()
+            row = struct( ...
+                'row', [], ...
+                'role_key', '', ...
+                'role_name', '', ...
+                'source_idx', 0, ...
+                'idx', 0, ...
+                'source_name', "", ...
+                'enabled', false, ...
+                'bool', false, ...
+                'color', [], ...
+                'settings', struct('gamma', 1, 'low_high_in', [], 'low_high_out', []));
+        end
+
+        function row = build_processing_row(app, row_idx)
+            row = Program.Handlers.channels.empty_processing_row();
+            row.row = row_idx;
+
+            dd_handle = sprintf(Program.Handlers.channels.handles{'pp_dd'}, row_idx);
+            cb_handle = sprintf(Program.Handlers.channels.handles{'pp_cb'}, row_idx);
+
+            row.source_idx = Program.Handlers.channels.dropdown_index(app.(dd_handle));
+            row.idx = row.source_idx;
+            row.source_name = string(app.(dd_handle).Value);
+            row.enabled = logical(app.(cb_handle).Value);
+            row.bool = row.enabled;
+            row.settings = Program.Handlers.channels.processing_row_settings(app, row_idx);
+            [row.role_key, row.role_name, row.color] = Program.Handlers.channels.processing_role(app, row_idx);
+        end
+
+        function settings = processing_row_settings(app, row)
+            settings = struct('gamma', 1, 'low_high_in', [], 'low_high_out', []);
+            grid_pfx = Program.Handlers.channels.names{'histogram_grid'};
+            if row < 1 || row > length(grid_pfx)
+                return
+            end
+
+            slider_handle = sprintf("%s_hist_slider", grid_pfx{row});
+            gamma_handle = sprintf("%s_GammaEditField", grid_pfx{row});
+            slider_vals = app.(slider_handle).Value;
+            hist_limit = app.(slider_handle).Limits(2);
+            if hist_limit <= 0
+                low_high_in = [];
+            else
+                low_high_in = [slider_vals(1)/hist_limit slider_vals(2)/hist_limit];
+            end
+
+            settings = struct( ...
+                'gamma', app.(gamma_handle).Value, ...
+                'low_high_in', {low_high_in}, ...
+                'low_high_out', {[]});
+        end
+
+        function [role_key, role_name, color] = processing_role(app, row)
+            switch row
+                case 1
+                    role_key = 'r';
+                    role_name = 'Red';
+                    color = '#ff0000';
+                case 2
+                    role_key = 'g';
+                    role_name = 'Green';
+                    color = '#00d100';
+                case 3
+                    role_key = 'b';
+                    role_name = 'Blue';
+                    color = '#0000ff';
+                otherwise
+                    ref_handle = sprintf(Program.Handlers.channels.handles{'pp_ref'}, row);
+                    ref_value = app.(ref_handle).Value;
+                    if isnumeric(ref_value) || (isfloat(ref_value) && numel(ref_value) == 3)
+                        role_key = 'other';
+                        role_name = sprintf('Channel %d', row);
+                        color = ref_value;
+                    else
+                        role_key = char(lower(string(ref_value)));
+                        role_name = char(string(ref_value));
+                        color = Program.Handlers.channels.role_plot_color(role_key);
+                    end
+            end
+        end
+
+        function role = get_processing_role(rows, query)
+            role = Program.Handlers.channels.empty_processing_row();
+            if isempty(rows)
+                return
+            end
+
+            switch lower(string(query))
+                case {"r", "red"}
+                    idx = 1;
+                case {"g", "green"}
+                    idx = 2;
+                case {"b", "blue"}
+                    idx = 3;
+                otherwise
+                    idx = find(strcmp({rows.role_key}, char(lower(string(query)))), 1);
+            end
+
+            if ~isempty(idx) && idx >= 1 && idx <= numel(rows)
+                role = rows(idx);
+            end
+        end
+
+        function idx = dropdown_index(dropdown)
+            items = string(dropdown.Items);
+            idx = find(items == string(dropdown.Value), 1);
+            if isempty(idx)
+                idx = 0;
+            end
+        end
+
+        function color = role_plot_color(role_key)
+            switch lower(string(role_key))
+                case {"r", "red"}
+                    color = '#ff0000';
+                case {"g", "green"}
+                    color = '#00d100';
+                case {"b", "blue"}
+                    color = '#0000ff';
+                case "gfp"
+                    color = '#ffff00';
+                case {"white", "dic"}
+                    color = '#6b6b6b';
+                otherwise
+                    color = '#6b6b6b';
+            end
+        end
+
+        function row = render_struct_from_row(row)
+            row = struct( ...
+                'idx', row.source_idx, ...
+                'bool', row.enabled, ...
+                'settings', row.settings);
+        end
+
+        function row = other_struct_from_row(row)
+            row = struct( ...
+                'idx', row.source_idx, ...
+                'bool', row.enabled, ...
+                'color', row.color);
         end
 
     end

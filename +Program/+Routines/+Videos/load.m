@@ -83,16 +83,12 @@ function load(file)
     % Render Frame 1
     app.visual_composer(1, tz, ty, tx);
     app.data_flags.('Video_Volume') = 1;
-    
-    set(app.TrackingButton, 'Visible', 'off');
 
-    if ~any(ismember(app.VolumeDropDown.Items, 'Video'))
-        app.VolumeDropDown.Items{end+1} = 'Video';
-    end
-
-    app.VolumeDropDown.Value = 'Video';
+    Program.GUIHandling.refresh_processing_volume_dropdown(app, 'Video');
+    Program.GUIHandling.hide_startup_load_buttons(app);
+    Program.GUIHandling.gui_lock(app, 'enable', 'video_tab');
+    Program.GUIHandling.gui_lock(app, 'enable', 'processing_tab');
 
     set(app.VideoGridLayout, 'Visible', 'on');
     close(d);
 end
-

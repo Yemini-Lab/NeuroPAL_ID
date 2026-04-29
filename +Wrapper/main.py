@@ -56,6 +56,7 @@ import h5py.utils
 import h5py.h5ac
 import h5py._proxy
 
+import ast
 import shutil
 from docopt import docopt
 from multiprocessing import Pool
@@ -70,6 +71,15 @@ import save_movie
 import build_tree
 import track_all
 import n_io
+
+
+def parse_literal_arg(value, name):
+    if value is None:
+        return None
+    try:
+        return ast.literal_eval(value)
+    except (SyntaxError, ValueError) as exc:
+        raise ValueError(f'Invalid literal for {name}: {value}') from exc
 
 
 def run_zephir(dataset: Path, args: dict, filename=None):
@@ -142,8 +152,8 @@ def run_zephir(dataset: Path, args: dict, filename=None):
         container, results = build_annotations(
             container=container,
             annotation=None,
-            t_ref=eval(args['--t_ref']) if args['--t_ref'] else None,
-            wlid_ref=eval(args['--wlid_ref']) if args['--wlid_ref'] else None,
+            t_ref=parse_literal_arg(args['--t_ref'], '--t_ref') if args['--t_ref'] else None,
+            wlid_ref=parse_literal_arg(args['--wlid_ref'], '--wlid_ref') if args['--wlid_ref'] else None,
             n_ref=int(args['--n_ref']) if args['--n_ref'] else None,
         )
 
@@ -179,8 +189,8 @@ def run_zephir(dataset: Path, args: dict, filename=None):
         container = build_tree.build_tree(
             container=container,
             sort_mode=str(args['--sort_mode']),
-            t_ignore=eval(args['--t_ignore']) if args['--t_ignore'] else None,
-            t_track=eval(args['--t_track']) if args['--t_track'] else None,
+            t_ignore=parse_literal_arg(args['--t_ignore'], '--t_ignore') if args['--t_ignore'] else None,
+            t_track=parse_literal_arg(args['--t_track'], '--t_track') if args['--t_track'] else None,
             filename=filename
         )
 

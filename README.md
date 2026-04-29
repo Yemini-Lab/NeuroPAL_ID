@@ -67,6 +67,9 @@ For the latest compiled release that can be run independently of MATLAB, please 
 3. Open Git Bash to your preferred working directory.
 4. Use `git clone https://github.com/Yemini-Lab/NeuroPAL_ID.git`
 5. Open `visualize_light.mlapp` in MATLAB's AppDesigner.
+6. Alternative terminal / VS Code launch:
+   a. Run `./scripts/launch_visualize_light.sh`
+   b. Or in VS Code use `Terminal` -> `Run Task...` -> `Launch NeuroPAL App`
 
 ---
 

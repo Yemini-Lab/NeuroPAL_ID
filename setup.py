@@ -1,31 +1,28 @@
 import os
 import platform
 import subprocess
+import sys
 
 
-def create_virtual_env(shell_options):
-    try:
-        subprocess.Popen(["python", "-m", "venv", "./venv"], **shell_options)
-    except Exception as e:
-        print(f"An error occurred while creating the virtual environment: {e}")
+def create_virtual_env():
+    subprocess.run([sys.executable, "-m", "venv", "./venv"], check=True)
 
 
-def activate_venv_and_install_requirements(shell_options):
+def install_requirements():
     req_file = "requirements.txt"
-    activation_command = ".\\venv\\Scripts\\activate"
+    pip_path = os.path.join("venv", "Scripts", "pip.exe")
 
-    if platform.system() == "Darwin":  # macOS
+    if platform.system() != "Windows":
         req_file = "requirements-macos.txt"
-        activation_command = "source ./venv/bin/activate"
+        pip_path = os.path.join("venv", "bin", "pip")
 
-    try:
-        subprocess.Popen(f"{activation_command} && pip install -r {req_file}", **shell_options)
-    except Exception as e:
-        print(f"An error occurred while installing requirements: {e}")
+    subprocess.run([pip_path, "install", "-r", req_file], check=True)
 
 
 if __name__ == "__main__":
-    shell_options = {"shell": True, "creationflags": subprocess.CREATE_NO_WINDOW}
-    create_virtual_env(shell_options)
-    activate_venv_and_install_requirements(shell_options)
-    done = 1
+    try:
+        create_virtual_env()
+        install_requirements()
+    except subprocess.CalledProcessError as exc:
+        print(f"Bootstrap failed: {exc}", file=sys.stderr)
+        raise SystemExit(exc.returncode)

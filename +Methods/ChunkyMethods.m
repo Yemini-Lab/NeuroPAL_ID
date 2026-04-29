@@ -18,7 +18,9 @@ classdef ChunkyMethods
 
             switch action
                 case 'crop'
-                    rotated_mask = imrotate(app.rotation_stack.cache.(app.VolumeDropDown.Value).mask, app.rotation_stack.cache.(app.VolumeDropDown.Value).angle);
+                    rotated_mask = imrotate( ...
+                        app.rotation_stack.cache.(app.VolumeDropDown.Value).mask, ...
+                        -app.rotation_stack.cache.(app.VolumeDropDown.Value).angle);
                     nonzero_rows = squeeze(any(any(rotated_mask, 2), 3));
                     nonzero_columns = squeeze(any(any(rotated_mask, 1), 3));
                     
@@ -31,9 +33,10 @@ classdef ChunkyMethods
                     new_dims(1:2) = [bottom_edge-top_edge+1, right_edge-left_edge+1];
 
                 case 'ds'
+                    [target_xy, target_slices] = Methods.ChunkyMethods.proc_downsample_targets(app, og_dims(1:3));
                     new_dims = og_dims;
-                    new_dims(1:2) = new_dims(1:2)*app.ProcXYFactorEditField.Value;
-                    new_dims(3) = app.ProcZSlicesEditField.Value;
+                    new_dims(1:2) = target_xy;
+                    new_dims(3) = numel(target_slices);
 
                 case {'hori', 'vert', 'cc', 'acc', 'rotate'}
                     temp_arr = zeros(og_dims);
@@ -68,11 +71,8 @@ classdef ChunkyMethods
 
         function output_slice = apply_slice(app, action, slice)
             % Apply operation to a slice.
-            RGBW = [ ...
-                find(ismember(app.proc_c1_dropdown.Items, app.proc_c1_dropdown.Value)), ...
-                find(ismember(app.proc_c2_dropdown.Items, app.proc_c2_dropdown.Value)), ...
-                find(ismember(app.proc_c3_dropdown.Items, app.proc_c3_dropdown.Value)), ...
-                find(ismember(app.proc_c4_dropdown.Items, app.proc_c4_dropdown.Value))];
+            state = Program.Handlers.channels.processing_state(app);
+            RGBW = [state.r.source_idx, state.g.source_idx, state.b.source_idx, state.white.source_idx];
 
             if size(slice, 4) < max(RGBW)
                 RGBW = 1:size(slice, 4);
@@ -80,14 +80,14 @@ classdef ChunkyMethods
             
             switch action
                 case 'zscore'
-                    output_slice = Methods.Preprocess.zscore_frame(slice); 
+                    output_slice = Methods.Preprocess.normalize_frame(slice); 
 
                 case 'histmatch'
                     slice(:, :, :, RGBW(1:3)) = Methods.run_histmatch(slice, RGBW);
-                    output_slice = Methods.Preprocess.zscore_frame(slice);     
+                    output_slice = slice;
 
                 case 'crop'
-                    output_slice = Program.rotation_gui.apply_mask(app, slice);
+                    output_slice = Program.crop_rotate_gui.apply_mask(app, slice);
 
                 case 'hori'
                     output_slice = slice(:,end:-1:1,end:-1:1,:,:);
@@ -107,9 +107,13 @@ classdef ChunkyMethods
                     output_slice = temp_slice(end:-1:1,:,:,:,:);
 
                 case 'ds'
-                    temp_slice = imresize(slice,[size(slice, 1)*app.ProcXYFactorEditField.Value size(slice, 2)*app.ProcXYFactorEditField.Value]);
-                    target_slices = Methods.ChunkyMethods.proc_target_slices(size(temp_slice, 3), app.ProcZSlicesEditField.Value);
+                    [target_xy, target_slices] = Methods.ChunkyMethods.proc_downsample_targets(app, ...
+                        [size(slice, 1), size(slice, 2), size(slice, 3)]);
+                    temp_slice = imresize(slice, target_xy);
                     output_slice = temp_slice(:, :, target_slices, :);
+
+                case 'window'
+                    output_slice = Methods.ChunkyMethods.apply_channel_windows(app, slice);
 
                 case 'debleed'
                     % TBD
@@ -127,8 +131,20 @@ classdef ChunkyMethods
                     [new_dims, old_dims] = Methods.ChunkyMethods.calc_pp_size(app, action, vol);
                     nz = old_dims(3);
 
+                    if strcmp(action, 'ds')
+                        processed_vol = Methods.ChunkyMethods.apply_slice(app, action, vol);
+                        return
+                    end
+
+                    if isa(vol, 'matlab.io.MatFile')
+                        sample = vol.data(1, 1, 1, 1);
+                        output_class = class(sample);
+                    else
+                        output_class = class(vol);
+                    end
+
                     % Initialize cache array.
-                    processed_vol = zeros(new_dims, class(vol));
+                    processed_vol = zeros(new_dims, output_class);
     
                     % Iterate over slices.
                     for z=1:nz
@@ -136,7 +152,7 @@ classdef ChunkyMethods
     
                         % Grab slice.
                         if isa(vol, 'matlab.io.MatFile')
-                            slice = app.proc_image.data(:, :, z, :);
+                            slice = vol.data(:, :, z, :);
                         else
                             slice = vol(:, :, z, :);
                         end
@@ -153,31 +169,40 @@ classdef ChunkyMethods
         function apply_colormap(app, actions)
             % Apply set of operations to a colormap.
 
+            if nargin < 2 || isempty(actions)
+                return
+            end
+
+            actions = cellstr(lower(string(actions)));
+            actions = actions(~cellfun('isempty', actions));
+            if isempty(actions)
+                return
+            end
+
             % Calculate new colormap dimensions
             Program.Handlers.dialogue.step('Calculating new dimensions...');
-            new_dims = size(app.proc_image, 'data');
+            context = Program.Helpers.processing_colormap_context(app);
+            if isempty(context.volume)
+                return
+            end
+
+            new_dims = size(context.volume);
             for a=1:length(actions)
                 new_dims = Methods.ChunkyMethods.calc_pp_size(app, actions{a}, zeros(new_dims));
             end
 
-            if length(actions) < 1
-                return
+            current_vol = context.volume;
+            for a=1:length(actions)
+                Program.Handlers.dialogue.add_task(sprintf("Applying %s", actions{a}));
+                Program.Handlers.dialogue.set_value(a/length(actions));
+                processed_vol = Methods.ChunkyMethods.apply_vol(app, actions{a}, current_vol);
+                current_vol = processed_vol;
             end
 
-            for a=1:length(actions)
-                if exist('progress', 'var')
-                    Program.Handlers.dialogue.add_task(sprintf("Applying %s", actions{a}));
-                    Program.Handlers.dialogue.set_value(a/length(actions));
-                    processed_vol = Methods.ChunkyMethods.apply_vol(app, actions{a}, app.proc_image.data);
-                else
-                    processed_vol = Methods.ChunkyMethods.apply_vol(app, actions{a}, app.proc_image.data);
-                end
-            end
-    
-            % Save to file.
-            app.proc_image.Properties.Writable = true;
-            app.proc_image.data = processed_vol;
-            app.proc_image.Properties.Writable = false;
+            app.image_data = current_vol;
+            app.image_data_zscored = Methods.Preprocess.zscore_frame(app.image_data);
+            setappdata(app.CELL_ID, 'proc_runtime_dirty', true);
+            Program.Helpers.write_processing_colormap_to_file(app);
         end
 
         function apply_video(app, actions, progress)
@@ -215,7 +240,7 @@ classdef ChunkyMethods
                 time_string = Program.GUIHandling.get_time_string(start_time, t, nt);
                 Program.Handlers.dialogue.add_task(sprintf("Frame %.f/%.f %s", t, nt, time_string));
 
-                processed_frame = app.retrieve_frame(app.proc_tSlider.Value);
+                processed_frame = app.retrieve_frame(t);
 
                 for a=1:length(actions)
                     Program.Handlers.dialogue.set_value(min(frame_progress + (frame_progress/t)*(a/length(actions)), 1));
@@ -244,198 +269,481 @@ classdef ChunkyMethods
         function spectral_unmix(app, channel)
             % Remove spectral crosstalk of images based on a linear spectral crosstalk remover.
             Program.GUIHandling.gui_lock(app, 'lock', 'processing_tab');
+            cleanup = onCleanup(@() Program.GUIHandling.gui_lock(app, 'unlock', 'processing_tab')); %#ok<NASGU>
 
             if isa(channel, 'matlab.ui.eventdata.ButtonPushedData')
                 channel = channel.Source.Tag;
             end
+            channel = lower(string(channel));
 
-            ch_idx = [str2num(app.ProcRDropDown.Value), str2num(app.ProcGDropDown.Value), str2num(app.ProcBDropDown.Value)];
-            size_selection = app.DropperradiusSpinner.Value;
-            sigma_gauss = app.SigmagaussEditField.Value;
-            rgb = ch_idx(1:3);
-            t_idx = [];
+            [rgb_source_idx, role_names] = Methods.ChunkyMethods.spectral_rgb_source_indices(app);
+            if isempty(rgb_source_idx)
+                return
+            end
 
-            vol = app.proc_image.data;
+            if logical(app.ProcShowMIPCheckBox.Value)
+                Program.Handlers.dialogue.step('Spectral calibration requires a single slice. Disabling MIP preview...');
+                app.ProcShowMIPCheckBox.Value = false;
+                Program.GUIHandling.update_processing_zslider_visibility(app);
+                Program.Routines.Processing.render();
+                drawnow limitrate nocallbacks;
+            end
+
+            radius = max(1, round(double(app.DropperradiusSpinner.Value)));
+            sigma_gauss = max(0, double(app.SigmagaussEditField.Value));
+            cache = Methods.ChunkyMethods.ensure_spectral_cache(app);
+            cache.rgb_source_idx = rgb_source_idx;
+            cache.sigma_gauss = sigma_gauss;
+            cache.dropper_radius = radius;
+
+            vol = Methods.ChunkyMethods.spectral_source_volume(app);
+            vol = Methods.ChunkyMethods.apply_preview_actions(app, vol, {'debleed'});
+
+            prompt = sprintf( ...
+                'Click on the center of the %d-pixel radius ROI on this slice that best represents %s.', ...
+                radius, channel);
 
             % Pick & update ideal channel representations.
             target = Program.GUIHandling.dropper( ...
-                sprintf('Click on the pixel on this slice that best represents %s.', channel), ...
-                app.proc_xyAxes, vol, app.proc_zSlider.Value);
+                prompt, ...
+                app.proc_xyAxes, vol, app.proc_zSlider.Value, radius);
 
             if isempty(target.values)
-                Program.GUIHandling.gui_lock(app, 'unlock', 'processing_tab');
                 return
-            else
-                app.(sprintf("%s_r", channel)).Value = mean(target.values(ch_idx(1)), 'all');
-                app.(sprintf("%s_g", channel)).Value = mean(target.values(ch_idx(2)), 'all');
-                app.(sprintf("%s_b", channel)).Value = mean(target.values(ch_idx(3)), 'all');
             end
 
-            % Construct filtered volume: stack channels & normalize.
-            vol = double(Methods.Preprocess.zscore_frame(vol));
-            vol(vol < 0) = 0;
-
-            filtered_vol = zeros(length(rgb), size(vol,1), size(vol,2), size(vol,3));
-            for i = 1:length(rgb)
-                filtered_vol(i,:,:,:) = imgaussfilt3(vol(:,:,:,rgb(i))./max(vol(:,:,:,rgb(i)),[],'all').*65535, sigma_gauss);
-            end
+            filtered_vol = Methods.ChunkyMethods.spectral_cached_filtered_rgb_volume( ...
+                app, vol, rgb_source_idx, sigma_gauss);
+            measured_vector = Methods.ChunkyMethods.spectral_roi_vector( ...
+                filtered_vol, target.roi_pixels);
 
             switch channel
                 case {'bg', 'background'}
-                    app.spectral_cache.bg_px = target.pixels;
-                    app.spectral_cache.bg_val = double(mean(filtered_vol(:,target.pixels(2)-size_selection:target.pixels(2)+size_selection,target.pixels(1)-size_selection:target.pixels(1)+size_selection,target.pixels(3)),[2,3]));
-                case {'w', 'gfp', 'dic', 'gut', 'white'}
-                    % TBD
+                    cache.background_pixel = target.pixels;
+                    cache.background_vector = measured_vector;
+                    cache.bg_px = target.pixels;
+                    cache.bg_val = measured_vector;
+                    Methods.ChunkyMethods.update_spectral_fields(app, 'background', measured_vector);
                 otherwise
-                    t_idx = ch_idx(Program.GUIHandling.channel_map(channel));
+                    role_idx = Methods.ChunkyMethods.spectral_role_index(channel, role_names);
+                    if isempty(role_idx)
+                        return
+                    end
+
+                    background_vector = cache.background_vector;
+                    if isempty(background_vector) || ~all(isfinite(background_vector))
+                        background_vector = zeros(1, 3);
+                    end
+
+                    signal_vector = max(measured_vector - background_vector, 0);
+                    target_strength = signal_vector(role_idx);
+                    if ~isfinite(target_strength) || target_strength <= eps
+                        return
+                    end
+
+                    coefficients = signal_vector / target_strength;
+                    coefficients(role_idx) = 1;
+
+                    cache.coefficients(role_idx, :) = coefficients;
+                    cache.measured_pixels(role_idx, :) = target.pixels;
+                    cache.measured_vectors(role_idx, :) = signal_vector;
+
+                    % Keep legacy fields populated until the UI/property model is fully cleaned up.
+                    cache.ch_db = find(any(isfinite(cache.coefficients), 2))';
+                    cache.ch_px{role_idx} = target.pixels;
+                    cache.ch_val = cache.coefficients;
+
+                    Methods.ChunkyMethods.update_spectral_fields(app, role_names{role_idx}, coefficients);
+                    app.flags.debleed = 1;
             end
 
-            if ~isempty(t_idx)
-                if ~ismember(t_idx, app.spectral_cache.ch_db)
-                    app.spectral_cache.ch_db = [app.spectral_cache.ch_db; t_idx];
-                end
-
-                % If necessary, grab background.
-                if isempty(app.spectral_cache.bg_px) || isempty(app.spectral_cache.bg_val)
-                    Methods.ChunkyMethods.spectral_unmix(app, 'background')
-                end
-    
-                % Subtract background.
-                for ii=1:length(app.spectral_cache.bg_val)
-                    filtered_vol(ii,:,:,:) = filtered_vol(ii,:,:,:) - app.spectral_cache.bg_val(ii); 
-                end
-                
-                % Compute linear scaling for spectral crosstalk.
-                channels_to_debleed = rgb~=app.spectral_cache.ch_db(t_idx, :);
-                app.spectral_cache.ch_val(t_idx, :) = mean(filtered_vol(:,target.pixels(2)-size_selection:target.pixels(2)+size_selection,target.pixels(1)-size_selection:target.pixels(1)+size_selection,target.pixels(3)),[2,3]);
-                app.spectral_cache.ch_val(t_idx, channels_to_debleed) = app.spectral_cache.ch_val(channels_to_debleed)/app.spectral_cache.ch_val(~channels_to_debleed);
-                app.spectral_cache.ch_val(t_idx, ~channels_to_debleed) = app.spectral_cache.ch_val(~channels_to_debleed)/app.spectral_cache.ch_val(~channels_to_debleed);
-    
-                app.flags.debleed = 1;
+            app.spectral_cache = cache;
+            if isfield(app.flags, 'debleed')
+                Program.Routines.Processing.render();
             end
         end
 
         function output = debleed(app, vol, mode)
-            % Check whether to use cache values or cache coords.
-            if ~exist('mode', 'var')
-                if ~isempty(app.spectral_cache.ch_val)
-                    mode = 'val';
-                else
-                    mode = 'coord';
+            %#ok<INUSD>
+            cache = Methods.ChunkyMethods.ensure_spectral_cache(app);
+            coefficients = cache.coefficients;
+            if isempty(coefficients) || ~any(isfinite(coefficients), 'all')
+                output = vol;
+                return
+            end
+
+            output = vol;
+
+            [rgb_source_idx, ~] = Methods.ChunkyMethods.spectral_rgb_source_indices(app);
+            rgb_apply_idx = Methods.ChunkyMethods.spectral_apply_indices(vol, rgb_source_idx);
+            if isempty(rgb_apply_idx)
+                return
+            end
+
+            [normalized_vol, channel_maxima] = Methods.ChunkyMethods.spectral_normalized_rgb_volume( ...
+                vol, rgb_apply_idx);
+            background_vector = cache.background_vector;
+            if isempty(background_vector) || ~all(isfinite(background_vector))
+                background_vector = zeros(1, 3);
+            end
+            base_volume = max(normalized_vol - reshape(background_vector, 1, 1, 1, []), 0);
+            corrected_volume = base_volume;
+
+            for target_idx = 1:3
+                target_coefficients = coefficients(target_idx, :);
+                if ~all(isfinite(target_coefficients))
+                    continue
+                end
+
+                target_channel = base_volume(:, :, :, target_idx);
+                for observed_idx = 1:3
+                    if observed_idx == target_idx
+                        continue
+                    end
+
+                    bleed_scale = target_coefficients(observed_idx);
+                    if ~isfinite(bleed_scale) || bleed_scale <= 0
+                        continue
+                    end
+
+                    corrected_volume(:, :, :, observed_idx) = ...
+                        corrected_volume(:, :, :, observed_idx) - bleed_scale * target_channel;
                 end
             end
 
-            % Back up full volume.
+            corrected_volume = max(corrected_volume, 0);
+
+            for role_idx = 1:3
+                corrected_channel = corrected_volume(:, :, :, role_idx) * channel_maxima(role_idx);
+                output(:, :, :, rgb_apply_idx(role_idx)) = ...
+                    Methods.ChunkyMethods.cast_like_channel(corrected_channel, ...
+                    output(:, :, :, rgb_apply_idx(role_idx)));
+            end
+        end
+
+        function output = apply_preview_actions(app, vol, exclude_actions)
+            if nargin < 3 || isempty(exclude_actions)
+                exclude_actions = {};
+            end
+
+            exclude_actions = cellstr(lower(string(exclude_actions)));
+
             output = vol;
+            actions = fieldnames(app.flags);
+            for a = 1:length(actions)
+                action = actions{a};
+                if ~app.flags.(action) || any(strcmpi(action, exclude_actions))
+                    continue
+                end
 
-            % Grab processing tab values.
-            ch_idx = [str2num(app.ProcRDropDown.Value), str2num(app.ProcGDropDown.Value), str2num(app.ProcBDropDown.Value)];
-            size_selection = app.DropperradiusSpinner.Value;
-            sigma_gauss = app.SigmagaussEditField.Value;
-            rgb = ch_idx(1:3);
-            channels_to_debleed = rgb~=app.spectral_cache.ch_db;
+                msg = sprintf('Applying %s...', action);
+                Program.Handlers.dialogue.step(msg);
+                output = Methods.ChunkyMethods.apply_vol(app, action, output);
+            end
+        end
 
-            % Normalize volume.
-            switch class(vol)
-                case {'single', 'double'}
-                    % TBD
-                case {'matlab.io.MatFile'}
-                    vol = vol.data;
-                    vol = double(vol)/double(intmax(class(vol)));
+        function cache = spectral_cache_template()
+            cache = struct( ...
+                'coefficients', nan(3, 3), ...
+                'measured_pixels', nan(3, 3), ...
+                'measured_vectors', nan(3, 3), ...
+                'background_pixel', nan(1, 3), ...
+                'background_vector', nan(1, 3), ...
+                'rgb_source_idx', nan(1, 3), ...
+                'sigma_gauss', nan, ...
+                'dropper_radius', nan, ...
+                'ch_db', {[]}, ...
+                'ch_px', {cell(1, 3)}, ...
+                'ch_val', nan(3, 3), ...
+                'bg_px', {[]}, ...
+                'bg_val', nan(1, 3), ...
+                'blurred_signature', "", ...
+                'blurred_img', {[]});
+        end
+
+        function cache = ensure_spectral_cache(app)
+            template = Methods.ChunkyMethods.spectral_cache_template();
+            cache = template;
+
+            if isprop(app, 'spectral_cache') && isstruct(app.spectral_cache)
+                existing = app.spectral_cache;
+                fields = fieldnames(template);
+                for f = 1:numel(fields)
+                    name = fields{f};
+                    if isfield(existing, name)
+                        cache.(name) = existing.(name);
+                    end
+                end
+            end
+
+            app.spectral_cache = cache;
+        end
+
+        function [rgb_source_idx, role_names] = spectral_rgb_source_indices(app)
+            state = Program.Handlers.channels.processing_state(app);
+            rgb_source_idx = double([state.r.source_idx, state.g.source_idx, state.b.source_idx]);
+            role_names = {'red', 'green', 'blue'};
+
+            if numel(rgb_source_idx) ~= 3 || any(~isfinite(rgb_source_idx)) || ...
+                    any(rgb_source_idx < 1) || numel(unique(rgb_source_idx)) < 3
+                rgb_source_idx = [];
+                role_names = {};
+            end
+        end
+
+        function rgb_apply_idx = spectral_apply_indices(vol, rgb_source_idx)
+            n_channels = size(vol, 4);
+            if n_channels == 3
+                rgb_apply_idx = 1:3;
+            elseif numel(rgb_source_idx) == 3 && all(rgb_source_idx >= 1) && all(rgb_source_idx <= n_channels)
+                rgb_apply_idx = rgb_source_idx;
+            else
+                rgb_apply_idx = [];
+            end
+        end
+
+        function role_idx = spectral_role_index(channel, role_names)
+            role_idx = find(strcmpi(channel, role_names), 1);
+        end
+
+        function update_spectral_fields(app, prefix, values)
+            channel_labels = {'r', 'g', 'b'};
+            values = reshape(double(values), 1, []);
+            if numel(values) < 3
+                values(3) = 0;
+            end
+
+            for i = 1:3
+                field_name = sprintf('%s_%s', prefix, channel_labels{i});
+                if isprop(app, field_name) && isvalid(app.(field_name))
+                    app.(field_name).Value = values(i);
+                end
+            end
+        end
+
+        function filtered_vol = spectral_filtered_rgb_volume(vol, rgb_source_idx, sigma_gauss)
+            [filtered_vol, ~] = Methods.ChunkyMethods.spectral_normalized_rgb_volume(vol, rgb_source_idx);
+
+            if sigma_gauss <= 0
+                return
+            end
+
+            for i = 1:3
+                filtered_vol(:, :, :, i) = imgaussfilt3(filtered_vol(:, :, :, i), sigma_gauss);
+            end
+        end
+
+        function filtered_vol = spectral_cached_filtered_rgb_volume(app, vol, rgb_source_idx, sigma_gauss)
+            cache = Methods.ChunkyMethods.ensure_spectral_cache(app);
+            signature = Methods.ChunkyMethods.spectral_filtered_signature(app, vol, rgb_source_idx, sigma_gauss);
+
+            if isfield(cache, 'blurred_signature') && strcmp(string(cache.blurred_signature), signature) && ...
+                    ~isempty(cache.blurred_img) && isequal(size(cache.blurred_img), [size(vol, 1), size(vol, 2), size(vol, 3), 3])
+                filtered_vol = cache.blurred_img;
+                return
+            end
+
+            filtered_vol = Methods.ChunkyMethods.spectral_filtered_rgb_volume(vol, rgb_source_idx, sigma_gauss);
+            cache.blurred_signature = signature;
+            cache.blurred_img = filtered_vol;
+            app.spectral_cache = cache;
+        end
+
+        function [normalized_vol, channel_maxima] = spectral_normalized_rgb_volume(vol, rgb_source_idx)
+            normalized_vol = zeros([size(vol, 1), size(vol, 2), size(vol, 3), 3], 'double');
+            channel_maxima = ones(1, 3);
+
+            for i = 1:3
+                channel = double(vol(:, :, :, rgb_source_idx(i)));
+                finite_mask = isfinite(channel);
+                if ~any(finite_mask, 'all')
+                    continue
+                end
+
+                channel(~finite_mask) = 0;
+                min_val = min(channel(finite_mask), [], 'all');
+                if min_val < 0
+                    channel = channel - min_val;
+                end
+
+                max_val = max(channel, [], 'all');
+                channel_maxima(i) = max(max_val, 1);
+                if max_val > 0
+                    normalized_vol(:, :, :, i) = channel / max_val;
+                end
+            end
+        end
+
+        function vol = spectral_source_volume(app)
+            state = Program.Handlers.channels.processing_state(app);
+            max_idx = max(1, state.max_source_idx);
+
+            switch char(string(app.VolumeDropDown.Value))
+                case 'Colormap'
+                    context = Program.Helpers.processing_colormap_context(app);
+                    dims = context.dims;
+                    if isempty(context.volume)
+                        vol = zeros(dims(1), dims(2), dims(3), 1, 'uint8');
+                        return
+                    end
+                    n_channels = dims(4);
+                    max_idx = min(max_idx, n_channels);
+                    vol = context.volume(:, :, :, 1:max_idx);
+
+                case 'Video'
+                    frame = app.retrieve_frame(app.proc_tSlider.Value);
+                    if ndims(frame) == 3
+                        frame = reshape(frame, size(frame, 1), size(frame, 2), size(frame, 3), 1);
+                    end
+                    max_idx = min(max_idx, size(frame, 4));
+                    vol = frame(:, :, :, 1:max_idx);
+
                 otherwise
-                    vol = double(vol)/double(intmax(class(vol)));
+                    vol = Program.GUIHandling.get_active_volume(app, 'request', 'array').array;
             end
 
-            vol(vol<0) = 0;
-            
-            % Stack relevant channels and normalize.
-            filtered_vol = zeros(length(rgb), size(vol,1),size(vol,2),size(vol,3));
-            for i = 1:length(rgb)
-                filtered_vol(i,:,:,:) = imgaussfilt3(vol(:,:,:,rgb(i))./max(vol(:,:,:,rgb(i)),[],'all').*65535, sigma_gauss);
+            if ndims(vol) == 3
+                vol = reshape(vol, size(vol, 1), size(vol, 2), size(vol, 3), 1);
+            end
+        end
+
+        function signature = spectral_filtered_signature(app, vol, rgb_source_idx, sigma_gauss)
+            flags = fieldnames(app.flags);
+            active_actions = {};
+            for i = 1:numel(flags)
+                action = flags{i};
+                if app.flags.(action) && ~strcmpi(action, 'debleed')
+                    active_actions{end+1} = action; %#ok<AGROW>
+                end
             end
 
-            switch mode
-                case 'val'
-                    % Remove background noise.
-                    for ii=1:length(app.spectral_cache.bg_val)
-                        filtered_vol(ii,:,:,:) = filtered_vol(ii,:,:,:) - app.spectral_cache.bg_val(ii); 
-                    end
+            active_actions = sort(active_actions);
+            payload = struct( ...
+                'mode', char(string(app.VolumeDropDown.Value)), ...
+                'time_index', double(app.proc_tSlider.Value), ...
+                'volume_size', double(size(vol)), ...
+                'volume_class', class(vol), ...
+                'rgb_source_idx', double(rgb_source_idx), ...
+                'sigma_gauss', double(sigma_gauss), ...
+                'rotate_angle', double(app.proc_rot_spinner.Value), ...
+                'actions', {active_actions});
+            signature = string(jsonencode(payload));
+        end
 
-                    % Debleed.
-                    for t_idx = 1:length(app.spectral_cache.ch_db)
-                        c = app.spectral_cache.ch_db(t_idx, :);
-                        t_ch = channels_to_debleed(c, :);
-                        
-                        for db = 1:length(t_ch)
-                            filtered_vol(db,:,:,:) = filtered_vol(db,:,:,:) - t_ch(db).*app.spectral_cache.ch_val(c, db)* filtered_vol(~t_ch,:,:,:);
-                        end
-                    end
-                case 'coord'
-                    % Construct background array
-                    bg = double(mean(filtered_vol(:,app.spectral_cache.bg_px(2)-size_selection:app.spectral_cache.bg_px(2)+size_selection,app.spectral_cache.bg_px(1)-size_selection:app.spectral_cache.bg_px(1)+size_selection,app.spectral_cache.bg_px(3)),[2,3]));
-                    for ii=1:size(bg)
-                        filtered_vol(ii,:,:,:) = filtered_vol(ii,:,:,:) - bg(ii); 
-                    end
+        function clear_spectral_filtered_cache(app)
+            cache = Methods.ChunkyMethods.ensure_spectral_cache(app);
+            cache.blurred_signature = "";
+            cache.blurred_img = [];
+            app.spectral_cache = cache;
+        end
 
-                    loc_pixel = [app.spectral_cache.ch_px{1};app.spectral_cache.ch_px{2};app.spectral_cache.ch_px{3}];
-
-                    % Compute linear scaling for spectral crosstalk.
-                    scale_crosstalk = mean(filtered_vol(:,loc_pixel(1,2)-size_selection:loc_pixel(1,2)+size_selection,loc_pixel(1,1)-size_selection:loc_pixel(1,1)+size_selection,loc_pixel(1,3)),[2,3]);
-                    scale_crosstalk(app.spectral_cache.ch_db) = scale_crosstalk(app.spectral_cache.ch_db)/scale_crosstalk(~app.spectral_cache.ch_db);
-                    scale_crosstalk(~app.spectral_cache.ch_db) = scale_crosstalk(~app.spectral_cache.ch_db)/scale_crosstalk(~app.spectral_cache.ch_db);
-                    
-                    % Debleed.
-                    for t_idx = 1:length(app.spectral_cache.ch_db)
-                        c = app.spectral_cache.ch_db(t_idx, :);
-                        filtered_vol(c,:,:,:) = filtered_vol(c,:,:,:) - app.spectral_cache.ch_db(c)*scale_crosstalk(c)* filtered_vol(~app.spectral_cache.ch_db,:,:,:);
-                    end
+        function measured_vector = spectral_roi_vector(filtered_vol, pixels, radius)
+            if nargin < 3
+                radius = [];
             end
 
-            % Normalize corrected image again.
-            for i = 1:length(ch_idx)
-                filtered_vol(i,:,:,:) = cast((filtered_vol(i,:,:,:)./max(filtered_vol(i,:,:,:),[],'all').*65535), 'uint64');
+            if isempty(pixels)
+                measured_vector = nan(1, size(filtered_vol, 4));
+                return
             end
 
-            % Permute image to get same format as input.
-            filtered_vol = permute(filtered_vol, [4,2,3,1]);
-            filtered_vol = permute(filtered_vol,[2,3,1,4]);
-            filtered_vol = Methods.Preprocess.zscore_frame(filtered_vol);
+            if isvector(pixels)
+                roi_pixels = Methods.ChunkyMethods.spectral_disk_pixels(filtered_vol, pixels, radius);
+            else
+                roi_pixels = round(double(pixels));
+            end
 
-            % Replace OG RGB channels and return resulting array.
-            output(:,:,:,rgb(1)) = filtered_vol(:,:,:,1);
-            output(:,:,:,rgb(2)) = filtered_vol(:,:,:,2);
-            output(:,:,:,rgb(3)) = filtered_vol(:,:,:,3);
+            if isempty(roi_pixels)
+                measured_vector = nan(1, size(filtered_vol, 4));
+                return
+            end
+
+            linear_idx = sub2ind(size(filtered_vol, 1:3), ...
+                roi_pixels(:, 2), roi_pixels(:, 1), roi_pixels(:, 3));
+            measured_vector = nan(1, size(filtered_vol, 4));
+
+            for c = 1:size(filtered_vol, 4)
+                channel = filtered_vol(:, :, :, c);
+                measured_vector(c) = mean(channel(linear_idx), 'omitnan');
+            end
+        end
+
+        function roi_pixels = spectral_disk_pixels(filtered_vol, pixel, radius)
+            if nargin < 3 || isempty(radius) || ~isfinite(radius)
+                radius = 1;
+            end
+
+            radius = max(1, round(double(radius)));
+            x = min(max(round(double(pixel(1))), 1), size(filtered_vol, 2));
+            y = min(max(round(double(pixel(2))), 1), size(filtered_vol, 1));
+            z = min(max(round(double(pixel(3))), 1), size(filtered_vol, 3));
+
+            x_range = max(1, x - radius):min(size(filtered_vol, 2), x + radius);
+            y_range = max(1, y - radius):min(size(filtered_vol, 1), y + radius);
+            [xx, yy] = meshgrid(x_range, y_range);
+            mask = (xx - x).^2 + (yy - y).^2 <= radius.^2;
+
+            roi_pixels = [xx(mask), yy(mask), repmat(z, nnz(mask), 1)];
+        end
+
+        function cast_channel = cast_like_channel(channel, reference_channel)
+            target_class = class(reference_channel);
+            if isa(reference_channel, 'single') || isa(reference_channel, 'double')
+                cast_channel = cast(channel, target_class);
+                return
+            end
+
+            channel = round(channel);
+            channel = min(max(channel, 0), double(intmax(target_class)));
+            cast_channel = cast(channel, target_class);
+        end
+
+        function signature = spectral_cache_signature(app)
+            cache = Methods.ChunkyMethods.ensure_spectral_cache(app);
+            signature = struct( ...
+                'coefficients', double(cache.coefficients), ...
+                'measured_pixels', double(cache.measured_pixels), ...
+                'background_pixel', double(cache.background_pixel), ...
+                'background_vector', double(cache.background_vector), ...
+                'rgb_source_idx', double(cache.rgb_source_idx), ...
+                'sigma_gauss', double(cache.sigma_gauss), ...
+                'dropper_radius', double(cache.dropper_radius));
         end
 
         function sliceIndices = proc_target_slices(nz, nnz)
             % Calculate the indices of slices to retain for a new volume with nnz slices while preserving isotropy.
-        
-            % Validate inputs
+
+            nz = max(1, round(double(nz)));
+            nnz = min(max(round(double(nnz)), 1), nz);
+
+            if nnz <= 1
+                sliceIndices = ceil(nz / 2);
+                return
+            end
+
             if nnz >= nz
-                error('nnz must be less than nz');
+                sliceIndices = 1:nz;
+                return
             end
-        
-            % Calculate the indices to retain
-            mid = ceil(nz / 2); % Middle slice index of the original volume
-            half_nnz = floor(nnz / 2); % Half the number of slices to retain
-        
-            if mod(nnz, 2) == 0
-                % If nnz is even, we take slices symmetrically around the middle slice
-                startIndex = mid - half_nnz;
-                endIndex = mid + half_nnz - 1;
-                
-                % If nz is odd, exclude the middle slice
-                if mod(nz, 2) ~= 0
-                    sliceIndices = [startIndex:mid-1, mid+1:endIndex];
-                else
-                    sliceIndices = startIndex:endIndex;
+
+            target_positions = linspace(1, nz, nnz);
+            available = 1:nz;
+            sliceIndices = zeros(1, nnz);
+            used = false(1, nz);
+
+            for k = 1:nnz
+                [~, order] = sort(abs(available - target_positions(k)), 'ascend');
+                for candidate_idx = order
+                    candidate = available(candidate_idx);
+                    if ~used(candidate)
+                        sliceIndices(k) = candidate;
+                        used(candidate) = true;
+                        break
+                    end
                 end
-            else
-                % If nnz is odd, we take an odd number of slices symmetrically
-                startIndex = mid - half_nnz;
-                endIndex = mid + half_nnz;
-                sliceIndices = startIndex:endIndex;
             end
+
+            sliceIndices = sort(sliceIndices);
         end
 
         function neurons = stream_neurons(mode)
@@ -485,72 +793,164 @@ classdef ChunkyMethods
 
         function frame = load_proc_image(app)
             frame = struct('xy', {[]}, 'yz', {[]}, 'xz', {[]});
-            rgb = [str2num(app.ProcRDropDown.Value), str2num(app.ProcGDropDown.Value), str2num(app.ProcBDropDown.Value)];
-            if isempty(rgb)
-                app.ProcRDropDown.Value = '1';
-                app.ProcGDropDown.Value = '2';
-                app.ProcBDropDown.Value = '3';
-                app.ProcWDropDown.Value = '4';
-                rgb = [1, 2, 3];
-            end
-
-            % Grab current volume.
-            raw = Program.GUIHandling.get_active_volume(app, 'request', 'all');
-            [raw.array, raw.dims] = Program.Validation.pad_rgb(raw.array);
-            
-            if strcmp(raw.state, 'colormap')
-                t_array = raw.array;
-                raw.array = uint16(double(intmax('uint16')) * double(raw.array)/double(max(raw.array(:))));
-                raw.array = double(raw.array)/double(max(raw.array(:)));
-                threshold_value = (app.ProcNoiseThresholdKnob.Value/double(max(t_array, [], 'all')))*double(max(raw.array, [], 'all'));
-            else
-                threshold_value = app.ProcNoiseThresholdKnob.Value;
-            end
-
-            % Threshold.
-            raw.array(raw.array < threshold_value) = 0;
-            
-            % For each channel...
-            for c=1:raw.dims(4)
-                % ...Adjust the gamma & histogram.
-                c_gamma = sprintf("%s_GammaEditField", Program.GUIHandling.pos_prefixes{c});
-                c_hist = sprintf("%s_hist_slider", Program.GUIHandling.pos_prefixes{c});
-                slider_vals = app.(c_hist).Value; hist_limit = app.(c_hist).Limits(2);
-                
-                raw.array(:, :, :, c, :) = imadjustn(raw.array(:, :, :, c, :), [slider_vals(1)/hist_limit slider_vals(2)/hist_limit], [], app.(c_gamma).Value);
-                
-                if ~ismember(c, rgb)
-                    raw.array(:, :, :, rgb) = raw.array(:, :, :, rgb) + repmat(raw.array(:, :, :, c, :), [1, 1, 1, 3]);
-                    raw.array(:, :, :, c, :) = [];
-                end
-            end
-
-            % Apply processing operations.
-            actions = fieldnames(app.flags);
-            for a=1:length(actions)
-                action = actions{a};
-                if app.flags.(action) == 1
-                    raw.array = Methods.ChunkyMethods.apply_vol(app, action, raw.array);
-                end
-            end
-
-            Program.GUI.preprocessing_gui().set_gui_limits( ...
-                'x', [1, raw.dims(2)], ...
-                'y', [1, raw.dims(1)]);
-
-            Program.GUIHandling.histogram_handler(app, 'draw', raw.array);
+            [package, package_info] = Program.Routines.Processing.get_cached_package(app);
+            Program.Handlers.histograms.draw();
             Program.GUIHandling.shorten_knob_labels(app);
+            frames = Program.Routines.Processing.get_view_frames(app, package, package_info.package_signature);
+            frame.xy = frames.xy;
+            frame.xz = frames.xz;
+            frame.yz = frames.yz;
+        end
 
-            if app.ProcShowMIPCheckBox.Value
-                frame.xy = squeeze(max(raw.array,[],3));
+        function output = apply_channel_windows(app, volume)
+            output = volume;
+            if ndims(output) < 4
+                return
+            end
+
+            window_settings = Methods.ChunkyMethods.proc_window_settings(app, size(output, 4));
+            if isempty(window_settings)
+                return
+            end
+
+            for n = 1:numel(window_settings)
+                source_idx = window_settings(n).source_idx;
+                output(:, :, :, source_idx) = Methods.ChunkyMethods.apply_channel_window( ...
+                    output(:, :, :, source_idx), ...
+                    window_settings(n).low_high_in);
+            end
+        end
+
+        function window_settings = proc_window_settings(app, n_channels)
+            state = Program.Handlers.channels.processing_state(app);
+            template = struct('source_idx', 0, 'low_high_in', [0 1]);
+            assigned = false(1, n_channels);
+            window_settings = repmat(template, 1, n_channels);
+
+            for n = 1:numel(state.rows)
+                row = state.rows(n);
+                source_idx = row.source_idx;
+                if source_idx < 1 || source_idx > n_channels || assigned(source_idx)
+                    continue
+                end
+
+                low_high = double(row.settings.low_high_in);
+                if isempty(low_high) || numel(low_high) ~= 2
+                    continue
+                end
+
+                low_high = Methods.ChunkyMethods.normalize_window_range(low_high);
+                if all(abs(low_high - [0 1]) <= (0.5 / 255))
+                    continue
+                end
+
+                window_settings(source_idx).source_idx = source_idx;
+                window_settings(source_idx).low_high_in = low_high;
+                assigned(source_idx) = true;
+            end
+
+            window_settings = window_settings(assigned);
+        end
+
+        function output = apply_channel_window(channel, low_high_in)
+            low_high_in = Methods.ChunkyMethods.normalize_window_range(low_high_in);
+            if all(abs(low_high_in - [0 1]) <= (0.5 / 255))
+                output = channel;
+                return
+            end
+
+            if isfloat(channel)
+                finite_mask = isfinite(channel);
+                if ~any(finite_mask, 'all')
+                    output = channel;
+                    return
+                end
+
+                finite_vals = channel(finite_mask);
+                min_val = min(finite_vals, [], 'all');
+                max_val = max(finite_vals, [], 'all');
+                if min_val >= 0 && max_val <= 1
+                    min_val = 0;
+                    max_val = 1;
+                end
+                if max_val <= min_val
+                    output = zeros(size(channel), 'like', channel);
+                    return
+                end
+
+                normalized = zeros(size(channel), 'double');
+                normalized(finite_mask) = (double(channel(finite_mask)) - double(min_val)) ./ ...
+                    (double(max_val) - double(min_val));
+                normalized = min(max(normalized, 0), 1);
+                adjusted = imadjustn(normalized, low_high_in, [0 1], 1);
+
+                output = channel;
+                adjusted = double(adjusted) .* (double(max_val) - double(min_val)) + double(min_val);
+                output(finite_mask) = cast(adjusted(finite_mask), class(channel));
+                return
+            end
+
+            output = imadjustn(channel, low_high_in, [0 1], 1);
+        end
+
+        function low_high = normalize_window_range(low_high)
+            if isempty(low_high) || numel(low_high) < 2
+                low_high = [0 1];
+                return
+            end
+
+            low_high = double(low_high(:)');
+            low_high = min(max(low_high(1:2), 0), 1);
+            if low_high(1) > low_high(2)
+                low_high = fliplr(low_high);
+            end
+        end
+
+        function request = proc_downsample_request(app, dims3)
+            ny = max(1, round(double(dims3(1))));
+            nx = max(1, round(double(dims3(2))));
+            nz = max(1, round(double(dims3(3))));
+
+            min_xy_factor = 1 / max([ny, nx]);
+            xy_factor = double(app.ProcXYFactorEditField.Value);
+            if ~isfinite(xy_factor)
+                xy_factor = 1;
+            end
+            xy_factor = min(max(xy_factor, min_xy_factor), 1);
+
+            z_target = double(app.ProcZSlicesEditField.Value);
+            if ~isfinite(z_target)
+                z_target = nz;
+            end
+            z_target = min(max(round(z_target), 1), nz);
+
+            target_xy = max(1, round([ny, nx] * xy_factor));
+            target_xy = min(target_xy, [ny, nx]);
+            target_slices = Methods.ChunkyMethods.proc_target_slices(nz, z_target);
+
+            if isequal(target_xy, [ny, nx])
+                xy_factor = 1;
+            end
+            if numel(target_slices) == nz
+                z_target = nz;
             else
-                frame.xy = squeeze(raw.array);
+                z_target = numel(target_slices);
             end
 
-            if app.ProcPreviewZslowCheckBox.Value
-                frame.xz = squeeze(raw.array(:,y,:,:,:));
-                frame.yz = squeeze(raw.array(x,:,:,:,:));
-            end
+            request = struct( ...
+                'dims3', [ny, nx, nz], ...
+                'min_xy_factor', min_xy_factor, ...
+                'xy_factor', xy_factor, ...
+                'target_xy', target_xy, ...
+                'z_target', z_target, ...
+                'target_slices', target_slices, ...
+                'is_identity', isequal(target_xy, [ny, nx]) && numel(target_slices) == nz);
+        end
+
+        function [target_xy, target_slices] = proc_downsample_targets(app, dims3)
+            request = Methods.ChunkyMethods.proc_downsample_request(app, dims3);
+            target_xy = request.target_xy;
+            target_slices = request.target_slices;
         end
     end
 end

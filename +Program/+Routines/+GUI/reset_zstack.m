@@ -11,21 +11,13 @@ function reset_zstack(arr, scale, center)
         center = app.image_prefs.z_center;
     end
 
-    z_slices = 1:nz;
-
     if nz <= 1
         uialert(window, 'The image is not a volume!', ...
             'Image Not a Volume', 'Icon', 'error');
         return;
-
-    else
-        z_labels = arrayfun(@(z) num2str(z, '%.1f'), ...
-            (z_slices-1) * scale, 'UniformOutput', false);
     end
 
-    app.ZSlider.Limits = [1, nz];
-    app.ZSlider.MajorTicks = z_slices;
-    app.ZSlider.MajorTickLabels = z_labels;
+    Program.Helpers.configure_main_zslider(app, nz);
 
     % Setup the z-axis orientation.
     app.ZCenterEditField.Value = round((center - 1) * scale, 1);
@@ -42,4 +34,3 @@ function reset_zstack(arr, scale, center)
 
     end
 end
-

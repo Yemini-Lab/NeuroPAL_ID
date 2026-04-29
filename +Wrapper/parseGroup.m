@@ -77,23 +77,28 @@ else
         else
             file.cloneNwbFileClass(Type.name, Type.typename);
             rehash();
-            parsed = eval([Type.typename '(kwargs{:})']);
+            parsed = instantiateType(Type.typename, kwargs{:});
         end
         
         return;
     end
 
     try
-        parsed = eval([Type.typename '(kwargs{:})']);
+        parsed = instantiateType(Type.typename, kwargs{:});
     catch ME
         if contains(ME.message, "Unrecognized property 'order_optical_channels'")
-            parsed = eval([Type.typename '(kwargs{:})']);
+            parsed = instantiateType(Type.typename, kwargs{:});
         else
             rethrow(ME);
         end
         
     end
 end
+end
+
+function parsed = instantiateType(typeName, varargin)
+ctor = str2func(typeName);
+parsed = feval(ctor, varargin{:});
 end
 
 

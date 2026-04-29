@@ -33,6 +33,7 @@ import h5py.utils
 import h5py.h5ac
 import h5py._proxy
 
+import ast
 from collections import OrderedDict
 from docopt import docopt
 
@@ -44,6 +45,15 @@ from zephir.utils.io import *
 from getters import *
 import numpy as np
 import sys
+
+
+def parse_literal_arg(value, name):
+    if value is None:
+        return None
+    try:
+        return ast.literal_eval(value)
+    except (SyntaxError, ValueError) as exc:
+        raise ValueError(f'Invalid literal for {name}: {value}') from exc
 
 
 def dist_corrcoef(image_1, image_2):
@@ -242,7 +252,7 @@ def main():
         filename=Path(args['--dataset']).name,
         n_frames=int(args['--n_frames']),
         n_iter=int(args['--n_iter']),
-        t_list=eval(args['--t_list']) if args['--t_list'] else None,
+        t_list=parse_literal_arg(args['--t_list'], '--t_list') if args['--t_list'] else None,
         channel=int(args['--channel']) if args['--channel'] else None,
         metadata=metadata_dict,
         save_to_metadata=args['--save_to_metadata'] in ['True', 'Y', 'y'],

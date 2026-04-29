@@ -4,22 +4,14 @@ function set_bounds()
 
     switch lower(app.VolumeDropDown.Value)
         case 'colormap'
-            frame = app.proc_image.data(:, :, 1, :);
+            frame = Program.Helpers.processing_colormap_context(app).volume(:, :, 1, :);
         case 'video'
             frame = app.retrieve_frame(1);
     end
 
-    frame_class = class(frame);
-    if ismember(frame_class, {'double', 'single'})
-        new_max = max(frame, [], 'all');
-    else
-        new_max = intmax(frame_class);
-    end
-
-    app.ProcNoiseThresholdKnob.Limits(2) = new_max;
+    setappdata(app.CELL_ID, 'proc_threshold_raw_max', 255);
     for p=1:length(pfx)
         handle = sprintf('%s_hist_slider', pfx{p});
-        app.(handle).Limits(2) = new_max;
+        app.(handle).Limits(2) = 255;
     end
 end
-

@@ -259,7 +259,7 @@ classdef NeuroPALImage
             nwb_file = strrep(image_file, '.mat', '.nwb');
             if exist(nwb_file, 'file') && ~exist(id_file, 'file')
                 try
-                    fprintf('Attempting to load neuron data from NWB file: %s\n', nwb_file);
+                    Program.Helpers.debug_log('Attempting to load neuron data from NWB file: %s\n', nwb_file);
                     nwb_data = nwbRead(nwb_file);
                     [neurons_from_nwb, mp_from_nwb] = DataHandling.NeuroPALImage.loadNeuronDataFromNWB(nwb_data, worm.body, info.scale);
                     
@@ -271,7 +271,7 @@ classdef NeuroPALImage
                             mp = mp_from_nwb;
                         end
                         version = ProgramInfo.version;
-                        fprintf('Successfully loaded neuron data from NWB file\n');
+                        Program.Helpers.debug_log('Successfully loaded neuron data from NWB file\n');
                     end
                 catch ME
                     warning(ME.identifier, 'Failed to load neuron data from NWB file: %s', ME.message);
@@ -633,12 +633,12 @@ classdef NeuroPALImage
             try
                 % Check if neuron annotation data exists in the NWB file
                 if ~any(ismember(nwb_data.processing.keys, 'NeuronAnnotations'))
-                    fprintf('No NeuronAnnotations processing module found in NWB file\n');
+                    Program.Helpers.debug_log('No NeuronAnnotations processing module found in NWB file\n');
                     return;
                 end
                 
                 neuron_module = nwb_data.processing.get('NeuronAnnotations');
-                fprintf('Found NeuronAnnotations processing module\n');
+                Program.Helpers.debug_log('Found NeuronAnnotations processing module\n');
                 
                 % Load neuron annotations table
                 if any(ismember(neuron_module.dynamictable.keys, 'NeuronAnnotations'))
@@ -656,7 +656,7 @@ classdef NeuroPALImage
                     
                     % Convert pipe-separated probabilistic IDs back to matrix format
                     % (The Neuron constructor expects probabilistic_ids as a matrix where each row is a neuron)
-                    fprintf('DEBUG: Converting %d probabilistic ID strings to matrix format...\n', length(probabilistic_ids_str));
+                    Program.Helpers.debug_log('DEBUG: Converting %d probabilistic ID strings to matrix format...\n', length(probabilistic_ids_str));
                     
                     % First, convert strings to cell arrays
                     prob_id_cells = cell(length(probabilistic_ids_str), 1);
@@ -668,8 +668,8 @@ classdef NeuroPALImage
                             prob_id_cells{i} = cellfun(@char, split_ids, 'UniformOutput', false);
                             max_ids = max(max_ids, length(prob_id_cells{i}));
                             if i == 1
-                                fprintf('DEBUG: First prob IDs: %s -> %s\n', probabilistic_ids_str{i}, strjoin(prob_id_cells{i}, ', '));
-                                fprintf('DEBUG: First ID type: %s\n', class(prob_id_cells{i}{1}));
+                                Program.Helpers.debug_log('DEBUG: First prob IDs: %s -> %s\n', probabilistic_ids_str{i}, strjoin(prob_id_cells{i}, ', '));
+                                Program.Helpers.debug_log('DEBUG: First ID type: %s\n', class(prob_id_cells{i}{1}));
                             end
                         else
                             prob_id_cells{i} = {};
@@ -688,20 +688,20 @@ classdef NeuroPALImage
                                 probabilistic_ids{i, j} = '';
                             end
                         end
-                        fprintf('DEBUG: Created probabilistic_ids matrix of size %dx%d\n', size(probabilistic_ids, 1), size(probabilistic_ids, 2));
+                        Program.Helpers.debug_log('DEBUG: Created probabilistic_ids matrix of size %dx%d\n', size(probabilistic_ids, 1), size(probabilistic_ids, 2));
                     else
                         probabilistic_ids = {};
                     end
                     
                     num_neurons = length(user_annotations);
-                    fprintf('Found %d neurons in annotations table\n', num_neurons);
+                    Program.Helpers.debug_log('Found %d neurons in annotations table\n', num_neurons);
                     
                     % Debug: Check the annotation status values
-                    fprintf('DEBUG: Sample is_annotation_on values: [%g, %g, %g, %g, %g]\n', ...
+                    Program.Helpers.debug_log('DEBUG: Sample is_annotation_on values: [%g, %g, %g, %g, %g]\n', ...
                         is_annotation_on(1), is_annotation_on(2), is_annotation_on(3), is_annotation_on(4), is_annotation_on(5));
-                    fprintf('DEBUG: Unique is_annotation_on values: %s\n', mat2str(unique(is_annotation_on)));
+                    Program.Helpers.debug_log('DEBUG: Unique is_annotation_on values: %s\n', mat2str(unique(is_annotation_on)));
                 else
-                    fprintf('No NeuronAnnotations table found in processing module\n');
+                    Program.Helpers.debug_log('No NeuronAnnotations table found in processing module\n');
                     return;
                 end
                 
@@ -717,23 +717,23 @@ classdef NeuroPALImage
                     covariances_flat = properties_table.vectordata.get('covariances').data.load();
                     aligned_xyzRGBs = properties_table.vectordata.get('aligned_xyzRGB').data.load();
                     
-                    fprintf('DEBUG: Loaded property data shapes:\n');
-                    fprintf('  positions: %s\n', mat2str(size(positions)));
-                    fprintf('  colors: %s\n', mat2str(size(colors)));
-                    fprintf('  color_readouts: %s\n', mat2str(size(color_readouts)));
-                    fprintf('  baselines: %s\n', mat2str(size(baselines)));
-                    fprintf('  covariances_flat: %s\n', mat2str(size(covariances_flat)));
-                    fprintf('  aligned_xyzRGBs: %s\n', mat2str(size(aligned_xyzRGBs)));
+                    Program.Helpers.debug_log('DEBUG: Loaded property data shapes:\n');
+                    Program.Helpers.debug_log('  positions: %s\n', mat2str(size(positions)));
+                    Program.Helpers.debug_log('  colors: %s\n', mat2str(size(colors)));
+                    Program.Helpers.debug_log('  color_readouts: %s\n', mat2str(size(color_readouts)));
+                    Program.Helpers.debug_log('  baselines: %s\n', mat2str(size(baselines)));
+                    Program.Helpers.debug_log('  covariances_flat: %s\n', mat2str(size(covariances_flat)));
+                    Program.Helpers.debug_log('  aligned_xyzRGBs: %s\n', mat2str(size(aligned_xyzRGBs)));
                     
                     % Debug: Check actual position values
                     if ~isempty(positions) && size(positions, 1) >= 3
-                        fprintf('DEBUG: Sample position values:\n');
+                        Program.Helpers.debug_log('DEBUG: Sample position values:\n');
                         for debug_i = 1:min(3, size(positions, 1))
-                            fprintf('  Neuron %d positions: [%.3f, %.3f, %.3f]\n', debug_i, ...
+                            Program.Helpers.debug_log('  Neuron %d positions: [%.3f, %.3f, %.3f]\n', debug_i, ...
                                 positions(debug_i, 1), positions(debug_i, 2), positions(debug_i, 3));
                         end
-                        fprintf('  Position data type: %s\n', class(positions));
-                        fprintf('  Position range: X=[%.3f, %.3f], Y=[%.3f, %.3f], Z=[%.3f, %.3f]\n', ...
+                        Program.Helpers.debug_log('  Position data type: %s\n', class(positions));
+                        Program.Helpers.debug_log('  Position range: X=[%.3f, %.3f], Y=[%.3f, %.3f], Z=[%.3f, %.3f]\n', ...
                             min(positions(:,1)), max(positions(:,1)), ...
                             min(positions(:,2)), max(positions(:,2)), ...
                             min(positions(:,3)), max(positions(:,3)));
@@ -751,19 +751,19 @@ classdef NeuroPALImage
                         covariances_temp = reshape(covariances_flat', [num_neurons, 3, 3]);
                         covariances = permute(covariances_temp, [2, 3, 1]); % [3, 3, num_neurons]
                     else
-                        fprintf('WARNING: Unexpected covariance data shape, creating default covariances\n');
+                        Program.Helpers.debug_log('WARNING: Unexpected covariance data shape, creating default covariances\n');
                         covariances = repmat(eye(3), [1, 1, num_neurons]);
                     end
                     
-                    fprintf('DEBUG: Reshaped covariances: %s\n', mat2str(size(covariances)));
+                    Program.Helpers.debug_log('DEBUG: Reshaped covariances: %s\n', mat2str(size(covariances)));
                     
                     % The Neurons.Neuron.unmarshall function expects covariances(i,:,:) to work
                     % This means we need covariances to be [num_neurons, 3, 3], not [3, 3, num_neurons]
                     covariances = permute(covariances, [3, 1, 2]); % Convert to [num_neurons, 3, 3]
-                    fprintf('DEBUG: Final covariances for unmarshall: %s\n', mat2str(size(covariances)));
-                    fprintf('Found neuron properties for %d neurons\n', num_neurons);
+                    Program.Helpers.debug_log('DEBUG: Final covariances for unmarshall: %s\n', mat2str(size(covariances)));
+                    Program.Helpers.debug_log('Found neuron properties for %d neurons\n', num_neurons);
                 else
-                    fprintf('No NeuronProperties table found in processing module\n');
+                    Program.Helpers.debug_log('No NeuronProperties table found in processing module\n');
                     return;
                 end
                 
@@ -789,62 +789,62 @@ classdef NeuroPALImage
                 sp.rank = ranks;
                 
                 % Debug the superpixels structure
-                fprintf('DEBUG: Superpixels structure fields and sizes:\n');
+                Program.Helpers.debug_log('DEBUG: Superpixels structure fields and sizes:\n');
                 fields = fieldnames(sp);
                 for i = 1:length(fields)
                     field = fields{i};
                     value = sp.(field);
                     if isnumeric(value)
-                        fprintf('  %s: %s %s\n', field, class(value), mat2str(size(value)));
+                        Program.Helpers.debug_log('  %s: %s %s\n', field, class(value), mat2str(size(value)));
                     elseif iscell(value)
-                        fprintf('  %s: %s (length: %d)\n', field, class(value), length(value));
+                        Program.Helpers.debug_log('  %s: %s (length: %d)\n', field, class(value), length(value));
                     else
-                        fprintf('  %s: %s\n', field, class(value));
+                        Program.Helpers.debug_log('  %s: %s\n', field, class(value));
                     end
                 end
                 
                 % Load atlas version if available
                 if any(ismember(neuron_module.nwbdatainterface.keys, 'AtlasVersion'))
-                    fprintf('DEBUG: Loading atlas version...\n');
+                    Program.Helpers.debug_log('DEBUG: Loading atlas version...\n');
                     atlas_version_data = neuron_module.nwbdatainterface.get('AtlasVersion');
                     sp.atlas_version = atlas_version_data.data.load();
-                    fprintf('DEBUG: Loaded atlas version: %s\n', sp.atlas_version);
+                    Program.Helpers.debug_log('DEBUG: Loaded atlas version: %s\n', sp.atlas_version);
                 else
-                    fprintf('DEBUG: No atlas version found in NWB file\n');
+                    Program.Helpers.debug_log('DEBUG: No atlas version found in NWB file\n');
                 end
                 
                 % Create neurons object
-                fprintf('DEBUG: Attempting to create Neurons.Image object...\n');
-                fprintf('DEBUG: Using scale: [%.6f, %.6f, %.6f]\n', scale(1), scale(2), scale(3));
-                fprintf('DEBUG: Using body_part: %s\n', body_part);
+                Program.Helpers.debug_log('DEBUG: Attempting to create Neurons.Image object...\n');
+                Program.Helpers.debug_log('DEBUG: Using scale: [%.6f, %.6f, %.6f]\n', scale(1), scale(2), scale(3));
+                Program.Helpers.debug_log('DEBUG: Using body_part: %s\n', body_part);
                 try
                     neurons = Neurons.Image(sp, body_part, 'scale', scale);
-                    fprintf('Successfully loaded %d neurons from NWB file\n', num_neurons);
+                    Program.Helpers.debug_log('Successfully loaded %d neurons from NWB file\n', num_neurons);
                     
                     % Debug: Check the actual positions in the created neurons object
                     if ~isempty(neurons) && ~isempty(neurons.neurons) && length(neurons.neurons) >= 3
-                        fprintf('DEBUG: Checking created neuron positions:\n');
+                        Program.Helpers.debug_log('DEBUG: Checking created neuron positions:\n');
                         for debug_i = 1:min(3, length(neurons.neurons))
                             pos = neurons.neurons(debug_i).position;
-                            fprintf('  Created neuron %d position: [%.3f, %.3f, %.3f]\n', debug_i, pos(1), pos(2), pos(3));
+                            Program.Helpers.debug_log('  Created neuron %d position: [%.3f, %.3f, %.3f]\n', debug_i, pos(1), pos(2), pos(3));
                         end
                     end
                 catch neuron_create_ME
-                    fprintf('ERROR creating Neurons.Image: %s\n', neuron_create_ME.message);
-                    fprintf('Stack trace: %s\n', getReport(neuron_create_ME));
+                    Program.Helpers.debug_log('ERROR creating Neurons.Image: %s\n', neuron_create_ME.message);
+                    Program.Helpers.debug_log('Stack trace: %s\n', getReport(neuron_create_ME));
                     
                     % Try to diagnose the covariance issue
-                    fprintf('DEBUG: Investigating covariance issue...\n');
-                    fprintf('  covariances size: %s\n', mat2str(size(sp.covariances)));
-                    fprintf('  num_neurons: %d\n', num_neurons);
+                    Program.Helpers.debug_log('DEBUG: Investigating covariance issue...\n');
+                    Program.Helpers.debug_log('  covariances size: %s\n', mat2str(size(sp.covariances)));
+                    Program.Helpers.debug_log('  num_neurons: %d\n', num_neurons);
                     if size(sp.covariances, 3) ~= num_neurons
-                        fprintf('  MISMATCH: covariances 3rd dimension (%d) != num_neurons (%d)\n', ...
+                        Program.Helpers.debug_log('  MISMATCH: covariances 3rd dimension (%d) != num_neurons (%d)\n', ...
                             size(sp.covariances, 3), num_neurons);
                         % Try to fix by creating default covariances
-                        fprintf('  Creating default identity covariances...\n');
+                        Program.Helpers.debug_log('  Creating default identity covariances...\n');
                         sp.covariances = repmat(eye(3), [1, 1, num_neurons]);
                         neurons = Neurons.Image(sp, body_part, 'scale', scale);
-                        fprintf('Successfully created neurons with default covariances\n');
+                        Program.Helpers.debug_log('Successfully created neurons with default covariances\n');
                     else
                         rethrow(neuron_create_ME);
                     end
@@ -852,7 +852,7 @@ classdef NeuroPALImage
                 
             catch ME
                 warning(ME.identifier, 'Could not load neuron annotation data from NWB file: %s', ME.message);
-                fprintf('Stack trace: %s\n', getReport(ME));
+                Program.Helpers.debug_log('Stack trace: %s\n', getReport(ME));
                 neurons = [];
             end
             
@@ -889,7 +889,7 @@ classdef NeuroPALImage
                             end
                         end
                         
-                        fprintf('Loaded detection parameters from NWB file\n');
+                        Program.Helpers.debug_log('Loaded detection parameters from NWB file\n');
                     end
                 end
                 

@@ -16,12 +16,12 @@ classdef writeNWB
             % Initialize MatNWB with compatible schema version
             try
                 % Clear any cached schemas and regenerate with compatible version
-                fprintf('DEBUG: Initializing MatNWB with compatible schema...\n');
+                Program.Helpers.debug_log('DEBUG: Initializing MatNWB with compatible schema...\n');
                 generateCore('2.6.0');
                 generateExtension('/Users/adamg/neuroPAL/ndx-multichannel-volume/spec/ndx-multichannel-volume.namespace.yaml');
-                fprintf('DEBUG: Successfully initialized NWB 2.6.0 with ndx-multichannel-volume\n');
+                Program.Helpers.debug_log('DEBUG: Successfully initialized NWB 2.6.0 with ndx-multichannel-volume\n');
             catch ME
-                fprintf('DEBUG: Failed to set specific schema, using defaults: %s\n', ME.message);
+                Program.Helpers.debug_log('DEBUG: Failed to set specific schema, using defaults: %s\n', ME.message);
             end
 
             % Grab NWB-compatible metadata from nwbsave.mlapp
@@ -34,16 +34,16 @@ classdef writeNWB
             ctx.flags = Program.GUIHandling.global_grab('NeuroPAL ID', 'data_flags');
             
             % Debug: Print all flags
-            fprintf('\n=== DEBUG: Data Flags ===\n');
+            Program.Helpers.debug_log('\n=== DEBUG: Data Flags ===\n');
             if isstruct(ctx.flags)
                 flag_names = fieldnames(ctx.flags);
                 for i = 1:length(flag_names)
-                    fprintf('Flag %s = %d\n', flag_names{i}, ctx.flags.(flag_names{i}));
+                    Program.Helpers.debug_log('Flag %s = %d\n', flag_names{i}, ctx.flags.(flag_names{i}));
                 end
             else
-                fprintf('Warning: ctx.flags is not a struct: %s\n', class(ctx.flags));
+                Program.Helpers.debug_log('Warning: ctx.flags is not a struct: %s\n', class(ctx.flags));
             end
-            fprintf('========================\n\n');
+            Program.Helpers.debug_log('========================\n\n');
 
             % Grab NWB-compatible data from visualize_light.mlapp
             progress.Message = 'Loading volume data...';
@@ -52,10 +52,10 @@ classdef writeNWB
             colormap_data = Program.GUIHandling.global_grab('NeuroPAL ID', 'image_data');
             video_info = Program.GUIHandling.global_grab('NeuroPAL ID', 'video_info');
             
-            fprintf('=== DEBUG: Available Data ===\n');
-            fprintf('colormap_data: %s (size: %s)\n', class(colormap_data), mat2str(size(colormap_data)));
-            fprintf('video_info: %s\n', class(video_info));
-            fprintf('============================\n\n');
+            Program.Helpers.debug_log('=== DEBUG: Available Data ===\n');
+            Program.Helpers.debug_log('colormap_data: %s (size: %s)\n', class(colormap_data), mat2str(size(colormap_data)));
+            Program.Helpers.debug_log('video_info: %s\n', class(video_info));
+            Program.Helpers.debug_log('============================\n\n');
             
             % Determine what data types we have
             has_colormap = ~isempty(colormap_data);
@@ -80,9 +80,9 @@ classdef writeNWB
                 
                 % Debug: Check if we got neuron data
                 if isempty(ctx.neurons.image_neurons)
-                    fprintf('Warning: No neuron data found from global_grab\n');
+                    Program.Helpers.debug_log('Warning: No neuron data found from global_grab\n');
                 else
-                    fprintf('Found neuron data with %d neurons\n', length(ctx.neurons.image_neurons.neurons));
+                    Program.Helpers.debug_log('Found neuron data with %d neurons\n', length(ctx.neurons.image_neurons.neurons));
                 end
                 
                 % Validate colormap data structure
@@ -182,50 +182,50 @@ classdef writeNWB
             % Always save neuron data if it exists, regardless of flags
             if has_colormap && ~isempty(ctx.neurons.image_neurons) && ~isempty(ctx.neurons.image_neurons.neurons)
                 progress.Message = 'Populating neuronal identities...';
-                fprintf('=== DEBUG: NEURON DATA PROCESSING ===\n');
-                fprintf('Number of neurons found: %d\n', length(ctx.neurons.image_neurons.neurons));
+                Program.Helpers.debug_log('=== DEBUG: NEURON DATA PROCESSING ===\n');
+                Program.Helpers.debug_log('Number of neurons found: %d\n', length(ctx.neurons.image_neurons.neurons));
                 
                 % Sample first neuron for debugging
                 if length(ctx.neurons.image_neurons.neurons) > 0
                     first_neuron = ctx.neurons.image_neurons.neurons(1);
-                    fprintf('First neuron data:\n');
-                    fprintf('  annotation: "%s" (type: %s)\n', char(first_neuron.annotation), class(first_neuron.annotation));
-                    fprintf('  position: [%g, %g, %g]\n', first_neuron.position(1), first_neuron.position(2), first_neuron.position(3));
-                    fprintf('  has color: %s\n', logical(~isempty(first_neuron.color)));
-                    fprintf('  deterministic_id: "%s" (type: %s)\n', char(first_neuron.deterministic_id), class(first_neuron.deterministic_id));
+                    Program.Helpers.debug_log('First neuron data:\n');
+                    Program.Helpers.debug_log('  annotation: "%s" (type: %s)\n', char(first_neuron.annotation), class(first_neuron.annotation));
+                    Program.Helpers.debug_log('  position: [%g, %g, %g]\n', first_neuron.position(1), first_neuron.position(2), first_neuron.position(3));
+                    Program.Helpers.debug_log('  has color: %s\n', logical(~isempty(first_neuron.color)));
+                    Program.Helpers.debug_log('  deterministic_id: "%s" (type: %s)\n', char(first_neuron.deterministic_id), class(first_neuron.deterministic_id));
                     if ~isempty(first_neuron.probabilistic_ids)
-                        fprintf('  probabilistic_ids: %s (type: %s, length: %d)\n', ...
+                        Program.Helpers.debug_log('  probabilistic_ids: %s (type: %s, length: %d)\n', ...
                             strjoin(cellfun(@char, first_neuron.probabilistic_ids, 'UniformOutput', false), ', '), ...
                             class(first_neuron.probabilistic_ids), length(first_neuron.probabilistic_ids));
                     else
-                        fprintf('  probabilistic_ids: empty\n');
+                        Program.Helpers.debug_log('  probabilistic_ids: empty\n');
                     end
                     % Check covariance data
                     if ~isempty(first_neuron.covariance)
-                        fprintf('  covariance: %s, has NaN: %s\n', mat2str(size(first_neuron.covariance)), any(isnan(first_neuron.covariance(:))));
-                        fprintf('  covariance sample: [%g, %g, %g; %g, %g, %g; %g, %g, %g]\n', first_neuron.covariance(:)');
+                        Program.Helpers.debug_log('  covariance: %s, has NaN: %s\n', mat2str(size(first_neuron.covariance)), any(isnan(first_neuron.covariance(:))));
+                        Program.Helpers.debug_log('  covariance sample: [%g, %g, %g; %g, %g, %g; %g, %g, %g]\n', first_neuron.covariance(:)');
                     else
-                        fprintf('  covariance: empty\n');
+                        Program.Helpers.debug_log('  covariance: empty\n');
                     end
                     % Check annotation status
                     if ~isempty(first_neuron.is_annotation_on)
-                        fprintf('  is_annotation_on: %g\n', first_neuron.is_annotation_on);
+                        Program.Helpers.debug_log('  is_annotation_on: %g\n', first_neuron.is_annotation_on);
                     else
-                        fprintf('  is_annotation_on: empty (will default to ON)\n');
+                        Program.Helpers.debug_log('  is_annotation_on: empty (will default to ON)\n');
                     end
                 end
                 
                 % Only create segmentation if flags allow it
                 if (ctx.flags.Neurons || ctx.flags.Neuronal_Identities)
                     ctx.neurons.colormap = DataHandling.writeNWB.create_segmentation('colormap', ctx);
-                    fprintf('Created segmentation data\n');
+                    Program.Helpers.debug_log('Created segmentation data\n');
                 end
                 
                 % Always store neuron annotations and metadata in NWB file when neuron data exists
-                fprintf('Creating neuron annotations...\n');
+                Program.Helpers.debug_log('Creating neuron annotations...\n');
                 ctx.neurons.annotations = DataHandling.writeNWB.create_neuron_annotations(ctx);
                 
-                fprintf('Creating detection parameters...\n');
+                Program.Helpers.debug_log('Creating detection parameters...\n');
                 ctx.neurons.detection_params = DataHandling.writeNWB.create_detection_params(ctx);
                 
                 % Initialize processing module if it doesn't exist
@@ -236,48 +236,48 @@ classdef writeNWB
                 % Add segmentation only if it was created
                 if isfield(ctx.neurons, 'colormap') && ~isempty(ctx.neurons.colormap)
                     ctx.build.modules.processing.ColormapNeurons = ctx.neurons.colormap;
-                    fprintf('Added segmentation to processing modules\n');
+                    Program.Helpers.debug_log('Added segmentation to processing modules\n');
                 end
                 
                 % Add neuron annotations and detection parameters only if they were created
                 if ~isempty(ctx.neurons.annotations)
                     ctx.build.modules.processing.NeuronAnnotations = ctx.neurons.annotations;
-                    fprintf('✓ Added neuron annotations processing module to NWB file\n');
+                    Program.Helpers.debug_log('✓ Added neuron annotations processing module to NWB file\n');
                     
                     % Debug: check structure of annotations module
                     ann_mod = ctx.neurons.annotations;
-                    fprintf('Annotations module type: %s\n', class(ann_mod));
+                    Program.Helpers.debug_log('Annotations module type: %s\n', class(ann_mod));
                     if isprop(ann_mod, 'dynamictable') && ~isempty(ann_mod.dynamictable)
                         tables = ann_mod.dynamictable.keys;
-                        fprintf('Dynamic tables in annotations module: %s\n', strjoin(tables, ', '));
+                        Program.Helpers.debug_log('Dynamic tables in annotations module: %s\n', strjoin(tables, ', '));
                     end
                 else
-                    fprintf('⚠ Warning: Neuron annotations module is empty!\n');
+                    Program.Helpers.debug_log('⚠ Warning: Neuron annotations module is empty!\n');
                 end
                 
                 if ~isempty(ctx.neurons.detection_params)
                     ctx.build.modules.processing.DetectionParameters = ctx.neurons.detection_params;
-                    fprintf('✓ Added detection parameters processing module to NWB file\n');
+                    Program.Helpers.debug_log('✓ Added detection parameters processing module to NWB file\n');
                     
                     % Debug: check structure of detection params module
                     det_mod = ctx.neurons.detection_params;
-                    fprintf('Detection params module type: %s\n', class(det_mod));
+                    Program.Helpers.debug_log('Detection params module type: %s\n', class(det_mod));
                     if isprop(det_mod, 'dynamictable') && ~isempty(det_mod.dynamictable)
                         tables = det_mod.dynamictable.keys;
-                        fprintf('Dynamic tables in detection params module: %s\n', strjoin(tables, ', '));
+                        Program.Helpers.debug_log('Dynamic tables in detection params module: %s\n', strjoin(tables, ', '));
                     end
                 else
-                    fprintf('⚠ Warning: Detection parameters module is empty!\n');
+                    Program.Helpers.debug_log('⚠ Warning: Detection parameters module is empty!\n');
                 end
                 
-                fprintf('✓ Successfully processed neuron annotation data for NWB file\n');
-                fprintf('=====================================\n\n');
+                Program.Helpers.debug_log('✓ Successfully processed neuron annotation data for NWB file\n');
+                Program.Helpers.debug_log('=====================================\n\n');
             else
                 if has_colormap
                     if isempty(ctx.neurons.image_neurons)
-                        fprintf('Debug: No neuron data available for NWB export\n');
+                        Program.Helpers.debug_log('Debug: No neuron data available for NWB export\n');
                     elseif isempty(ctx.neurons.image_neurons.neurons)
-                        fprintf('Debug: Neuron object exists but contains no neurons\n');
+                        Program.Helpers.debug_log('Debug: Neuron object exists but contains no neurons\n');
                     end
                 end
             end
@@ -371,13 +371,13 @@ classdef writeNWB
                         case 'types.core.ProcessingModule'
                             % Handle ProcessingModule directly - add it to the file's processing modules
                             ctx.build.file.processing.set(obj_name, obj_data);
-                            fprintf('Added ProcessingModule "%s" directly to file\n', obj_name);
+                            Program.Helpers.debug_log('Added ProcessingModule "%s" directly to file\n', obj_name);
 
                         case {'types.core.NWBDataInterface', 'types.core.TimeSeries', 'types.core.RoiResponseSeries'}
                             ctx.build.processing_modules.('CalciumActivity').nwbdatainterface.set(obj_name, obj_data);
 
                         otherwise
-                            fprintf('Unhandled object type for %s: %s\n', obj_name, class(obj_data));
+                            Program.Helpers.debug_log('Unhandled object type for %s: %s\n', obj_name, class(obj_data));
                     end
                 end
             end
@@ -402,56 +402,56 @@ classdef writeNWB
                     progress.Message = 'Exporting NWB file...';
                     
                     % Debug: List all processing modules before export
-                    fprintf('\n=== DEBUG: Processing modules in file ===\n');
+                    Program.Helpers.debug_log('\n=== DEBUG: Processing modules in file ===\n');
                     if ~isempty(ctx.build.file.processing)
                         proc_keys = ctx.build.file.processing.keys;
-                        fprintf('Processing modules: %s\n', strjoin(proc_keys, ', '));
+                        Program.Helpers.debug_log('Processing modules: %s\n', strjoin(proc_keys, ', '));
                         for i = 1:length(proc_keys)
                             key = proc_keys{i};
                             mod = ctx.build.file.processing.get(key);
-                            fprintf('Module "%s" type: %s\n', key, class(mod));
+                            Program.Helpers.debug_log('Module "%s" type: %s\n', key, class(mod));
                             if isprop(mod, 'dynamictable') && ~isempty(mod.dynamictable)
                                 dt_keys = mod.dynamictable.keys;
-                                fprintf('  DynamicTables: %s\n', strjoin(dt_keys, ', '));
+                                Program.Helpers.debug_log('  DynamicTables: %s\n', strjoin(dt_keys, ', '));
                             end
                         end
                     else
-                        fprintf('No processing modules found!\n');
+                        Program.Helpers.debug_log('No processing modules found!\n');
                     end
-                    fprintf('==========================================\n\n');
+                    Program.Helpers.debug_log('==========================================\n\n');
                     
                     nwbExport(ctx.build.file, path);
-                    fprintf('Successfully saved NWB file: %s\n', path);
+                    Program.Helpers.debug_log('Successfully saved NWB file: %s\n', path);
                     
                     % Verify data was saved by reading it back
-                    fprintf('\n=== VERIFICATION: Reading back saved data ===\n');
+                    Program.Helpers.debug_log('\n=== VERIFICATION: Reading back saved data ===\n');
                     try
                         saved_nwb = nwbRead(path);
                         if any(ismember(saved_nwb.processing.keys, 'NeuronAnnotations'))
-                            fprintf('✓ NeuronAnnotations found in saved file\n');
+                            Program.Helpers.debug_log('✓ NeuronAnnotations found in saved file\n');
                             ann_mod = saved_nwb.processing.get('NeuronAnnotations');
                             if any(ismember(ann_mod.dynamictable.keys, 'NeuronAnnotations'))
                                 ann_table = ann_mod.dynamictable.get('NeuronAnnotations');
-                                fprintf('✓ NeuronAnnotations table has %d rows\n', ann_table.height);
+                                Program.Helpers.debug_log('✓ NeuronAnnotations table has %d rows\n', ann_table.height);
                             else
-                                fprintf('⚠ NeuronAnnotations table not found in module\n');
+                                Program.Helpers.debug_log('⚠ NeuronAnnotations table not found in module\n');
                             end
                         else
-                            fprintf('⚠ NeuronAnnotations not found in saved file!\n');
+                            Program.Helpers.debug_log('⚠ NeuronAnnotations not found in saved file!\n');
                         end
                         
                         if any(ismember(saved_nwb.processing.keys, 'DetectionParameters'))
-                            fprintf('✓ DetectionParameters found in saved file\n');
+                            Program.Helpers.debug_log('✓ DetectionParameters found in saved file\n');
                         else
-                            fprintf('⚠ DetectionParameters not found in saved file!\n');
+                            Program.Helpers.debug_log('⚠ DetectionParameters not found in saved file!\n');
                         end
                     catch verify_ME
-                        fprintf('⚠ Could not verify saved data: %s\n', verify_ME.message);
+                        Program.Helpers.debug_log('⚠ Could not verify saved data: %s\n', verify_ME.message);
                     end
-                    fprintf('============================================\n\n');
+                    Program.Helpers.debug_log('============================================\n\n');
                     
                     % No longer create companion ID file - all data is in NWB
-                    fprintf('All neuron data saved within NWB file - no companion ID file needed.\n');
+                    Program.Helpers.debug_log('All neuron data saved within NWB file - no companion ID file needed.\n');
                 else
                     % Merge with existing file
                     progress.Message = 'Merging with existing NWB file...';
@@ -472,10 +472,10 @@ classdef writeNWB
                     
                     new_path = strrep(path, '.nwb', '-new.nwb');
                     nwbExport(existing_nwb, new_path);
-                    fprintf('Successfully saved merged NWB file: %s\n', new_path);
+                    Program.Helpers.debug_log('Successfully saved merged NWB file: %s\n', new_path);
                     
                     % No longer create companion ID file for merged file
-                    fprintf('All neuron data saved within merged NWB file - no companion ID file needed.\n');
+                    Program.Helpers.debug_log('All neuron data saved within merged NWB file - no companion ID file needed.\n');
                 end
             catch ME
                 error('Failed to export NWB file: %s\nStack trace:\n%s', ME.message, getReport(ME));
@@ -492,14 +492,14 @@ classdef writeNWB
             try
                 % Try to use NWB 2.6.0 which should be more compatible
                 generateCore('2.6.0');
-                fprintf('DEBUG: Using NWB schema version 2.6.0\n');
+                Program.Helpers.debug_log('DEBUG: Using NWB schema version 2.6.0\n');
             catch
                 % Fall back to default if 2.6.0 is not available
                 try
                     generateCore('2.5.0');
-                    fprintf('DEBUG: Using NWB schema version 2.5.0\n');
+                    Program.Helpers.debug_log('DEBUG: Using NWB schema version 2.5.0\n');
                 catch
-                    fprintf('DEBUG: Using default NWB schema version\n');
+                    Program.Helpers.debug_log('DEBUG: Using default NWB schema version\n');
                 end
             end
 
@@ -670,7 +670,7 @@ classdef writeNWB
                         
                         % Initialize DataPipe with the first frame
                         try
-                            fprintf('DEBUG: Initializing video export (Frame 1/%d)...\n', ctx.(preset).info.nt);
+                            Program.Helpers.debug_log('DEBUG: Initializing video export (Frame 1/%d)...\n', ctx.(preset).info.nt);
                             first_frame = rf_app.retrieve_frame(1);
                             
                             % Ensure frame has correct dimensions (x, y, z, c)
@@ -686,7 +686,7 @@ classdef writeNWB
                                 progress.Message = 'Exporting video frames...';
                                 for t = 2:ctx.(preset).info.nt
                                     if mod(t, 10) == 0
-                                        fprintf('DEBUG: Exporting frame %d/%d\n', t, ctx.(preset).info.nt);
+                                        Program.Helpers.debug_log('DEBUG: Exporting frame %d/%d\n', t, ctx.(preset).info.nt);
                                         % Update progress bar if available (assuming progress is a uiprogressdlg or similar)
                                         % progress.Value = t / ctx.(preset).info.nt; 
                                     end
@@ -695,7 +695,7 @@ classdef writeNWB
                                     data_pipe.append(uint64(frame));
                                 end
                             end
-                            fprintf('DEBUG: Video export complete.\n');
+                            Program.Helpers.debug_log('DEBUG: Video export complete.\n');
                             
                         catch ME
                             warning('Video export failed: %s', ME.message);
@@ -840,7 +840,7 @@ classdef writeNWB
                     for i = 1:length(plane_keys)
                         plane = imaging_planes.get(plane_keys{i});
                         if isempty(plane.device) || ~isa(plane.device, 'types.untyped.SoftLink')
-                            fprintf('Fixing device reference for imaging plane: %s\n', plane_keys{i});
+                            Program.Helpers.debug_log('Fixing device reference for imaging plane: %s\n', plane_keys{i});
                             plane.device = default_device_ref;
                         end
                     end
@@ -848,9 +848,9 @@ classdef writeNWB
                 
             catch ME
                 warning('Could not fix imaging plane device references: %s', ME.message);
-                fprintf('Stack trace:\n');
+                Program.Helpers.debug_log('Stack trace:\n');
                 for i = 1:length(ME.stack)
-                    fprintf('  %s (line %d)\n', ME.stack(i).name, ME.stack(i).line);
+                    Program.Helpers.debug_log('  %s (line %d)\n', ME.stack(i).name, ME.stack(i).line);
                 end
             end
         end
@@ -862,7 +862,7 @@ classdef writeNWB
             % using the ndx-multichannel-volume extension.
             
             warning('create_companion_id_file is deprecated. All neuron data is now stored within the NWB file.');
-            fprintf('No companion ID file created. All data is contained within the NWB file.\n');
+            Program.Helpers.debug_log('No companion ID file created. All data is contained within the NWB file.\n');
         end
         
         function annotations_module = create_neuron_annotations(ctx)
@@ -873,18 +873,18 @@ classdef writeNWB
             
             neurons = ctx.neurons.image_neurons;
             if isempty(neurons)
-                fprintf('Warning: No neurons object found in ctx.neurons.image_neurons\n');
+                Program.Helpers.debug_log('Warning: No neurons object found in ctx.neurons.image_neurons\n');
                 annotations_module = [];
                 return;
             end
             
             if isempty(neurons.neurons)
-                fprintf('Warning: Neurons object exists but contains no neurons\n');
+                Program.Helpers.debug_log('Warning: Neurons object exists but contains no neurons\n');
                 annotations_module = [];
                 return;
             end
             
-            fprintf('Creating neuron annotations for %d neurons\n', length(neurons.neurons));
+            Program.Helpers.debug_log('Creating neuron annotations for %d neurons\n', length(neurons.neurons));
             
             % Extract neuron annotation data
             num_neurons = length(neurons.neurons);
@@ -1005,45 +1005,45 @@ classdef writeNWB
             end
             
             % Create NWB data structures for neuron annotations
-            fprintf('DEBUG: Creating DynamicTable with data types:\n');
-            fprintf('  annotations: %s (length: %d)\n', class(annotations), length(annotations));
-            fprintf('  annotation_confidences: %s (size: %s)\n', class(annotation_confidences), mat2str(size(annotation_confidences)));
-            fprintf('  is_annotation_on: %s (size: %s)\n', class(is_annotation_on), mat2str(size(is_annotation_on)));
-            fprintf('  is_emphasized: %s (size: %s)\n', class(is_emphasized), mat2str(size(is_emphasized)));
-            fprintf('  deterministic_ids: %s (length: %d)\n', class(deterministic_ids), length(deterministic_ids));
-            fprintf('  probabilistic_ids_str: %s (length: %d)\n', class(probabilistic_ids_str), length(probabilistic_ids_str));
-            fprintf('  probabilistic_probs: %s (size: %s)\n', class(probabilistic_probs), mat2str(size(probabilistic_probs)));
-            fprintf('  ranks: %s (size: %s)\n', class(ranks), mat2str(size(ranks)));
+            Program.Helpers.debug_log('DEBUG: Creating DynamicTable with data types:\n');
+            Program.Helpers.debug_log('  annotations: %s (length: %d)\n', class(annotations), length(annotations));
+            Program.Helpers.debug_log('  annotation_confidences: %s (size: %s)\n', class(annotation_confidences), mat2str(size(annotation_confidences)));
+            Program.Helpers.debug_log('  is_annotation_on: %s (size: %s)\n', class(is_annotation_on), mat2str(size(is_annotation_on)));
+            Program.Helpers.debug_log('  is_emphasized: %s (size: %s)\n', class(is_emphasized), mat2str(size(is_emphasized)));
+            Program.Helpers.debug_log('  deterministic_ids: %s (length: %d)\n', class(deterministic_ids), length(deterministic_ids));
+            Program.Helpers.debug_log('  probabilistic_ids_str: %s (length: %d)\n', class(probabilistic_ids_str), length(probabilistic_ids_str));
+            Program.Helpers.debug_log('  probabilistic_probs: %s (size: %s)\n', class(probabilistic_probs), mat2str(size(probabilistic_probs)));
+            Program.Helpers.debug_log('  ranks: %s (size: %s)\n', class(ranks), mat2str(size(ranks)));
             
             % Check first few elements of cell arrays
             if ~isempty(annotations)
-                fprintf('  First annotation: "%s" (class: %s)\n', annotations{1}, class(annotations{1}));
+                Program.Helpers.debug_log('  First annotation: "%s" (class: %s)\n', annotations{1}, class(annotations{1}));
             end
             if ~isempty(deterministic_ids)
-                fprintf('  First deterministic_id: "%s" (class: %s)\n', deterministic_ids{1}, class(deterministic_ids{1}));
+                Program.Helpers.debug_log('  First deterministic_id: "%s" (class: %s)\n', deterministic_ids{1}, class(deterministic_ids{1}));
             end
             if ~isempty(probabilistic_ids_str)
-                fprintf('  First probabilistic_ids_str: "%s" (class: %s)\n', probabilistic_ids_str{1}, class(probabilistic_ids_str{1}));
+                Program.Helpers.debug_log('  First probabilistic_ids_str: "%s" (class: %s)\n', probabilistic_ids_str{1}, class(probabilistic_ids_str{1}));
             end
             
             % Debug: Check annotation status after processing
-            fprintf('DEBUG: Annotation status summary:\n');
-            fprintf('  Neurons set to ON: %d\n', sum(is_annotation_on == 1));
-            fprintf('  Neurons set to OFF: %d\n', sum(is_annotation_on == 0));
-            fprintf('  Neurons with annotations: %d\n', sum(~cellfun(@isempty, annotations) & ~strcmp(annotations, '')));
+            Program.Helpers.debug_log('DEBUG: Annotation status summary:\n');
+            Program.Helpers.debug_log('  Neurons set to ON: %d\n', sum(is_annotation_on == 1));
+            Program.Helpers.debug_log('  Neurons set to OFF: %d\n', sum(is_annotation_on == 0));
+            Program.Helpers.debug_log('  Neurons with annotations: %d\n', sum(~cellfun(@isempty, annotations) & ~strcmp(annotations, '')));
             
             % Debug covariance data before reshaping
-            fprintf('DEBUG: Covariances before reshaping: %s\n', mat2str(size(covariances)));
+            Program.Helpers.debug_log('DEBUG: Covariances before reshaping: %s\n', mat2str(size(covariances)));
             if ~any(isnan(covariances(:)))
-                fprintf('  Covariances contain valid data\n');
+                Program.Helpers.debug_log('  Covariances contain valid data\n');
             else
-                fprintf('  WARNING: Covariances contain NaN values!\n');
-                fprintf('  Non-NaN count: %d out of %d\n', sum(~isnan(covariances(:))), numel(covariances));
+                Program.Helpers.debug_log('  WARNING: Covariances contain NaN values!\n');
+                Program.Helpers.debug_log('  Non-NaN count: %d out of %d\n', sum(~isnan(covariances(:))), numel(covariances));
             end
             
             % Reshape for storage: [3,3,N] -> [N,9] 
             covariances_for_storage = reshape(permute(covariances, [3, 1, 2]), [num_neurons, 9]);
-            fprintf('DEBUG: Covariances after reshaping for storage: %s\n', mat2str(size(covariances_for_storage)));
+            Program.Helpers.debug_log('DEBUG: Covariances after reshaping for storage: %s\n', mat2str(size(covariances_for_storage)));
             
             annotations_table = types.hdmf_common.DynamicTable( ...
                 'description', 'Neuron annotation data including user IDs and auto IDs', ...
@@ -1124,7 +1124,7 @@ classdef writeNWB
             param_data = cell(length(param_names), 1);
             param_desc = cell(length(param_names), 1);
             
-            fprintf('DEBUG: Detection parameters data types:\n');
+            Program.Helpers.debug_log('DEBUG: Detection parameters data types:\n');
             
             for i = 1:length(param_names)
                 param_name = param_names{i};
@@ -1147,15 +1147,15 @@ classdef writeNWB
                     param_desc{i} = char(sprintf('Detection parameter: %s', param_name));
                 end
                 
-                fprintf('  %s: "%s" (type: %s)\n', param_name, param_data{i}, class(param_data{i}));
+                Program.Helpers.debug_log('  %s: "%s" (type: %s)\n', param_name, param_data{i}, class(param_data{i}));
             end
             
             % Ensure param_names are also character arrays
             param_names_char = cellfun(@char, param_names, 'UniformOutput', false);
             
-            fprintf('  param_names_char: %s (length: %d)\n', class(param_names_char), length(param_names_char));
-            fprintf('  param_data: %s (length: %d)\n', class(param_data), length(param_data));
-            fprintf('  param_desc: %s (length: %d)\n', class(param_desc), length(param_desc));
+            Program.Helpers.debug_log('  param_names_char: %s (length: %d)\n', class(param_names_char), length(param_names_char));
+            Program.Helpers.debug_log('  param_data: %s (length: %d)\n', class(param_data), length(param_data));
+            Program.Helpers.debug_log('  param_desc: %s (length: %d)\n', class(param_desc), length(param_desc));
             
             % Create detection parameters table
             detection_table = types.hdmf_common.DynamicTable( ...

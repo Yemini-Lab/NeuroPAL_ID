@@ -1,5 +1,6 @@
 function open(path)
     app = Program.app;
+    Program.GUIHandling.install_main_processing_sync_callbacks(app);
 
     % Are we already opening a file?
     if app.is_opening_file
@@ -99,6 +100,9 @@ function open(path)
     % Setup the image.
     app.image_name = name; %strrep(name, '_', '\_');
     app.image_data = data;
+    if isappdata(app.CELL_ID, 'proc_runtime_dirty')
+        rmappdata(app.CELL_ID, 'proc_runtime_dirty');
+    end
 
     % Z-score the image.
     app.image_data_zscored = Methods.Preprocess.zscore_frame(app.image_data);
@@ -189,11 +193,11 @@ function open(path)
     if ~isempty(neurons)
         app.image_neurons = neurons;
         Program.GUIHandling.gui_lock(app, 'enable', 'neuron_gui');
-        fprintf('DEBUG: Set app.image_neurons with %d neurons\n', length(neurons.neurons));
+        Program.Helpers.debug_log('DEBUG: Set app.image_neurons with %d neurons\n', length(neurons.neurons));
     elseif contains(filename,'.nwb')
         % For NWB files, even if neurons is empty, don't override with empty object
         % The loadNP function should have already tried to load from NWB
-        fprintf('DEBUG: NWB file detected but no neurons loaded\n');
+        Program.Helpers.debug_log('DEBUG: NWB file detected but no neurons loaded\n');
         
         % Check for legacy NWB neuron data format for backwards compatibility
         nwb_data = nwbRead(filename);
@@ -208,23 +212,17 @@ function open(path)
         app.image_neurons = Neurons.Image([], worm.body, 'scale', app.image_um_scale');
     else
         app.image_neurons = Neurons.Image([], worm.body, 'scale', app.image_um_scale');
-        fprintf('DEBUG: Created empty Neurons.Image object\n');
+        Program.Helpers.debug_log('DEBUG: Created empty Neurons.Image object\n');
     end
 
     % Restrict the slider to the z stack.
     num_z_slices = size(app.image_data, 3);
-    z_slices = 1:num_z_slices;
     if num_z_slices <= 1
         uialert(app.CELL_ID, 'The image is not a volume!', ...
             'Image Not a Volume', 'Icon', 'error');
         return;
-    else
-        z_labels = arrayfun(@(z) num2str(z, '%.1f'), ...
-            (z_slices-1) * info.scale(3), 'UniformOutput', false);
     end
-    app.ZSlider.Limits = [1, num_z_slices];
-    app.ZSlider.MajorTicks = z_slices;
-    app.ZSlider.MajorTickLabels = z_labels;
+    Program.Helpers.configure_main_zslider(app, num_z_slices);
 
     % Setup the z-axis orientation.
     app.ZCenterEditField.Value = round((prefs.z_center - 1) * info.scale(3), 1);
@@ -304,10 +302,9 @@ function open(path)
 
     set(app.VolumeDropDown, 'Enable', 'on');
     
-    if ~any(ismember(app.VolumeDropDown.Items, 'Colormap'))
-        app.VolumeDropDown.Items{end+1} = 'Colormap';
-    end
-    app.VolumeDropDown.Value = 'Colormap';
+    Program.GUIHandling.refresh_processing_volume_dropdown(app, 'Colormap');
+    Program.GUIHandling.hide_startup_load_buttons(app);
+    Program.GUIHandling.gui_lock(app, 'enable', 'processing_tab');
 
     set(app.IdGridLayout, 'Visible', 'on');
     set(app.ProcessingGridLayout, 'Visible', 'on');
@@ -315,4 +312,3 @@ function open(path)
     set(app.ProcessingButton, 'Visible', 'off');
     drawnow;
 end
-

@@ -81,6 +81,38 @@ classdef Preprocess < handle
                 hmvideo(:,:,:,ch,:) = reshape(result, size(vol));
             end
        end
+
+       function nvideo = normalize_frame(video)
+        % Normalize each channel onto a positive full-scale range while
+        % preserving the input channel class.
+            nvideo = zeros(size(video), 'like', video);
+
+            for ch = 1:size(video, 4)
+                data = double(video(:,:,:,ch,:));
+                finite_mask = isfinite(data);
+                if ~any(finite_mask(:))
+                    continue
+                end
+
+                data(~finite_mask) = 0;
+                finite_vals = data(finite_mask);
+                min_val = min(finite_vals, [], 'all');
+                data = data - min_val;
+
+                max_val = max(data(finite_mask), [], 'all');
+                if ~isfinite(max_val) || max_val <= 0
+                    continue
+                end
+
+                normalized = data / max_val;
+                if isfloat(video)
+                    nvideo(:,:,:,ch,:) = cast(normalized, class(video));
+                else
+                    scale = double(intmax(class(video)));
+                    nvideo(:,:,:,ch,:) = cast(round(scale * normalized), class(video));
+                end
+            end
+       end
         
        function volume = area_filter(volume, point, threshold, dim)
         % Heuristic filter for removing objects in a multi-color volume.
@@ -277,4 +309,3 @@ classdef Preprocess < handle
 
     end
 end
-

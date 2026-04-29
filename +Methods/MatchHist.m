@@ -1,7 +1,9 @@
 function newim = MatchHist(A)
     clear avg_hist;
-    
-    avg_hist = load('avg_hist.mat', 'avg_hist');
+
+    method_dir = fileparts(mfilename('fullpath'));
+    avg_hist_path = fullfile(method_dir, '..', 'Data', 'Models', 'avg_hist.mat');
+    avg_hist = load(avg_hist_path, 'avg_hist');
     avg_hist = avg_hist.avg_hist;
     
     im_flat = reshape(A, [], size(A,4));
@@ -40,13 +42,22 @@ function newim = MatchHist(A)
     
         % Iterate over each possible pixel intensity value to map each to
         % its target pixel intensity value.
+        n_ref_bins = numel(chan_hist);
         for idx = 1:usemax+1
             % Find intensity value in target histogram that has a CDF value
             % closest to current intensity value's CDF.
             [~, ind] = min(abs(cdf(idx)- cdf_ref));
-    
+
+            % Map the reference-histogram bin back onto the input channel's
+            % own intensity range rather than returning a raw reference-bin index.
+            if n_ref_bins <= 1 || usemax <= 0
+                mapped_value = 0;
+            else
+                mapped_value = round(((ind - 1) / (n_ref_bins - 1)) * usemax);
+            end
+
             % Store intensity mapping.
-            M(l, idx) = ind;
+            M(l, idx) = mapped_value;
             %plot(M(l, :))
             %disp(['M(', num2str(l), ',', num2str(idx), ') = ', num2str(ind)]);
         end

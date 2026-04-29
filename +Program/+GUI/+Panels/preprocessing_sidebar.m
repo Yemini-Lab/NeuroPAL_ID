@@ -62,7 +62,7 @@ classdef preprocessing_sidebar
             % Propagate the configuration call throughout all child
             % instances. We delegate updating their child components to
             % them to ensure modularity.
-            obj.panel_instances.image_manipulation.set_gui_configuration(type);
+            obj.panel_instances.image_manipulation.set_display_configuration(type);
         end
     end
 
@@ -163,4 +163,3 @@ classdef preprocessing_sidebar
         end
     end
 end
-

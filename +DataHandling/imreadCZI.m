@@ -22,7 +22,12 @@ function [image, metadata] = imreadCZI(filename)
 %       hashtable = a Java Hashtable of keys and their values
 
 % Open the CZI file.
-data = bfopen(filename);
+try
+    data = bfopen(filename);
+catch ME
+    [image, metadata] = fallbackToPython(filename, ME);
+    return
+end
 
 % Extract the metadata.
 hashtable = data{1,2};
@@ -50,6 +55,7 @@ if isempty(xPixelsI)
     xPixelsI = find(contains(keys, 'Global Information|Image|SizeX'), 1);
     yPixelsI = find(contains(keys, 'Global Information|Image|SizeY'), 1);
 end
+
 if isempty(xScaleI)
     xScaleI = find(contains(keys, ...
         'Experiment|AcquisitionBlock|AcquisitionModeSetup|ScalingX'), 1);
@@ -228,5 +234,65 @@ for i=1:size(imageData,1)
     % Debug the image assembly.
     % disp(imageData{i,2});
     % printf('z=%d c=%d', z, c);
+end
+end
+
+function [image, metadata] = fallbackToPython(filename, originalError)
+root_dir = fileparts(fileparts(mfilename('fullpath')));
+script_path = fullfile(root_dir, '+Wrapper', 'read_czi.py');
+
+if ~isfile(script_path)
+    rethrow(originalError);
+end
+
+python_bin = fullfile(root_dir, 'venv', 'bin', 'python');
+if ~isfile(python_bin)
+    python_bin = 'python3';
+end
+
+output_h5 = [tempname, '.h5'];
+output_json = [tempname, '.json'];
+
+cleanup = onCleanup(@() cleanupTempFiles(output_h5, output_json));
+command = sprintf('"%s" "%s" "%s" "%s" "%s"', ...
+    python_bin, script_path, filename, output_h5, output_json);
+[status, cmdout] = system(command);
+
+if status ~= 0 || ~isfile(output_h5) || ~isfile(output_json)
+    error(['Cannot read "%s"!\nBio-Formats failed with:\n%s\n\n' ...
+        'Python fallback failed with:\n%s\n\nInstall the repo Python ' ...
+        'dependencies, including czifile and imagecodecs, or create ' ...
+        './venv and retry.'], ...
+        filename, getReport(originalError, 'basic', 'hyperlinks', 'off'), cmdout);
+end
+
+payload = jsondecode(fileread(output_json));
+
+image = struct();
+image.pixels = double(payload.pixels(:));
+image.scale = double(payload.scale(:));
+image.channels = cellstr(string(payload.channels(:)));
+image.colors = double(payload.colors);
+image.dicChannel = double(payload.dicChannel);
+if image.dicChannel == 0
+    image.dicChannel = [];
+end
+image.lasers = double(payload.lasers(:));
+image.emissions = double(payload.emissions);
+image.data = permute(h5read(output_h5, '/data'), [4, 3, 2, 1]);
+
+metadata = struct( ...
+    'keys', {{}}, ...
+    'values', {{}}, ...
+    'hashtable', []);
+
+clear cleanup;
+end
+
+function cleanupTempFiles(varargin)
+for i = 1:nargin
+    if isfile(varargin{i})
+        delete(varargin{i});
+    end
 end
 end
