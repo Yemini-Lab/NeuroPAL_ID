@@ -26,10 +26,15 @@ image = [];
 metadata = [];
 
 % Assume the data is h5
-[folder, ~] = fileparts(filename);
+[folder, ~, ~] = fileparts(filename);
 
-% read metadata
-f = fopen(fullfile(folder, "metadata.json"));
+% Read metadata
+metadata_file = fullfile(folder, "metadata.json");
+f = fopen(metadata_file);
+if f < 0
+    ME = MException('H5:MetaData', ['Cannot find ' metadata_file '!']);
+    throw(ME);
+end
 chars = fread(f, '*char');
 fclose(f);
 vlab_meta = jsondecode(chars');
