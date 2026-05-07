@@ -16,12 +16,7 @@ classdef tracks
             cache_file = current_cache;
         end
 
-        function load(filepath)
-            [path, ~, ~] = fileparts(filepath);
-            Program.Routines.Videos.tracks.cache(fullfile(path, "track_cache.mat"));
-            neurons = Program.Routines.Videos.tracks.create_default_cache();
-            save(Program.Routines.Videos.tracks.cache, "-struct", "neurons");
-
+        function [positions, labels] = load(filepath)
             if endsWith(filepath, '.xml')
                 [positions, labels] = DataHandling.readTrackmate(filepath);
 
@@ -31,9 +26,10 @@ classdef tracks
             elseif endsWith(filepath, '.nwb')
                 [positions, labels] = DataHandling.Helpers.nwb.load_tracks(filepath);
 
+            else
+                error('NeuroPAL_ID:UnsupportedTrackFile', ...
+                    'Unsupported tracking file type: %s', filepath);
             end
-            
-            Program.Routines.Videos.tracks.import(positions, labels);
         end
         
         function import(positions, labels)
@@ -45,7 +41,7 @@ classdef tracks
                 "Message", "Importing tracks...", ...
                 "Indeterminate", "off");
 
-            positions = Program.Validation.cooordinate_conversion_check(positions);
+            positions = Program.Validation.coordinate_conversion_check(positions);
             positions(:, 1) = round(positions(:, 1));
 
             for n=1:length(labels)
@@ -58,9 +54,8 @@ classdef tracks
                 y = coords(3);
                 z = coords(4);
 
-                worldline_exists, worldline_id = ismember(worldline_name, cache.wl_record);
+                [worldline_exists, worldline_id] = ismember(worldline_name, cache.wl_record);
                 if ~worldline_exists
-                    cache.wl_record{end+1} = worldline_name;
                     [node, color, style, worldline_id] = Program.Routines.Videos.tracks.add_node(worldline_name);
                     Program.Routines.Videos.tracks.add_worldline(node, worldline_name, color, style, worldline_id);
                 end
@@ -74,10 +69,17 @@ classdef tracks
             app.data_flags.('Tracking_ROIs') = 1;
         end
 
-        function add_roi(x, y, z, worldline_id, provenance_id)
+        function add_roi(t, x, y, z, worldline_id, provenance_id)
+            if nargin < 6
+                provenance_id = 1;
+            end
             cache = Program.Routines.Videos.tracks.cache;
+            frame = sprintf('frame_%.f', t);
             cache.Writable = true;
-            cache.frames.(frame) = [cache.frames.(frame) x y z worldline_id provenance_id];
+            if ~isfield(cache.frames, frame)
+                cache.frames.(frame) = [];
+            end
+            cache.frames.(frame) = [cache.frames.(frame); x y z worldline_id provenance_id];
             cache.Writable = false;
         end
 
@@ -101,7 +103,8 @@ classdef tracks
             cache.Writable = false;
         end
 
-        function [node, color, style] = add_node(worldline_name)
+        function [node, color, style, worldline_id] = add_node(worldline_name)
+            app = Program.app;
             if Neurons.Hermaphrodite.isCell(worldline_name)
                 node = uitreenode(app.IDdNode, ...
                     "Text", worldline_name);
@@ -117,6 +120,7 @@ classdef tracks
 
             node.NodeData = length(app.IDdNode.Children) + ...
                 length(app.UnIDdNode.Children);
+            worldline_id = node.NodeData;
         end
     end
 
@@ -126,8 +130,7 @@ classdef tracks
                 'wl_record', {{}}, ...
                 'worldlines', {{}}, ...
                 'provenances', {{}}, ...
-                'frames', {[]});
+                'frames', {struct()});
         end
     end
 end
-

@@ -2,6 +2,7 @@ from zephir.utils.utils import *
 from n_io import *
 from getters import *
 
+import cv2
 import h5py.defs
 import h5py.utils
 import h5py.h5ac
@@ -10,7 +11,8 @@ import h5py._proxy
 
 def save_movie(
     container,
-    results,):
+    results,
+    filename=None):
     """Visualize results in an annotated movie.
 
     Visualize results as coloured annotations in a movie. Frames are generated
@@ -52,7 +54,7 @@ def save_movie(
         t_list = np.unique(list(t_annot) + list(t_list))
 
     for t in tqdm(t_list, desc='Saving to video', unit='frames'):
-        data = get_data(dataset, t, g=gamma, c=channel)
+        data = get_data(dataset, t, g=gamma, c=channel, filename=filename)
         xyz_result = results[t, ...]
         if include_all and t in np.unique(annotation['t_idx']):
             u, annot, prov = get_annotation(annotation, t, exclusive_prov, exclude_self)

@@ -58,8 +58,8 @@ classdef neurons
                     % Give the GUI time to update.
                     pause(0.2);
 
-                    % Re-draw.
-                    Program.Handlers.renders.draw_z(app.image_view, app.XY);
+                    % Re-draw (same path as Z-slider / mask toggle: get_slice).
+                    Program.Routines.ID.get_slice(app.ZSlider, app.image_view, app.XY);
                 end
             end
         end

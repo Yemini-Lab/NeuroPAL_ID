@@ -1,4 +1,8 @@
 function pos_arr = coordinate_conversion_check(pos_arr)
+    app = Program.app;
+    if isempty(pos_arr)
+        return
+    end
 
     if max(pos_arr(:, 2)) <= app.video_info.nx/10
         %pos_arr(:, 2) = max(floor(pos_arr(:, 2)*app.video_info.nx- 1e-6), 0);
@@ -15,4 +19,3 @@ function pos_arr = coordinate_conversion_check(pos_arr)
         pos_arr(:, 4) = (pos_arr(:, 4) * app.video_info.nz);
     end
 end
-

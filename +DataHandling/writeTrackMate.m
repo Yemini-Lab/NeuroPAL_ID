@@ -1,5 +1,5 @@
 function writeTrackMate(video_info, video_neurons, output_file, figure)
-    template_file = 'Data\NeuroPAL\xmlTemplate.xml';
+    template_file = fullfile('Data', 'NeuroPAL', 'xmlTemplate.xml');
     [fpath, fname, ffmt] = fileparts(video_info.file);
     fname = [fname, ffmt];
 
@@ -53,7 +53,7 @@ function writeTrackMate(video_info, video_neurons, output_file, figure)
             end
         end
 
-        if ~strcmp(new_frame, sprintf(sif_start, t))
+        if ~strcmp(new_frame, sprintf(sif_start, t-1))
             new_file{end+1} = [new_frame, sif_end];
         end
     end

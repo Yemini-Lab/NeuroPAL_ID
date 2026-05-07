@@ -48,6 +48,7 @@ function open(path)
         d = uiprogressdlg(app.CELL_ID,'Title','Loading file...',...
     'Indeterminate','on');
         if proc_code == 1
+            app.is_opening_file = false;
             return
         end
     else
@@ -73,15 +74,29 @@ function open(path)
         [data, info, prefs, worm, mp, neurons, np_file, id_file] = ...
             DataHandling.NeuroPALImage.open(filename);
     catch ME
-        msg = getReport(ME, 'extended', 'hyperlinks', 'off');
-        uialert(app.CELL_ID, ...
-            {['Cannot read "' filename '"!'], ['Error:' msg]}, ...
-            'Image File Failure', 'Icon', 'error');
+        Program.Helpers.debug_event('OpenFile', ...
+            'Cannot read "%s": %s', filename, getReport(ME, 'extended', 'hyperlinks', 'off'));
+        if any(strcmp(ME.identifier, ...
+                {'DataHandling:NeuroPALImage:ND2VideoInImageLoader', ...
+                 'DataHandling:ND2:VideoNotImage'}))
+            uialert(app.CELL_ID, ...
+                {['"' filename '" is an ND2 time series, not a single NeuroPAL image volume.'], ...
+                 ME.message, ...
+                 'Use the Video Tracking loader instead.'}, ...
+                'Video File Selected in Image Loader', 'Icon', 'warning');
+        else
+            msg = getReport(ME, 'extended', 'hyperlinks', 'off');
+            uialert(app.CELL_ID, ...
+                {['Cannot read "' filename '"!'], ['Error:' msg]}, ...
+                'Image File Failure', 'Icon', 'error');
+        end
+        app.is_opening_file = false;
         return;
     end
 
     % Check the worm info.
     if ~Program.Validation.worm(worm)
+        app.is_opening_file = false;
         return
     end
 
@@ -220,6 +235,7 @@ function open(path)
     if num_z_slices <= 1
         uialert(app.CELL_ID, 'The image is not a volume!', ...
             'Image Not a Volume', 'Icon', 'error');
+        app.is_opening_file = false;
         return;
     end
     Program.Helpers.configure_main_zslider(app, num_z_slices);

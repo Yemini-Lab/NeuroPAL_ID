@@ -9,15 +9,15 @@ function crop()
         drawnow;
     end
 
-    Program.GUIHandling.gui_lock(app, 'lock', 'processing_tab');
+    Program.GUIHandling.processing_roi_lock(app, 'lock');
+    roi_lock_cleanup = onCleanup(@() Program.GUIHandling.processing_roi_lock(app, 'unlock'));
     check = uiconfirm(app.CELL_ID, "Draw a bounding box on the volume to crop the image.", "NeuroPAL_ID", "Options", ["OK", "Cancel"]);
     if ~strcmp(check, "OK")
-        Program.GUIHandling.gui_lock(app, 'unlock', 'processing_tab');
         return
     end
 
     roi = drawrectangle(app.proc_xyAxes,'Color','black','StripeColor','m');
-    Program.GUIHandling.gui_lock(app, 'unlock', 'processing_tab');
+    clear roi_lock_cleanup
 
     Program.crop_rotate_gui.draw(app, roi);
 

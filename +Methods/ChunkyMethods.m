@@ -12,6 +12,8 @@ classdef ChunkyMethods
 
             if isa(vol, 'matlab.io.MatFile')
                 og_dims = size(vol, 'data');
+            elseif isnumeric(vol) && isvector(vol) && numel(vol) >= 2
+                og_dims = double(vol(:).');
             else
                 og_dims = size(vol);
             end
@@ -38,31 +40,18 @@ classdef ChunkyMethods
                     new_dims(1:2) = target_xy;
                     new_dims(3) = numel(target_slices);
 
-                case {'hori', 'vert', 'cc', 'acc', 'rotate'}
-                    temp_arr = zeros(og_dims);
-
-                    switch action
-                        case 'hori'
-                            temp_arr = temp_arr(:,end:-1:1,end:-1:1,:,:);
-
-                        case 'vert'
-                            temp_arr = temp_arr(end:-1:1,:,end:-1:1,:,:);
-
-                        case 'cc'
-                            temp_arr = permute(temp_arr, [2,1,3,4]);
-                            temp_arr = temp_arr(:,end:-1:1,:,:,:);
-
-                        case 'acc'
-                            temp_arr = permute(temp_arr, [2,1,3,4]);
-                            temp_arr = temp_arr(end:-1:1,:,:,:,:);
-
-                        case 'rotate'
-                            temp_arr = imrotate(temp_arr, app.proc_rot_spinner.Value);
-                            
-                    end
-
+                case {'hori', 'vert'}
                     new_dims = og_dims;
-                    new_dims(1:2) = [size(temp_arr, 1) size(temp_arr, 2)];
+
+                case {'cc', 'acc'}
+                    new_dims = og_dims;
+                    new_dims(1:2) = og_dims([2 1]);
+
+                case 'rotate'
+                    new_dims = og_dims;
+                    rotated_probe = imrotate(false(og_dims(1), og_dims(2)), ...
+                        app.proc_rot_spinner.Value);
+                    new_dims(1:2) = [size(rotated_probe, 1), size(rotated_probe, 2)];
 
                 otherwise
                     new_dims = og_dims;
@@ -77,6 +66,8 @@ classdef ChunkyMethods
             if size(slice, 4) < max(RGBW)
                 RGBW = 1:size(slice, 4);
             end
+
+            output_slice = slice;
             
             switch action
                 case 'zscore'
@@ -116,7 +107,7 @@ classdef ChunkyMethods
                     output_slice = Methods.ChunkyMethods.apply_channel_windows(app, slice);
 
                 case 'debleed'
-                    % TBD
+                    output_slice = Methods.ChunkyMethods.debleed(app, slice);
             end            
         end
 
@@ -183,12 +174,13 @@ classdef ChunkyMethods
             Program.Handlers.dialogue.step('Calculating new dimensions...');
             context = Program.Helpers.processing_colormap_context(app);
             if isempty(context.volume)
+                Program.Helpers.apply_processing_preview_action(app, actions);
                 return
             end
 
             new_dims = size(context.volume);
             for a=1:length(actions)
-                new_dims = Methods.ChunkyMethods.calc_pp_size(app, actions{a}, zeros(new_dims));
+                new_dims = Methods.ChunkyMethods.calc_pp_size(app, actions{a}, new_dims);
             end
 
             current_vol = context.volume;
@@ -207,11 +199,32 @@ classdef ChunkyMethods
 
         function apply_video(app, actions, progress)
             % Apply set of operations to a video.
+            %#ok<INUSD>
+
+            if nargin < 2 || isempty(actions)
+                return
+            end
+
+            actions = cellstr(lower(string(actions)));
+            actions = actions(~cellfun('isempty', actions));
+            if isempty(actions)
+                return
+            end
+
+            unsupported = intersect(actions, {'ds'}, 'stable');
+            if ~isempty(unsupported)
+                uialert(app.CELL_ID, ...
+                    sprintf('The %s action is not yet chunk-safe for video save/apply. Crop, rotate, flip, channel-window, and spectral cleanup actions are streamed by z-slice.', ...
+                    strjoin(unsupported, ', ')), ...
+                    'Chunked Video Processing Limitation', 'Icon', 'warning');
+                return
+            end
 
             start_time = datetime("now");
 
             % ...Set up necessary paths.
-            ppath = fileparts(app.video_path); % Get current file's parent path.
+            source_path = Methods.ChunkyMethods.video_source_path(app);
+            ppath = fileparts(source_path); % Get current file's parent path.
             temp_path = sprintf('%s/cache_video.h5', ppath); % Create cache file to which we'll be writing.
             processed_path = sprintf('%s/processed_video.h5', ppath); % Create new video file to avoid overwriting original.
 
@@ -223,36 +236,76 @@ classdef ChunkyMethods
             % Calculate new video dimensions
             Program.Handlers.dialogue.step('Calculating new dimensions...');
             nt = app.video_info.nt;
-            p_frame = app.retrieve_frame(1);
-            new_dims = size(p_frame);
+            source_class = Program.Helpers.video_source_class(app);
+            try
+                source_class = class(Methods.ChunkyMethods.read_video_slice(app, 1, 1));
+            catch
+            end
+            new_dims = [ ...
+                app.video_info.ny, ...
+                app.video_info.nx, ...
+                app.video_info.nz, ...
+                app.video_info.nc];
             for a=1:length(actions)
                 action = actions{a};
-                new_dims = Methods.ChunkyMethods.calc_pp_size(app, action, zeros(new_dims));
+                new_dims = Methods.ChunkyMethods.calc_pp_size(app, action, new_dims);
+            end
+            if numel(new_dims) < 4
+                new_dims(end+1:4) = 1;
             end
 
             % Create the cache file we'll be writing to chunk-by-chunk.
             Program.Handlers.dialogue.step('Creating cache file...');
-            h5create(temp_path, '/data', [new_dims(1:end) nt], "Chunksize", [new_dims(1:end) 1], "Datatype", class(p_frame));
+            h5create(temp_path, '/data', [new_dims(1:4) nt], ...
+                "Chunksize", [new_dims(1) new_dims(2) 1 1 1], ...
+                "Datatype", source_class);
+            h5create(temp_path, '/times', nt, "Datatype", "double");
+            h5write(temp_path, '/times', 1:nt);
 
+            old_nz = app.video_info.nz;
+            reverse_z = Methods.ChunkyMethods.video_actions_reverse_z(actions);
             for t=1:nt
                 frame_progress = t/nt;
                 Program.Handlers.dialogue.set_value(frame_progress);
                 time_string = Program.GUIHandling.get_time_string(start_time, t, nt);
                 Program.Handlers.dialogue.add_task(sprintf("Frame %.f/%.f %s", t, nt, time_string));
 
-                processed_frame = app.retrieve_frame(t);
+                for z=1:old_nz
+                    Program.Handlers.dialogue.step(sprintf("Frame %.f/%.f slice %.f/%.f %s", ...
+                        t, nt, z, old_nz, time_string));
+                    slice = Methods.ChunkyMethods.read_video_slice(app, t, z);
 
-                for a=1:length(actions)
-                    Program.Handlers.dialogue.set_value(min(frame_progress + (frame_progress/t)*(a/length(actions)), 1));
-                    processed_frame = Methods.ChunkyMethods.apply_vol(app, actions{a}, processed_frame);
+                    for a=1:length(actions)
+                        Program.Handlers.dialogue.set_value(min(frame_progress + ...
+                            ((z - 1) / max(old_nz, 1)) / max(nt, 1), 1));
+                        slice = Methods.ChunkyMethods.apply_slice(app, actions{a}, slice);
+                    end
+
+                    slice = Methods.ChunkyMethods.ensure_4d(slice);
+                    if size(slice, 3) ~= 1
+                        error('Methods:ChunkyMethods:NonSliceVideoAction', ...
+                            'Video action pipeline produced %d z-slices from one input slice.', size(slice, 3));
+                    end
+
+                    out_z = z;
+                    if reverse_z
+                        out_z = old_nz - z + 1;
+                    end
+
+                    write_size = [ ...
+                        size(slice, 1), ...
+                        size(slice, 2), ...
+                        1, ...
+                        size(slice, 4), ...
+                        1];
+                    slice = reshape(slice, write_size);
+
+                    % Write one processed z-slice instead of holding a full timepoint.
+                    h5write(temp_path, '/data', slice, [1 1 out_z 1 t], write_size);
                 end
 
-                % Ensure cache frame retains time dimension.
-                write_size = [size(processed_frame) 1];
-                processed_frame = reshape(processed_frame, write_size);
-                
-                % Write cache frame to cache file.
-                h5write(temp_path, '/data', processed_frame, [1 1 1 1 t], write_size);
+                app.video_frame_cache = [];
+                app.video_frame_cache_key = struct('file', '', 't', NaN);
 
                 Program.Handlers.dialogue.resolve();
             end
@@ -264,6 +317,75 @@ classdef ChunkyMethods
             movefile(temp_path, processed_path);
             app.video_info.nt = nt;
             Program.Routines.Videos.reload(processed_path);
+        end
+
+        function source_path = video_source_path(app)
+            source_path = '';
+            try
+                if isstruct(app.video_info) && isfield(app.video_info, 'file') && ...
+                        strlength(string(app.video_info.file)) > 0
+                    source_path = char(string(app.video_info.file));
+                    return
+                end
+            catch
+            end
+
+            try
+                source_path = char(string(app.video_path));
+            catch
+                source_path = '';
+            end
+        end
+
+        function reverse_z = video_actions_reverse_z(actions)
+            actions = cellstr(lower(string(actions)));
+            reverse_count = sum(strcmp(actions, 'hori') | strcmp(actions, 'vert'));
+            reverse_z = mod(reverse_count, 2) == 1;
+        end
+
+        function slice = read_video_slice(app, t, z)
+            t = min(max(round(double(t)), 1), app.video_info.nt);
+            z = min(max(round(double(z)), 1), app.video_info.nz);
+            video_file = Methods.ChunkyMethods.video_source_path(app);
+            video_file_lower = lower(video_file);
+
+            if endsWith(video_file_lower, '.h5')
+                slice = h5read(video_file, '/data', ...
+                    [1 1 z 1 t], ...
+                    [app.video_info.ny app.video_info.nx 1 app.video_info.nc 1]);
+                slice = Methods.ChunkyMethods.ensure_4d(slice);
+                return
+            end
+
+            if endsWith(video_file_lower, '.nd2') || ...
+                    endsWith(video_file_lower, '.tif') || ...
+                    endsWith(video_file_lower, '.tiff')
+                file = app.getVideoBioformatsReader();
+                first_plane = app.readVideoBioformatsPlane(file, z, 1, t);
+                slice = zeros(size(first_plane, 1), size(first_plane, 2), 1, ...
+                    app.video_info.nc, 'like', first_plane);
+                slice(:, :, 1, 1) = first_plane;
+                for c = 2:app.video_info.nc
+                    slice(:, :, 1, c) = app.readVideoBioformatsPlane(file, z, c, t);
+                end
+                return
+            end
+
+            frame = app.retrieve_frame(t);
+            slice = frame(:, :, z, :);
+            slice = Methods.ChunkyMethods.ensure_4d(slice);
+        end
+
+        function vol = ensure_4d(vol)
+            dims = size(vol);
+            while numel(dims) > 4 && dims(end) == 1
+                vol = reshape(vol, dims(1:end-1));
+                dims = size(vol);
+            end
+            if numel(dims) < 4
+                dims(end+1:4) = 1;
+                vol = reshape(vol, dims);
+            end
         end
 
         function spectral_unmix(app, channel)
@@ -582,21 +704,28 @@ classdef ChunkyMethods
                 case 'Colormap'
                     context = Program.Helpers.processing_colormap_context(app);
                     dims = context.dims;
-                    if isempty(context.volume)
+                    if numel(dims) < 4 || any(dims(1:4) <= 0)
                         vol = zeros(dims(1), dims(2), dims(3), 1, 'uint8');
                         return
                     end
                     n_channels = dims(4);
                     max_idx = min(max_idx, n_channels);
-                    vol = context.volume(:, :, :, 1:max_idx);
+                    vol = Program.Helpers.read_processing_colormap(app, ...
+                        'channels', 1:max_idx, ...
+                        'z', app.proc_zSlider.Value, ...
+                        'mip', false);
 
                 case 'Video'
-                    frame = app.retrieve_frame(app.proc_tSlider.Value);
-                    if ndims(frame) == 3
-                        frame = reshape(frame, size(frame, 1), size(frame, 2), size(frame, 3), 1);
-                    end
-                    max_idx = min(max_idx, size(frame, 4));
-                    vol = frame(:, :, :, 1:max_idx);
+                    views = app.retrieveVideoRenderViews( ...
+                        app.proc_tSlider.Value, ...
+                        app.proc_zSlider.Value, ...
+                        min(max(round(app.proc_ySlider.Value), 1), app.video_info.ny), ...
+                        min(max(round(app.proc_xSlider.Value), 1), app.video_info.nx), ...
+                        false);
+                    frame = views.xy;
+                    max_idx = min(max_idx, size(frame, 3));
+                    vol = reshape(frame(:, :, 1:max_idx), ...
+                        size(frame,1), size(frame,2), 1, max_idx);
 
                 otherwise
                     vol = Program.GUIHandling.get_active_volume(app, 'request', 'array').array;

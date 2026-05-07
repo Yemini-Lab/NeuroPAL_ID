@@ -16,24 +16,27 @@ classdef java
             % Returns:
             %   obj: A MATLAB struct where keys are converted to valid MATLAB field names.
             
-            keys = string(table.keySet.toArray); % Get all keys from the Java hashtable as a string array.
-            for k = 1:length(keys)
-                target_key = DataHandling.Helpers.java.to_valid(keys{k}); % Convert key to valid format.
-                if ~isempty(target_key) % Proceed only if the key is valid (not empty).
-                    if ~exist('obj', 'var')
-                        % Initialize the struct with the first key-value pair.
-                        obj = struct(target_key, table.get(target_key));
-                    else
-                        % Add subsequent key-value pairs to the struct.
-                        obj.(target_key) = table.get(target_key);
-                    end
+            obj = struct();
+            raw_keys = table.keySet.toArray; % Preserve original Java keys for table lookup.
+            used_keys = cell(1, numel(raw_keys));
+            used_count = 0;
+            for k = 1:numel(raw_keys)
+                raw_key = raw_keys(k);
+                target_key = DataHandling.Helpers.java.to_valid(char(raw_key));
+                if ~isempty(target_key)
+                    target_key = matlab.lang.makeUniqueStrings(target_key, used_keys(1:used_count), ...
+                        namelengthmax);
+                    used_count = used_count + 1;
+                    used_keys{used_count} = target_key;
+                    obj.(target_key) = table.get(raw_key);
                 end
             end
         end
 
         function [keys, values, count] = search_key(metadata, query)
-            keys = {};
-            values = {};
+            keys = cell(1, metadata.size());
+            values = cell(1, metadata.size());
+            count = 0;
             keySet = metadata.keySet();
             if isempty(keySet)
                 warning('Global metadata has no keys.');
@@ -46,14 +49,16 @@ classdef java
                         val = metadata.get(k);
 
                         if contains(lower(char(k)), lower(query))
-                            keys{end+1} = char(k);
-                            values{end+1} = val;
+                            count = count + 1;
+                            keys{count} = char(k);
+                            values{count} = val;
                         end
                     end
                 end
             end
-        
-            count = numel(values);
+
+            keys = keys(1:count);
+            values = values(1:count);
         end
 
         function valStr = value_to_string(val)
@@ -95,27 +100,17 @@ classdef java
             % Returns:
             %   valid_str: Modified string that meets MATLAB field name requirements.
             
-            valid_str = strrep(raw_str, '#', 'num'); % Replace '#' with 'num' for compatibility.
-            invalid_characters = DataHandling.Helpers.java.invalid_characters; % Retrieve invalid characters.
-            
-            for n = 1:length(invalid_characters)
-                % Replace each invalid character with an underscore.
-                valid_str = strrep(valid_str, invalid_characters{n}, '_');
+            valid_str = char(string(raw_str));
+            valid_str = strrep(valid_str, '#', 'num'); % Replace '#' with 'num' for compatibility.
+            valid_str = matlab.lang.makeValidName(valid_str, 'ReplacementStyle', 'underscore');
+
+            max_len = min(DataHandling.Helpers.java.max_characters, namelengthmax);
+            if length(valid_str) > max_len
+                valid_str = valid_str(1:max_len);
             end
-            
-            % Truncate string if it exceeds the maximum allowed length.
-            if length(valid_str) > DataHandling.Helpers.java.max_characters
-                valid_str = valid_str(1:DataHandling.Helpers.java.max_characters - 1);
-            end
-            
-            % If string is too short, mark it as invalid by setting it to empty.
+
             if length(valid_str) < 3
                 valid_str = '';
-            else
-                % Ensure the first character is a letter; otherwise, replace with 'm'.
-                if ~isstrprop(valid_str(1), 'alpha')
-                    valid_str(1) = 'm';
-                end
             end
         end
     end

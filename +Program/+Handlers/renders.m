@@ -66,7 +66,10 @@ classdef renders
                 neuron_locations = app.image_neurons.get_positions();
                 neuron_marker_colors = app.image_neurons.get_marker_colors();
                 neuron_marker_sizes = app.image_neurons.get_marker_sizes();
-                neuron_line_size = Program.GUIPreferences.instance().neuron_dot.line;
+                dot_prefs = Program.GUIPreferences.instance().neuron_dot;
+                neuron_line_size = dot_prefs.line;
+                [marker_size_scale, marker_line_scale] = ...
+                    Program.GUIPreferences.neuron_marker_display_scales();
 
                 % Since z (which is found by MP) can be a continuous value
                 % to find all the neurons in the current slice we find the
@@ -79,10 +82,10 @@ classdef renders
 
                 % Draw the neuron markers.
                 neuron_marker_plot = scatter(ax, positions(:, 2), positions(:, 1), ...
-                    neuron_marker_sizes(current_z_indices), ...
+                    neuron_marker_sizes(current_z_indices) * marker_size_scale, ...
                     neuron_marker_colors(current_z_indices, :), ...
                     'filled', 'MarkerEdgeColor', app.neuron_marker.color.edge, ...
-                    'LineWidth', neuron_line_size);
+                    'LineWidth', neuron_line_size * marker_line_scale);
 
                 % Are we showing the neuron annotations?
                 if app.show_labels

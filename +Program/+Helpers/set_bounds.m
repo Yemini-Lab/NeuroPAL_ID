@@ -4,9 +4,9 @@ function set_bounds()
 
     switch lower(app.VolumeDropDown.Value)
         case 'colormap'
-            frame = Program.Helpers.processing_colormap_context(app).volume(:, :, 1, :);
+            frame = Program.Helpers.read_processing_colormap(app, 'z', 1, 'mip', false);
         case 'video'
-            frame = app.retrieve_frame(1);
+            frame = [];
     end
 
     setappdata(app.CELL_ID, 'proc_threshold_raw_max', 255);

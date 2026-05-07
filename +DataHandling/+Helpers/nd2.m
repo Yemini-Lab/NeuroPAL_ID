@@ -59,6 +59,13 @@ classdef nd2
             end
         end
 
+        function nt = get_timepoints(file)
+            reader = bfGetReader(file);
+            cleanup_reader = onCleanup(@() reader.close());
+            nt = reader.getSizeT;
+            clear cleanup_reader
+        end
+
         function get_ttl_data(file)
             
             % 2. Determine number of frames in the series
@@ -133,14 +140,22 @@ classdef nd2
             % nd2_file = the ND2 file to convert
             % np_file = the NeuroPAL format file
 
-            Program.Handlers.dialogue.add_task('Reading Nikon metadata...');
             f = bfGetReader(file);                                              % Get reader object.
+            f_cleanup = onCleanup(@() f.close());
 
             nx = f.getSizeX;                                                    % Get width.
             ny = f.getSizeY;                                                    % Get height.
             nz = f.getSizeZ;                                                    % Get depth.
             nc = f.getSizeC;                                                    % Get channel count.
             nt = f.getSizeT;                                                    % Get frame count.
+
+            if nt > 1
+                error('DataHandling:ND2:VideoNotImage', ...
+                    ['This ND2 contains %d timepoints and is a video. ' ...
+                     'Open it from the Video Tracking loader instead of converting it to a NeuroPAL image MAT file.'], nt);
+            end
+
+            Program.Handlers.dialogue.add_task('Reading Nikon metadata...');
 
             bits = f.getMetadataStore.getPixelsSignificantBits(0).getValue();   % Get bit depth.
             bit_depth = sprintf("uint%.f", bits);                               % Convert bit depth to class string.
@@ -250,17 +265,28 @@ classdef nd2
             worm.notes = '';
             
             % Save the ND2 file to our MAT file format.
-            np_file = strrep(file, 'nd2', 'mat');
+            [output_dir, output_name] = fileparts(file);
+            if isempty(output_dir)
+                output_dir = pwd;
+            end
+            np_file = fullfile(output_dir, [output_name, '.mat']);
+            tmp_np_file = [tempname(output_dir), '.mat'];
+            tmp_cleanup = onCleanup(@() DataHandling.Helpers.nd2.delete_file_if_exists(tmp_np_file));
             version = Program.information.version;
             Program.Handlers.dialogue.resolve();
 
             Program.Handlers.dialogue.add_task('Writing metadata...');
-            save(np_file, 'version', 'data', 'info', 'prefs', 'worm', '-v7.3');
+            DataHandling.Helpers.nd2.assert_sufficient_disk_space( ...
+                tmp_np_file, [ny, nx, nz, nc, nt], Program.config.defaults{'class'});
+            save(tmp_np_file, 'version', 'data', 'info', 'prefs', 'worm', '-v7.3');
             Program.Handlers.dialogue.resolve();
 
             Program.Handlers.dialogue.add_task('Running Nikon write routine...');
-            DataHandling.Helpers.nd2.write_data(np_file, f);
+            DataHandling.Helpers.nd2.write_data(tmp_np_file, f);
+            movefile(tmp_np_file, np_file, 'f');
+            clear tmp_cleanup
             Program.Handlers.dialogue.resolve();
+            clear f_cleanup
         end
 
         function dimension_struct = get_dimensions(file)
@@ -368,36 +394,47 @@ classdef nd2
             %   obj - Multidimensional array containing image planes.
 
             if ischar(file) || isstring(file)
-                file = Program.GUIPreferences.instance().image_dir;
+                file = bfGetReader(file);
+                reader_cleanup = onCleanup(@() file.close());
             end
 
-            t = Program.GUIHandling.current_frame; % Retrieve the current time frame from GUI.
+            t = 1;
+            try
+                t = Program.GUIHandling.current_frame; % Retrieve the current time frame from GUI when available.
+            catch
+            end
 
             % Set up input parser to handle variable input arguments
             p = inputParser;
-            addOptional(p, 'x', 1:file.getSizeX);
-            addOptional(p, 'y', 1:file.getSizeY);
-            addOptional(p, 'z', 1:file.getSizeZ);
-            addOptional(p, 'c', 1:file.getSizeC);
-            addOptional(p, 't', t);
+            addParameter(p, 'x', 1:file.getSizeX);
+            addParameter(p, 'y', 1:file.getSizeY);
+            addParameter(p, 'z', 1:file.getSizeZ);
+            addParameter(p, 'c', 1:file.getSizeC);
+            addParameter(p, 't', t);
             parse(p, varargin{:});
         
-            % Determine starting positions for extraction (zero-based)
+            % Determine starting positions for Bio-Formats ROI extraction.
             x0 = min(p.Results.x);
             y0 = min(p.Results.y);
         
             % Calculate the extraction dimensions
-            width = max(p.Results.x);
-            height = max(p.Results.y);
+            width = max(p.Results.x) - x0 + 1;
+            height = max(p.Results.y) - y0 + 1;
         
             % Set the number of planes in each dimension
             numZ = numel(p.Results.z);
             numC = numel(p.Results.c);
             numT = numel(p.Results.t);
         
-            % Preallocate array to hold the extracted image planes
-            obj = zeros(height, width, numZ, numC, numT, ...
-                'like', file.getMetadataStore.getPixelsSignificantBits(0).getValue());
+            firstZ = p.Results.z(1);
+            firstC = p.Results.c(1);
+            firstT = max(p.Results.t(1), 1);
+            firstIndex = file.getIndex(firstZ - 1, firstC - 1, firstT - 1) + 1;
+            firstPlane = bfGetPlane(file, firstIndex, x0, y0, width, height);
+
+            % SignificantBits can be 12 for uint16 camera data, so infer the
+            % MATLAB storage class from an actual plane.
+            obj = zeros(height, width, numZ, numC, numT, 'like', firstPlane);
         
             % Loop through z, c, and t indices to retrieve planes
             for idxZ = 1:numZ
@@ -411,18 +448,78 @@ classdef nd2
                         % Calculate the index for the specific plane in the reader object
                         planeIndex = file.getIndex(z - 1, c - 1, t - 1) + 1;
         
-                        % Retrieve the plane data for the specified index
-                        plane = bfGetPlane(file, planeIndex, x0, y0, width, height);
+                        if idxZ == 1 && idxC == 1 && idxT == 1
+                            plane = firstPlane;
+                        else
+                            % Retrieve the plane data for the specified index
+                            plane = bfGetPlane(file, planeIndex, x0, y0, width, height);
+                        end
         
                         % Store the retrieved plane in the multidimensional array
                         obj(:, :, idxZ, idxC, idxT) = plane;
                     end
                 end
             end
+            if exist('reader_cleanup', 'var')
+                clear reader_cleanup
+            end
         end
     end
 
     methods (Static, Access = private)
+        function bytes = bytes_per_element(dclass)
+            dclass = char(dclass);
+            switch dclass
+                case 'single'
+                    bytes = 4;
+                case 'double'
+                    bytes = 8;
+                otherwise
+                    token = regexp(dclass, '^(?:u?int)(\d+)$', 'tokens', 'once');
+                    if isempty(token)
+                        error('DataHandling:ND2:UnsupportedDataClass', ...
+                            'Unsupported ND2 output data class: %s', dclass);
+                    end
+                    bytes = str2double(token{1}) / 8;
+            end
+        end
+
+        function assert_sufficient_disk_space(output_file, dims, dclass)
+            output_dir = fileparts(output_file);
+            if isempty(output_dir)
+                output_dir = pwd;
+            end
+
+            file_obj = javaObject('java.io.File', output_dir);
+            usable_bytes = double(file_obj.getUsableSpace());
+            raw_bytes = prod(double(dims)) * DataHandling.Helpers.nd2.bytes_per_element(dclass);
+            required_bytes = raw_bytes * 1.20 + 512 * 1024^2;
+            if usable_bytes < required_bytes
+                error('DataHandling:ND2:InsufficientDiskSpace', ...
+                    ['Not enough free disk space to convert this ND2. ' ...
+                     'Need about %s free for a safe MAT-file write; only %s is available in %s.'], ...
+                    DataHandling.Helpers.nd2.format_bytes(required_bytes), ...
+                    DataHandling.Helpers.nd2.format_bytes(usable_bytes), output_dir);
+            end
+        end
+
+        function delete_file_if_exists(path)
+            if exist(path, 'file')
+                delete(path);
+            end
+        end
+
+        function text = format_bytes(bytes)
+            units = {'B', 'KiB', 'MiB', 'GiB', 'TiB'};
+            value = double(bytes);
+            unit_idx = 1;
+            while value >= 1024 && unit_idx < numel(units)
+                value = value / 1024;
+                unit_idx = unit_idx + 1;
+            end
+            text = sprintf('%.1f %s', value, units{unit_idx});
+        end
+
         function [p, z, c, t] = parse_plane_idx(plane_idx)
             if ~isstring(plane_idx)
                 plane_idx = string(plane_idx);
@@ -469,7 +566,7 @@ classdef nd2
 
             ttl_bytes = ny * nx * nz * nc * nt * bytes_per_el;
 
-            if ttl_bytes <= max_arr
+            if nt <= 1 && ttl_bytes <= max_arr
                 Program.Handlers.dialogue.step('Reading entire Nikon volume...');
                 d_cell = bfopen(char(nd2_reader.getCurrentFile));
 

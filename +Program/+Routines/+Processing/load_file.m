@@ -1,10 +1,12 @@
 function load_file(mode, path)
             app = Program.app;
             window = Program.window;
+            mode = lower(string(mode));
             Program.Helpers.debug_event('ProcLoad', ...
                 'mode=%s path=%s', string(mode), string(path));
 
             d = uiprogressdlg(window,"Title","NeuroPAL ID","Message","Initializing Processing Tab...",'Indeterminate','off');    
+            progress_cleanup = onCleanup(@() local_close_progress(d));
             app.flags = struct();
             Methods.ChunkyMethods.clear_spectral_filtered_cache(app);
             if isappdata(app.CELL_ID, 'proc_mip_cache')
@@ -54,8 +56,6 @@ function load_file(mode, path)
                     current_path = string(app.image_file);
                     if isempty(app.image_data) || current_path ~= string(mat_file)
                         app.image_file = mat_file;
-                        app.image_data = app.proc_image.data;
-                        app.image_data_zscored = Methods.Preprocess.zscore_frame(app.image_data);
                         app.image_prefs = prefs;
                         app.image_gamma = Program.Helpers.expand_gamma( ...
                             prefs.gamma, ...
@@ -66,6 +66,18 @@ function load_file(mode, path)
                                 app.image_um_scale = app.image_info.scale;
                             end
                         catch
+                        end
+                        if local_should_materialize_colormap(app.proc_image)
+                            app.image_data = app.proc_image.data;
+                            app.image_data_zscored = Methods.Preprocess.zscore_frame(app.image_data);
+                            Program.Helpers.debug_event('ProcLoad', ...
+                                'materialized colormap volume for processing: size=%s class=%s', ...
+                                mat2str(size(app.image_data)), class(app.image_data));
+                        else
+                            app.image_data = [];
+                            app.image_data_zscored = [];
+                            Program.Helpers.debug_event('ProcLoad', ...
+                                'using lazy MAT-backed colormap processing for %s', string(mat_file));
                         end
                         if isappdata(app.CELL_ID, 'proc_runtime_dirty')
                             rmappdata(app.CELL_ID, 'proc_runtime_dirty');
@@ -95,7 +107,7 @@ function load_file(mode, path)
                     % Using intmax is faster as it avoids loading the
                     % entire variable, but it also distorts the histograms.
                     % max_val = double(intmax(class(app.image_data(1, 1, 1, 1))));
-                    maximum_value = double(max(app.image_data, [], 'all'));
+                    maximum_value = Program.Helpers.processing_colormap_max(app);
 
                     app.data_flags.('NeuroPAL_Volume') = 1;
                     Program.GUIHandling.refresh_processing_volume_dropdown(app, 'Colormap');
@@ -103,8 +115,14 @@ function load_file(mode, path)
 
                 case "video"
                     Program.Routines.GUI.add_volume('Video')
-                    Program.Routines.Videos.load(path);
-                    maximum_value = double(intmax(class(app.retrieve_frame(3))));
+                    if local_video_already_loaded(app, path)
+                        app.video_path = char(string(path));
+                        Program.Helpers.debug_event('ProcLoad', ...
+                            'reusing loaded video metadata for %s', string(path));
+                    else
+                        Program.Routines.Videos.load(path);
+                    end
+                    maximum_value = Program.Helpers.video_display_max(app);
 
                     nx = app.video_info.nx;
                     ny = app.video_info.ny;
@@ -125,6 +143,7 @@ function load_file(mode, path)
             d.Value = 3 / 5;
             d.Message = sprintf('Mapping channels...');
             Program.Handlers.channels.initialize(path);
+            Program.Handlers.channels.hide_edit_buttons_only();
     
             d.Value = 4 / 5;
             d.Message = sprintf('Configuring GUI...');
@@ -144,11 +163,11 @@ function load_file(mode, path)
 
             app.ProcXYFactorEditField.Enable = 'on';
             app.ProcZSlicesEditField.Enable = 'on';
-            app.ProcZSlicesEditField.Limits = [1, max(1, nz)];
+            app.ProcZSlicesEditField.Limits = [1, max(2, nz)];
             app.ProcZSlicesEditField.RoundFractionalValues = 'on';
             app.ProcZSlicesEditField.ValueDisplayFormat = '%.0f';
-            app.ProcTStartEditField.Limits = [1, max(1, nt)];
-            app.ProcTStopEditField.Limits = [1, max(1, nt)];
+            app.ProcTStartEditField.Limits = [1, max(2, nt)];
+            app.ProcTStopEditField.Limits = [1, max(2, nt)];
             app.ProcTStartEditField.RoundFractionalValues = 'on';
             app.ProcTStopEditField.RoundFractionalValues = 'on';
 
@@ -162,7 +181,7 @@ function load_file(mode, path)
                 app.(sprintf('%s_GammaEditField', Program.GUIHandling.pos_prefixes{n})).Value = gammas(n);
             end
 
-            if mode == "image" && had_main_image
+            if mode == "image" && had_main_image && ~isempty(app.image_data)
                 synced = Program.Helpers.sync_processing_from_main(app, mat_file);
                 Program.Helpers.debug_event('ProcLoad', ...
                     'sync_processing_from_main=%d final_gammas=%s', ...
@@ -181,9 +200,9 @@ function load_file(mode, path)
             d.Message = sprintf('Drawing image...');
             Program.Routines.Processing.render();
             Program.GUIHandling.capture_processing_defaults(app, lower(string(app.VolumeDropDown.Value)), true);
-            close(d)
+            clear progress_cleanup
 
-            skip_crop_prompt = ~usejava('desktop');
+            skip_crop_prompt = ~usejava('desktop') || mode == "video";
             if isappdata(app.CELL_ID, 'proc_skip_crop_recommendation')
                 skip_crop_prompt = skip_crop_prompt || ...
                     logical(getappdata(app.CELL_ID, 'proc_skip_crop_recommendation'));
@@ -201,4 +220,56 @@ function load_file(mode, path)
             end
 
             Program.GUIHandling.gui_lock(app, 'unlock', 'processing_tab');
+end
+
+function tf = local_should_materialize_colormap(proc_image)
+tf = false;
+
+try
+    dims = size(proc_image, 'data');
+    if isempty(dims) || any(dims <= 0)
+        return
+    end
+    sample = proc_image.data(1, 1, 1, 1);
+    bytes = prod(double(dims)) * local_class_bytes(class(sample));
+    limit_bytes = 128 * 1024^2;
+    tf = bytes <= limit_bytes;
+catch
+    tf = false;
+end
+end
+
+function bytes = local_class_bytes(class_name)
+switch char(class_name)
+    case {'uint8', 'int8', 'logical'}
+        bytes = 1;
+    case {'uint16', 'int16'}
+        bytes = 2;
+    case {'uint32', 'int32', 'single'}
+        bytes = 4;
+    case {'uint64', 'int64', 'double'}
+        bytes = 8;
+    otherwise
+        bytes = 8;
+end
+end
+
+function tf = local_video_already_loaded(app, path)
+tf = false;
+
+try
+    tf = isstruct(app.video_info) && isfield(app.video_info, 'file') && ...
+        strcmp(char(string(app.video_info.file)), char(string(path)));
+catch
+    tf = false;
+end
+end
+
+function local_close_progress(d)
+try
+    if ~isempty(d) && isvalid(d)
+        close(d);
+    end
+catch
+end
 end

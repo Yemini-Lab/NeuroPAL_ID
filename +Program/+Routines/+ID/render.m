@@ -9,6 +9,7 @@ function render()
     end
 
     app.logEvent('Main','Drawing image...', 1);
+    Program.GUIHandling.install_cellpose_mask_button(app);
 
     state = Program.Handlers.channels.main_state(app);
     Program.Helpers.debug_event('IDRender', ...

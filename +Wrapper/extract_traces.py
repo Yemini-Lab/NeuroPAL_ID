@@ -47,6 +47,17 @@ from zephir.utils.utils import *
 import pandas as pd
 import getters
 import h5py
+import torch
+
+_torch_load = torch.load
+
+
+def _load_trusted_checkpoint(*args, **kwargs):
+    kwargs.setdefault('weights_only', False)
+    return _torch_load(*args, **kwargs)
+
+
+torch.load = _load_trusted_checkpoint
 
 
 def parse_literal_arg(value, name):
@@ -146,9 +157,9 @@ def extract_traces(
     traces = np.empty((shape_c, n_neuron, shape_t)) * np.nan
     for t in tqdm(t_list, desc='Compiling raw traces', unit='frames'):
         if filename is None:
-            data = getters.get_slice(dataset, t).astype(float)
+            data = getters.get_slice(dataset, t).astype(np.float32, copy=False)
         else:
-            data = getters.get_slice(dataset, t, filename=filename).astype(float)
+            data = getters.get_slice(dataset, t, filename=filename).astype(np.float32, copy=False)
         with torch.no_grad():
             vol = to_tensor(data, n_dim=5, grad=False, dev=dev)
             model.theta.zero_()
@@ -264,7 +275,11 @@ def extract_traces(
             names = f['name'][()]
             ids = f['id'][()]
 
-        id_to_name = dict(zip(df_trace['worldline_id'], [name.decode() for name in names]))
+        decoded_names = [
+            name.decode() if isinstance(name, bytes) else str(name)
+            for name in names
+        ]
+        id_to_name = dict(zip(ids, decoded_names))
         df_trace['worldline'] = df_trace['worldline_id'].map(id_to_name)
         new_order = ['worldline_id', 'worldline'] + [col for col in df_trace.columns if col not in ['worldline_id', 'worldline']]
         df_trace_reordered = df_trace[new_order]

@@ -6,7 +6,6 @@ import scipy
 from scipy.io import loadmat
 from tqdm import tqdm
 from zephir.annotator.data.annotations_io import Annotation, AnnotationTable, Worldline, WorldlineTable
-from zephir.annotator.data.transform import coords_from_idx
 from zephir.methods import *
 from zephir.methods import *
 from zephir.utils import io
@@ -67,7 +66,6 @@ def db_test(pos, x, y, z):
 
 
 def cellid_to_annotator(video_path, metadata, data):
-    shape = (metadata["nx"], metadata["ny"], metadata["nz"])
     names = list(data.keys())
 
     A = AnnotationTable()
@@ -90,26 +88,25 @@ def cellid_to_annotator(video_path, metadata, data):
 
     annotation_idx = 0
     no_annotations = 0
-    print(shape, flush=True)
-
     for t in tqdm(frames, desc='Processing frames...', leave=True):
         for eachWL in range(len(names)):
+            roi = valid_worldlines[names[eachWL]]['t'].get(t)
+            if roi is None:
+                no_annotations += 1
+                continue
+
             a = Annotation()
             a.id = annotation_idx + 1
             a.t_idx = t
-            try:
-                position = (valid_worldlines[names[eachWL]]['t'][t]['y'], valid_worldlines[names[eachWL]]['t'][t]['x'], valid_worldlines[names[eachWL]]['t'][t]['z'])
-            except:
-                no_annotations += 1
-
-            (a.y, a.x, a.z) = coords_from_idx(position, shape)
-            db_test(position, a.x, a.y, a.z)
+            a.x = np.clip((float(roi['x']) - 0.5) / float(metadata["nx"]), np.finfo(np.float32).eps, 1 - np.finfo(np.float32).eps)
+            a.y = np.clip((float(roi['y']) - 0.5) / float(metadata["ny"]), np.finfo(np.float32).eps, 1 - np.finfo(np.float32).eps)
+            a.z = np.clip((float(roi['z']) - 0.5) / float(metadata["nz"]), np.finfo(np.float32).eps, 1 - np.finfo(np.float32).eps)
+            db_test((roi['x'], roi['y'], roi['z']), a.x, a.y, a.z)
 
             a.worldline_id = eachWL
             a.provenance = valid_worldlines[names[eachWL]]['provenance']
-            if a.x.size > 0 and a.y.size > 0 and a.z.size > 0:
-                A.insert(a)
-                annotation_idx += 1
+            A.insert(a)
+            annotation_idx += 1
 
     A.to_hdf(video_path / "annotations.h5")
     print(f"Saved annotations for {len(frames)-no_annotations}/{len(frames)} frames to {video_path / 'annotations.h5'}.", flush=True)

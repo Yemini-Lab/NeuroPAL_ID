@@ -4,7 +4,6 @@ this file collects key IO functions for data, metadata, and annotations
 that may be edited by a user to fit their particular use case.
 """
 
-import os
 import h5py
 import json
 import numpy as np
@@ -13,8 +12,6 @@ from pathlib import Path
 from typing import Optional
 from pynwb import NWBHDF5IO
 from pims import ND2_Reader
-import numpy as np
-import cv2
 
 nwbfile = None
 nd2file = None
@@ -28,47 +25,52 @@ def get_slice(dataset: Path, t: int, filename: Optional[str] = None) -> np.ndarr
     global nwbfile
     global nd2file
 
-    if filename is None:
-        h5_filename = dataset / "data.h5"
-    else:
-        filename = Path(dataset / filename)
+    filename = dataset / "data.h5" if filename is None else Path(dataset / filename)
 
-        if filename.suffix == '.h5':
-            f = h5py.File(dataset / filename, 'r')
+    if filename.suffix == '.h5':
+        with h5py.File(filename, 'r') as f:
             frame = f["data"][t]
-        elif filename.suffix == '.nwb':
-            if nwbfile is None:
-                io = NWBHDF5IO(filename, mode="r")
-                nwbfile = io.read()
+        if frame.ndim == 4:
+            # MATLAB writes /data as [Y X Z C T], which h5py exposes as
+            # [T C Z X Y]. ZephIR expects [C Z Y X].
+            frame = np.transpose(frame, [0, 1, 3, 2])
+    elif filename.suffix == '.nwb':
+        if nwbfile is None:
+            io = NWBHDF5IO(filename, mode="r")
+            nwbfile = io.read()
 
-            if 'CalciumImageSeries' in nwbfile.acquisition.keys():
-                targ_mod = nwbfile.acquisition['CalciumImageSeries']
-            else:
-                for eachKey in nwbfile.acquisition.keys():
-                    if 'Calcium' in eachKey:
-                        targ_mod = nwbfile.acquisition[eachKey]
-
-            if 'targ_mod' not in locals():
-                raise KeyError(f"Unable to find any Calcium key in {filename} acquisition module.")
-
-            frame = targ_mod.data[t, :, :, :, :].astype(np.uint8)
-            frame = np.transpose(frame, [3, 2, 1, 0])
-
-        elif filename.suffix == '.nd2':
-            if nd2file is None:
-                nd2file = ND2_Reader(filename)
-
-            if 't' in nd2file.sizes:
-                nd2file.bundle_axes = ['c', 'z', 'y', 'x']
-                frame = (nd2file[t] * 255).astype(np.uint8)
-            else:
-                raise KeyError(f"Unable to find time dimension in {filename}.")
+        if 'CalciumImageSeries' in nwbfile.acquisition.keys():
+            targ_mod = nwbfile.acquisition['CalciumImageSeries']
         else:
-            h5_filename = dataset / filename
+            for eachKey in nwbfile.acquisition.keys():
+                if 'Calcium' in eachKey:
+                    targ_mod = nwbfile.acquisition[eachKey]
 
-        #if t % 13 == 0:
-        #    cache_loc = dataset / f'frame-{t}.npy'
-        #    np.save(cache_loc, frame)
+        if 'targ_mod' not in locals():
+            raise KeyError(f"Unable to find any Calcium key in {filename} acquisition module.")
+
+        frame = targ_mod.data[t, :, :, :, :]
+        frame = np.transpose(frame, [3, 2, 1, 0])
+
+    elif filename.suffix == '.nd2':
+        if nd2file is None:
+            try:
+                nd2file = ND2_Reader(filename)
+            except ImportError as exc:
+                raise ImportError(
+                    "Python ND2 reading requires pims_nd2, which is not "
+                    "installed in this environment. Convert the video to the "
+                    "chunked HDF5 data.h5 format before running ZephIR "
+                    "tracking/recommendation/extraction."
+                ) from exc
+
+        if 't' in nd2file.sizes:
+            nd2file.bundle_axes = ['c', 'z', 'y', 'x']
+            frame = np.asarray(nd2file[t])
+        else:
+            raise KeyError(f"Unable to find time dimension in {filename}.")
+    else:
+        raise ValueError(f"Unsupported video file type: {filename.suffix}")
 
     return frame
 

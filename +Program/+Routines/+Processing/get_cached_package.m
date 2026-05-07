@@ -57,23 +57,20 @@ end
 
 function raw = local_get_full_colormap_payload(app)
 context = Program.Helpers.processing_colormap_context(app);
-volume = context.volume;
 state = Program.Handlers.channels.processing_state(app);
 max_idx = state.max_source_idx;
 if max_idx < 1
     dims = context.dims;
-    channel_class = 'uint8';
-    if ~isempty(volume)
-        channel_class = class(volume);
-    end
-    array = zeros(dims(1), dims(2), dims(3), 1, channel_class);
+    array = zeros(dims(1), dims(2), 1, 1, context.source_class);
 else
-    if isempty(volume)
-        dims = context.dims;
-        array = zeros(dims(1), dims(2), dims(3), 1, 'uint8');
+    max_idx = min(max_idx, context.dims(4));
+    if max_idx < 1
+        array = zeros(context.dims(1), context.dims(2), 1, 1, context.source_class);
     else
-        max_idx = min(max_idx, size(volume, 4));
-        array = volume(:, :, :, 1:max_idx);
+        array = Program.Helpers.read_processing_colormap(app, ...
+            'channels', 1:max_idx, ...
+            'z', app.proc_zSlider.Value, ...
+            'mip', logical(app.ProcShowMIPCheckBox.Value));
     end
 end
 if ndims(array) == 3
@@ -81,7 +78,7 @@ if ndims(array) == 3
 end
 raw = struct( ...
     'state', 'colormap', ...
-    'dims', size(array), ...
+    'dims', context.dims, ...
     'array', array, ...
     'coords', [app.proc_xSlider.Value, app.proc_ySlider.Value, app.proc_zSlider.Value, app.proc_tSlider.Value]);
 end

@@ -13,52 +13,32 @@ function render(t, z, x, y)
     end
     
     if ~exist('y', 'var')
-        x = round(app.xSlider.Value);
+        y = round(app.xSlider.Value);
     end
     
     if ~exist ('x', 'var')
-        y = round(app.video_info.ny-app.ySlider.Value);
+        x = round(app.video_info.ny-app.ySlider.Value);
     end
     
     Program.Validation.frame_in_bounds(t);
     Program.Validation.slice_in_bounds(z);
-    target_frame = app.retrieve_frame(t);
+    render = app.retrieveVideoRenderViews(t, z, x, y, app.OverlayFrameMIPCheckBox.Value);
 
-    if app.video_info.nc < 3
-        n_xyz = [app.video_info nx, app.video_info.ny, app.video_info.nz];
-        target_frame = cat(4, target_frame, zeros(n_xyz));
-    end
-    
-    if app.OverlayFrameMIPCheckBox.Value
-        render = struct( ...
-            'xy', {max(target_frame, [], 3)}, ...
-            'xz', {max(target_frame(:, x, :, :), [], 3)}, ...
-            'yz', {max(target_frame(y, :, :, :), [], 3)});
-        
-    else
-        render = struct( ...
-            'xy', {target_frame(:, :, z, :)}, ...
-            'xz', {target_frame(:, x, :, :)}, ...
-            'yz', {target_frame(y, :, :, :)});
-        proj = fieldnames(render);
-    
-        for p=1:length(proj)
-            projection = proj{p};
-            arr = render.(projection);
-            arr(:, :, :, 1) = arr(:, :, :, 1) * app.RSlider.Value;
-            arr(:, :, :, 2) = arr(:, :, :, 2) * app.RSlider.Value;
-            arr(:, :, :, 3) = arr(:, :, :, 3) * app.RSlider.Value;
-            arr = squeeze(arr);
+    proj = fieldnames(render);
+    for p=1:length(proj)
+        projection = proj{p};
+        arr = squeeze(render.(projection));
 
-            if strcmp(projection, 'yz')
-                render.(projection) = permute(arr, [2, 1, 3]);
-            end
+        if strcmp(projection, 'yz')
+            arr = permute(arr, [2, 1, 3]);
         end
+
+        render.(projection) = app.scaleVideoProjection(arr);
     end
     
-    xy_img = image(app.xyAxes, render.xy);
-    xz_img = image(app.xzAxes, render.yz);
-    yz_img = image(app.yzAxes, render.xz);
+    xy_img = app.setVideoImage(app.xyAxes, render.xy, 'npal_video_xy');
+    xz_img = app.setVideoImage(app.xzAxes, render.yz, 'npal_video_xz');
+    yz_img = app.setVideoImage(app.yzAxes, render.xz, 'npal_video_yz');
 
     Program.Helpers.sl_sync();
     
@@ -83,4 +63,3 @@ function render(t, z, x, y)
         app.roi_draw(app.xSlider.Value, app.ySlider.Value, z, t)
     end
 end
-

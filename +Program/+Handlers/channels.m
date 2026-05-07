@@ -50,7 +50,43 @@ classdef channels
                 '#ffff00'}});                                               %   GFP     -> Yellow
     end
     
-    methods (Static)        
+    methods (Static)
+        function order = initialize(path)
+            app = Program.app;
+            mode = lower(string(app.VolumeDropDown.Value));
+            max_nc = Program.Handlers.channels.config{'max_channels'};
+
+            switch mode
+                case "video"
+                    names = Program.Handlers.channels.video_channel_names(app);
+                    idx = zeros(1, max_nc, 'double');
+                    idx(1:min(max_nc, numel(names))) = 1:min(max_nc, numel(names));
+                    gammas = ones(1, max_nc);
+
+                case "colormap"
+                    [names, info, prefs] = Program.Handlers.channels.image_channel_context(app, path);
+                    idx = Program.Handlers.channels.image_channel_indices(prefs, numel(names), max_nc);
+                    gammas = Program.Handlers.channels.image_channel_gammas(app, prefs, max_nc);
+
+                otherwise
+                    names = {};
+                    idx = zeros(1, max_nc, 'double');
+                    gammas = ones(1, max_nc);
+            end
+
+            names = Program.Handlers.channels.ensure_none_channel(names);
+            order = struct('names', {names}, 'idx', {idx}, 'gammas', {gammas});
+            Program.Handlers.channels.populate(order);
+
+            if mode == "colormap" && exist('info', 'var') && isstruct(info)
+                try
+                    Program.Handlers.channels.set_references(info);
+                catch
+                    % Reference rows are best-effort and should not block loading.
+                end
+            end
+        end
+
         function set_references(info)
             %  set_references   Updates item properties of reference dropdowns.
             % ┌─────────────────────────────────────────────────────────────┐
@@ -72,6 +108,7 @@ classdef channels
             references = app.(sprintf(ref_handle, 4)).Items;                % Grab all currently loaded references (by default, this is {'White', 'GFP', 'DIC'}).
             loaded_fluos = app.(sprintf( ...                                % Grab all loaded fluorophores.
                 Program.Handlers.channels.handles{'pp_dd'}, 1)).Items; 
+            generic_channel_names = Program.Handlers.channels.is_generic_channel_list(loaded_fluos);
 
             % From the array of loaded references, remove unused ones.
             for r=4:3+length(references)                                    % For every known reference...
@@ -80,7 +117,7 @@ classdef channels
                 if isfield(info, reference) && info.(reference) == 0        % If this reference is optional & not present...
                     references{r-3} = 'None';                               % Rename it to None.
 
-                else                                                        % Otherwise...
+                elseif ~generic_channel_names                               % Otherwise...
                     related_fluos = ...                                     % Grab a cell array of valid fluorophores associated with this reference.
                         Program.Handlers.channels.fluorophore_map{lower(reference)};
 
@@ -266,8 +303,11 @@ classdef channels
 
         function populate(order)
             app = Program.app;
-            names = order.names;
-            indices = order.idx;
+            names = Program.Handlers.channels.ensure_none_channel(order.names);
+            indices = double(order.idx(:)');
+            if isempty(indices)
+                indices = zeros(1, Program.Handlers.channels.config{'max_channels'});
+            end
             nc = length(indices);
 
             [indices, ~, ~] = Program.Validation.check_for_duplicate_fluorophores(indices);
@@ -280,10 +320,13 @@ classdef channels
             end
 
             role_defaults = {'Red', 'Green', 'Blue', 'White', 'DIC', 'GFP'};
+            role_colors = {[1 0 0], [0.3922 0.8314 0.0745], [0 0 1]};
+            role_font_colors = {[0 0 0], [0 0 0], [1 1 1]};
 
             for c=1:nc
                 cb_handle = sprintf(Program.Handlers.channels.handles{'pp_cb'}, c);
-                app.(cb_handle).Value = c <= 3;
+                idx = round(indices(c));
+                app.(cb_handle).Value = c <= 3 && idx > 0;
 
                 dd_handle = sprintf(Program.Handlers.channels.handles{'pp_dd'}, c);
 
@@ -291,9 +334,17 @@ classdef channels
                     app.(dd_handle).Items = names;
                 end
 
-                if c >= 4
-                    ref_handle = sprintf(Program.Handlers.channels.handles{'pp_ref'}, c);
+                ref_handle = sprintf(Program.Handlers.channels.handles{'pp_ref'}, c);
+                if c <= 3
                     if isprop(app, ref_handle) && isvalid(app.(ref_handle))
+                        app.(ref_handle).Text = role_defaults{c};
+                        app.(ref_handle).BackgroundColor = role_colors{c};
+                        app.(ref_handle).FontWeight = 'bold';
+                        app.(ref_handle).FontColor = role_font_colors{c};
+                    end
+                elseif c >= 4
+                    if isprop(app, ref_handle) && isvalid(app.(ref_handle))
+                        app.(ref_handle).Items = {'White', 'DIC', 'GFP'};
                         ref_items = string(app.(ref_handle).Items);
                         target_role = string(role_defaults{min(c, numel(role_defaults))});
                         if any(ref_items == target_role)
@@ -302,7 +353,6 @@ classdef channels
                     end
                 end
 
-                idx = round(indices(c));
                 if idx > 0
                     items = app.(dd_handle).Items;
                     if idx > numel(items)
@@ -311,6 +361,14 @@ classdef channels
                     if idx >= 1
                         name = items{idx};
                         app.(dd_handle).Value = name;
+                    end
+                else
+                    items = string(app.(dd_handle).Items);
+                    none_idx = find(strcmpi(items, "None"), 1);
+                    if ~isempty(none_idx)
+                        app.(dd_handle).Value = app.(dd_handle).Items{none_idx};
+                    elseif ~isempty(app.(dd_handle).Items)
+                        app.(dd_handle).Value = app.(dd_handle).Items{1};
                     end
                 end
             end
@@ -440,17 +498,47 @@ classdef channels
         end
 
         function edit_channels()
-            Program.Handlers.channels.hide_edit_controls();
+            app = Program.app;
+            show_controls = false;
+            if isprop(app, 'EditChannelsButton') && isvalid(app.EditChannelsButton)
+                show_controls = logical(app.EditChannelsButton.Value);
+            end
+            Program.Handlers.channels.set_edit_control_buttons_visible(show_controls);
         end
 
         function hide_edit_controls()
+            app = Program.app;
+            Program.Handlers.channels.set_edit_control_buttons_visible(false);
+            if isprop(app, 'EditChannelsButton') && isvalid(app.EditChannelsButton)
+                app.EditChannelsButton.Value = false;
+                app.EditChannelsButton.Visible = 'off';
+            end
+        end
+
+        function hide_edit_buttons_only()
+            app = Program.app;
+            Program.Handlers.channels.set_edit_control_buttons_visible(false);
+            if isprop(app, 'EditChannelsButton') && isvalid(app.EditChannelsButton)
+                app.EditChannelsButton.Value = false;
+                app.EditChannelsButton.Visible = 'off';
+                app.EditChannelsButton.Enable = 'off';
+            end
+        end
+
+        function set_edit_control_buttons_visible(show_controls)
             app = Program.app;
             handles = Program.Handlers.channels.get_handles();
 
             app.ProcessingGridLayout.ColumnWidth = {'1x', 292};
             % The web ViewModel is fragile around hidden grid columns; keep
             % the columns narrow rather than collapsing them to zero width.
-            app.proc_channel_grid.ColumnWidth = {15, 88, '1x', 8, 8, 8};
+            if show_controls
+                app.proc_channel_grid.ColumnWidth = {15, 88, '1x', 'fit', 'fit', 'fit'};
+                visible_state = 'on';
+            else
+                app.proc_channel_grid.ColumnWidth = {15, 88, '1x', 8, 8, 8};
+                visible_state = 'off';
+            end
 
             for c=1:length(app.proc_channel_grid.RowHeight)
                 dd_handle = sprintf(Program.Handlers.channels.handles{'pp_dd'}, c);
@@ -461,43 +549,14 @@ classdef channels
                 app.(dd_handle).Visible = 'on';
 
                 if isprop(app, down_handle) && isvalid(app.(down_handle))
-                    app.(down_handle).Visible = 'off';
+                    app.(down_handle).Visible = visible_state;
                 end
                 if isprop(app, up_handle) && isvalid(app.(up_handle))
-                    app.(up_handle).Visible = 'off';
+                    app.(up_handle).Visible = visible_state;
                 end
                 if isprop(app, delete_handle) && isvalid(app.(delete_handle))
-                    app.(delete_handle).Visible = 'off';
+                    app.(delete_handle).Visible = visible_state;
                 end
-            end
-
-            if isprop(app, 'EditChannelsButton') && isvalid(app.EditChannelsButton)
-                app.EditChannelsButton.Visible = 'off';
-            end
-        end
-
-        function hide_edit_buttons_only()
-            app = Program.app;
-            handles = Program.Handlers.channels.get_handles();
-
-            for c=1:length(app.proc_channel_grid.RowHeight)
-                up_handle = sprintf(handles.up, c);
-                down_handle = sprintf(handles.down, c);
-                delete_handle = sprintf(handles.delete, c);
-
-                if isprop(app, down_handle) && isvalid(app.(down_handle))
-                    app.(down_handle).Visible = 'off';
-                end
-                if isprop(app, up_handle) && isvalid(app.(up_handle))
-                    app.(up_handle).Visible = 'off';
-                end
-                if isprop(app, delete_handle) && isvalid(app.(delete_handle))
-                    app.(delete_handle).Visible = 'off';
-                end
-            end
-
-            if isprop(app, 'EditChannelsButton') && isvalid(app.EditChannelsButton)
-                app.EditChannelsButton.Visible = 'off';
             end
         end
 
@@ -604,12 +663,13 @@ classdef channels
         function [color, idx] = identify_color(name)
             fluorophore_keys = keys(Program.Handlers.channels.fluorophore_map);
             idx = 0;
+            name_lower = lower(string(name));
 
             for c=1:length(fluorophore_keys)
                 color = fluorophore_keys{c};
 
-                fluorophores = Program.Handlers.channels.fluorophore_map{color};
-                if any(ismember(lower(name), fluorophores))
+                fluorophores = lower(string(Program.Handlers.channels.fluorophore_map{color}));
+                if any(name_lower == fluorophores) || any(contains(name_lower, fluorophores))
                     idx = c;
                     return
                 end
@@ -807,10 +867,187 @@ classdef channels
 
         function idx = dropdown_index(dropdown)
             items = string(dropdown.Items);
-            idx = find(items == string(dropdown.Value), 1);
+            value = string(dropdown.Value);
+            if strcmpi(value, "None") || strcmp(value, "")
+                idx = 0;
+                return
+            end
+
+            idx = find(items == value, 1);
             if isempty(idx)
                 idx = 0;
             end
+        end
+
+        function names = ensure_none_channel(names)
+            if isempty(names)
+                names = {'None'};
+                return
+            end
+
+            names = cellstr(string(names(:))');
+            if ~any(strcmpi(string(names), "None"))
+                names{end+1} = 'None';
+            end
+        end
+
+        function names = video_channel_names(app)
+            names = {};
+
+            try
+                if isstruct(app.video_info) && isfield(app.video_info, 'channel_names') && ...
+                        ~isempty(app.video_info.channel_names)
+                    names = cellstr(string(app.video_info.channel_names(:))');
+                end
+            catch
+                names = {};
+            end
+
+            if isempty(names)
+                nc = 0;
+                try
+                    nc = double(app.video_info.nc);
+                catch
+                    nc = 0;
+                end
+                names = arrayfun(@(c) sprintf('Channel %d', c), 1:nc, 'UniformOutput', false);
+            end
+        end
+
+        function [names, info, prefs] = image_channel_context(app, path)
+            names = {};
+            info = struct();
+            prefs = struct();
+
+            try
+                if isstruct(app.image_info)
+                    info = app.image_info;
+                end
+            catch
+            end
+            try
+                if isstruct(app.image_prefs)
+                    prefs = app.image_prefs;
+                end
+            catch
+            end
+
+            if (isempty(fieldnames(info)) || isempty(fieldnames(prefs))) && ...
+                    isa(app.proc_image, 'matlab.io.MatFile')
+                try
+                    info = app.proc_image.info;
+                catch
+                end
+                try
+                    prefs = app.proc_image.prefs;
+                catch
+                end
+            end
+
+            if isfield(info, 'channel_names') && ~isempty(info.channel_names)
+                names = cellstr(string(info.channel_names(:))');
+            elseif isfield(info, 'channels') && ~isempty(info.channels)
+                names = cellstr(string(info.channels(:))');
+            else
+                nc = Program.Handlers.channels.image_channel_count(app, path);
+                names = arrayfun(@(c) sprintf('Channel %d', c), 1:nc, 'UniformOutput', false);
+            end
+        end
+
+        function nc = image_channel_count(app, path)
+            nc = 0;
+
+            try
+                if isa(app.proc_image, 'matlab.io.MatFile')
+                    dims = size(app.proc_image, 'data');
+                    if numel(dims) >= 4
+                        nc = dims(4);
+                    end
+                end
+            catch
+            end
+
+            if nc < 1
+                try
+                    dims = size(app.image_data);
+                    if numel(dims) >= 4
+                        nc = dims(4);
+                    end
+                catch
+                end
+            end
+
+            if nc < 1 && nargin >= 2 && ~isempty(path)
+                try
+                    mat_file = matfile(path);
+                    dims = size(mat_file, 'data');
+                    if numel(dims) >= 4
+                        nc = dims(4);
+                    end
+                catch
+                end
+            end
+        end
+
+        function idx = image_channel_indices(prefs, nc, max_nc)
+            idx = zeros(1, max_nc, 'double');
+
+            if isstruct(prefs) && isfield(prefs, 'RGBW') && ~isempty(prefs.RGBW)
+                rgbw = round(double(prefs.RGBW(:)'));
+                idx(1:min(4, numel(rgbw))) = rgbw(1:min(4, numel(rgbw)));
+            else
+                idx(1:min(3, nc)) = 1:min(3, nc);
+            end
+
+            if isstruct(prefs) && isfield(prefs, 'DIC') && ~isempty(prefs.DIC)
+                idx(5) = Program.Handlers.channels.first_valid_channel(prefs.DIC);
+            end
+            if isstruct(prefs) && isfield(prefs, 'GFP') && ~isempty(prefs.GFP)
+                idx(6) = Program.Handlers.channels.first_valid_channel(prefs.GFP);
+            end
+
+            idx(~isfinite(idx) | idx < 1 | idx > max(1, nc)) = 0;
+        end
+
+        function idx = first_valid_channel(value)
+            values = round(double(value(:)'));
+            values = values(isfinite(values) & values > 0);
+            if isempty(values)
+                idx = 0;
+            else
+                idx = values(1);
+            end
+        end
+
+        function gammas = image_channel_gammas(app, prefs, max_nc)
+            gamma = [];
+
+            if isstruct(prefs) && isfield(prefs, 'gamma') && ~isempty(prefs.gamma)
+                gamma = prefs.gamma;
+            else
+                try
+                    gamma = app.image_gamma;
+                catch
+                    gamma = [];
+                end
+            end
+
+            gammas = Program.Helpers.expand_gamma(gamma, max_nc);
+        end
+
+        function tf = is_generic_channel_list(names)
+            tf = false;
+            if isempty(names)
+                return
+            end
+
+            names = string(names);
+            names = names(strlength(names) > 0 & ~strcmpi(names, "None"));
+            if isempty(names)
+                return
+            end
+
+            tf = all(~cellfun(@isempty, regexp(cellstr(names), '^Channel\s+\d+$', 'once')));
         end
 
         function color = role_plot_color(role_key)

@@ -21,6 +21,16 @@ from tqdm import tqdm
 from typing import Optional, Callable
 from types import ModuleType
 
+_torch_load = torch.load
+
+
+def _load_trusted_checkpoint(*args, **kwargs):
+    kwargs.setdefault('weights_only', False)
+    return _torch_load(*args, **kwargs)
+
+
+torch.load = _load_trusted_checkpoint
+
 
 # from .getters import *
 import getters as default_getters
@@ -76,21 +86,28 @@ get_metadata = _make_getter_with_default('get_metadata', default_getters.get_met
 get_annotation_df = _make_getter_with_default('get_annotation_df', default_getters.get_annotation_df)
 
 
-@lru_cache()
+@lru_cache(maxsize=4)
 def get_data(dataset, t, g=1, c=None, filename=None):
     if filename is None:
-        data = get_slice(dataset, t).astype(float)
+        data = get_slice(dataset, t)
     else:
-        data = get_slice(dataset, t, filename).astype(float)
-    data = np.power(data / np.max(data), 1/g)
+        data = get_slice(dataset, t, filename)
+
     if len(data.shape) == 3:
-        return data[np.newaxis, ...]
+        data = data[np.newaxis, ...]
     elif c is None:
-        return data
+        pass
     elif c >= 0:
-        return data[c, np.newaxis, ...]
+        data = data[c, np.newaxis, ...]
     elif c == -1:
-        return np.max(data, axis=0)[np.newaxis, ...]
+        data = np.max(data, axis=0)[np.newaxis, ...]
+
+    data = data.astype(np.float32, copy=False)
+    max_val = np.max(data)
+    if max_val > 0:
+        data = data / np.float32(max_val)
+    if g != 1:
+        data = np.power(data, np.float32(1 / g)).astype(np.float32, copy=False)
     return data
 
 
@@ -188,7 +205,14 @@ def load_checkpoint(path, fallback=True, verbose=True, filename=None):
         while checkpoint is None:
 
             try:
-                checkpoint = torch.load(str(file_name), map_location=map_loc)
+                try:
+                    checkpoint = torch.load(
+                        str(file_name),
+                        map_location=map_loc,
+                        weights_only=False,
+                    )
+                except TypeError:
+                    checkpoint = torch.load(str(file_name), map_location=map_loc)
 
             except ModuleNotFoundError:
                 print('*** ERROR: checkpoint not compatible with current ZephIR version!')

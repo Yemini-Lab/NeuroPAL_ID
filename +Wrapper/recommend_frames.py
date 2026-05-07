@@ -121,7 +121,7 @@ def get_all_pdists(dataset, filename, shape_t, channel,
     return d_full
 
 
-def get_partial_pdists(dataset, shape_t, p_list, channel,
+def get_partial_pdists(dataset, filename, shape_t, p_list, channel,
                        dist_fn=dist_corrcoef,
                        load=True,
                        scale=(4, 16, 16),
@@ -140,7 +140,7 @@ def get_partial_pdists(dataset, shape_t, p_list, channel,
         d_full = np.load(str(f), allow_pickle=True)
 
     print('Compiling thumbnails...')
-    thumbnails = [get_thumbnail(dataset, channel, t, scale) for t in range(shape_t)]
+    thumbnails = [get_thumbnail(dataset, filename, channel, t, scale) for t in range(shape_t)]
 
     d_partial = np.zeros(shape_t)
     for i in (tqdm(range(shape_t), desc='Calculating distances', unit='frames', file=sys.stdout) if pbar else range(shape_t)):

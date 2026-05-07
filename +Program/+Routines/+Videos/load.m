@@ -5,7 +5,7 @@ function load(file)
     d = uiprogressdlg(app.CELL_ID,'Title','Loading video...','Indeterminate','on');
 
     if ~isdeployed
-        app.script_dir = fullfile(pwd, '/+Wrapper/');
+        app.script_dir = fullfile(pwd, '+Wrapper');
         app.script_ext = '.py';
     else
         if ispc
@@ -39,6 +39,7 @@ function load(file)
 
     % Isolate file format
     [~, ~, format] = fileparts(app.video_path);
+    format = lower(format);
 
     % Select loading function based on file format
     switch format
@@ -48,9 +49,13 @@ function load(file)
             app.load_nwb(app.video_path);
         case '.nd2'
             app.load_nd2(app.video_path);
-        case '.tif'
+        case {'.tif', '.tiff'}
             app.load_tif(app.video_path);
     end
+
+    app.video_frame_cache = [];
+    app.video_frame_cache_key = struct('file', '', 't', NaN);
+    app.clearVideoTimeSliderLiveState();
 
     app.xyAxes.XLim = [1, app.video_info.nx];
     app.xyAxes.YLim = [1, app.video_info.ny];
@@ -61,7 +66,8 @@ function load(file)
     app.tSlider.Limits = [1, app.video_info.nt];
     app.ActivityAxes.XTick = 0:app.video_info.nt;
     app.ActivityAxes.XTickLabel = 0:app.video_info.nt;
-    app.tSlider.MinorTicks = [];
+    app.configureVideoColorDefaults();
+    app.configureVideoTimeSlider();
     app.tSlider.Value = 1;
 
     app.vert_zSlider.Limits = [1, app.video_info.nz];

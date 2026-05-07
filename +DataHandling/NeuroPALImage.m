@@ -60,10 +60,19 @@ classdef NeuroPALImage
                 error('Unknown image format: "%s"', file);
             end
             ext = lower(ext);
-            
+
             % Determine the NeuroPAL filename.
             np_file = strrep(file, ext, '.mat');
-            
+
+            if strcmp(ext, '.nd2')
+                nt = DataHandling.Helpers.nd2.get_timepoints(file);
+                if nt > 1
+                    error('DataHandling:NeuroPALImage:ND2VideoInImageLoader', ...
+                        ['This ND2 contains %d timepoints and is a video. ' ...
+                         'Open it from the Video Tracking loader instead of the NeuroPAL image loader.'], nt);
+                end
+            end
+
             % Is the file already in NeuroPAL format?
             if ~exist(np_file,'file')
                 Program.Handlers.dialogue.add_task(sprintf('Converting %s file to NeuroPAL_ID file...', ext));

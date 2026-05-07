@@ -4,7 +4,9 @@ function toggle_video()
     Program.Helpers.set_grid_height(app.ProcDownsamplingGrid, 4, 20);
     Program.GUIHandling.configure_processing_sidebar_layout(app);
 
-    app.ProcAxGrid.RowHeight{end+1} = 'fit';
+    if ~isequal(app.PlaceholderProcTimeline.Parent, app.ProcAxGrid)
+        app.ProcAxGrid.RowHeight{end+1} = 'fit';
+    end
     app.PlaceholderProcTimeline.Parent = app.ProcAxGrid;
     app.PlaceholderProcTimeline.Layout.Row = max(size(app.ProcAxGrid.RowHeight));
     app.PlaceholderProcTimeline.Layout.Column = [1 max(size(app.ProcAxGrid.ColumnWidth))];

@@ -14,14 +14,16 @@ function reset()
         case "colormap"
             app.volume_crop_roi = [];
             if isa(app.proc_image, 'matlab.io.MatFile')
-                app.image_data = app.proc_image.data;
-                app.image_data_zscored = Methods.Preprocess.zscore_frame(app.image_data);
                 try
                     app.image_prefs = app.proc_image.prefs;
                     app.image_gamma = Program.Helpers.expand_gamma( ...
                         app.image_prefs.gamma, ...
                         length(Program.GUIHandling.pos_prefixes));
                 catch
+                end
+                if ~isempty(app.image_data)
+                    app.image_data = app.proc_image.data;
+                    app.image_data_zscored = Methods.Preprocess.zscore_frame(app.image_data);
                 end
             end
             if isappdata(app.CELL_ID, 'proc_runtime_dirty')

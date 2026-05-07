@@ -82,34 +82,44 @@ classdef histograms
             switch string(app.VolumeDropDown.Value)
                 case "Colormap"
                     context = Program.Helpers.processing_colormap_context(app);
-                    source_array = context.volume;
                     prefs = context.prefs;
-                    [~, ~, ~, nc_data] = size(source_array);
-                    max_idx = min(max_idx, nc_data);
+                    max_idx = min(max_idx, context.dims(4));
+                    if max_idx < 1
+                        raw = struct('array', zeros(0, 0, 0, 0));
+                        return
+                    end
                     if app.ProcShowMIPCheckBox.Value
-                        array = source_array(:, :, :, 1:max_idx);
+                        array = Program.Helpers.read_processing_colormap(app, ...
+                            'channels', 1:max_idx, ...
+                            'z', app.proc_zSlider.Value, ...
+                            'mip', true);
                     else
-                        [~, ~, nz_data, ~] = size(source_array);
+                        nz_data = context.dims(3);
                         z_gui = Program.Helpers.gui_z_to_data_index(app.proc_zSlider.Value, nz_data, false);
                         z_idx = Program.Helpers.gui_z_to_data_index( ...
                             z_gui, nz_data, ...
                             isfield(prefs, 'is_Z_flip') && prefs.is_Z_flip);
-                        array = source_array(:, :, z_idx, 1:max_idx);
-                        if ndims(array) == 3
-                            array = reshape(array, size(array,1), size(array,2), 1, size(array,3));
-                        end
+                        array = Program.Helpers.read_processing_colormap(app, ...
+                            'channels', 1:max_idx, ...
+                            'z', z_idx, ...
+                            'mip', false);
                     end
 
                 case "Video"
-                    frame = app.retrieve_frame(app.proc_tSlider.Value);
-                    max_idx = min(max_idx, size(frame, 4));
+                    views = app.retrieveVideoRenderViews( ...
+                        app.proc_tSlider.Value, ...
+                        app.proc_zSlider.Value, ...
+                        min(max(round(app.proc_ySlider.Value), 1), app.video_info.ny), ...
+                        min(max(round(app.proc_xSlider.Value), 1), app.video_info.nx), ...
+                        app.ProcShowMIPCheckBox.Value);
+                    frame = views.xy;
+                    max_idx = min(max_idx, size(frame, 3));
                     if app.ProcShowMIPCheckBox.Value
-                        array = frame(:, :, :, 1:max_idx);
+                        array = reshape(frame(:, :, 1:max_idx), ...
+                            size(frame,1), size(frame,2), 1, max_idx);
                     else
-                        array = frame(:, :, app.proc_zSlider.Value, 1:max_idx);
-                        if ndims(array) == 3
-                            array = reshape(array, size(array,1), size(array,2), 1, size(array,3));
-                        end
+                        array = reshape(frame(:, :, 1:max_idx), ...
+                            size(frame,1), size(frame,2), 1, max_idx);
                     end
 
                 otherwise

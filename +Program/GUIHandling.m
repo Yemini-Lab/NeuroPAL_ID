@@ -141,7 +141,136 @@ classdef GUIHandling
 
             Program.GUIHandling.install_processing_resize_callback(app);
             Program.GUIHandling.install_main_processing_sync_callbacks(app);
+            Program.GUIHandling.install_cellpose_mask_button(app);
             Program.GUIHandling.apply_processing_responsive_layout(app);
+        end
+
+        function install_cellpose_mask_button(app)
+            if nargin < 1 || isempty(app) || ~isvalid(app)
+                return
+            end
+
+            if ~isprop(app, 'CELL_ID') || isempty(app.CELL_ID) || ~isvalid(app.CELL_ID)
+                return
+            end
+
+            if ~isprop(app, 'ImageMenu') || isempty(app.ImageMenu) || ~isvalid(app.ImageMenu)
+                return
+            end
+
+            if ~isappdata(app.CELL_ID, 'show_cellpose_mask_overlay')
+                setappdata(app.CELL_ID, 'show_cellpose_mask_overlay', false);
+            end
+
+            has_masks = Program.GUIHandling.cellpose_masks_available(app);
+            if ~has_masks
+                setappdata(app.CELL_ID, 'show_cellpose_mask_overlay', false);
+            end
+            overlay_on = logical(getappdata(app.CELL_ID, 'show_cellpose_mask_overlay'));
+
+            parent_menu = app.ImageMenu;
+            if isprop(app, 'ToggleNeuronDetectionMenu') && ...
+                    ~isempty(app.ToggleNeuronDetectionMenu) && isvalid(app.ToggleNeuronDetectionMenu) && ...
+                    ~isempty(app.ToggleNeuronDetectionMenu.Parent) && isvalid(app.ToggleNeuronDetectionMenu.Parent)
+                parent_menu = app.ToggleNeuronDetectionMenu.Parent;
+            end
+
+            toggle_menu = [];
+            existing = findall(app.CELL_ID, 'Type', 'uimenu', 'Tag', 'show_cellpose_masks_menu');
+            for n = 1:numel(existing)
+                if isempty(toggle_menu) && isvalid(existing(n)) && isequal(existing(n).Parent, parent_menu)
+                    toggle_menu = existing(n);
+                else
+                    delete(existing(n));
+                end
+            end
+
+            if isempty(toggle_menu)
+                toggle_menu = uimenu(parent_menu, ...
+                    'Tag', 'show_cellpose_masks_menu', ...
+                    'Enable', 'on');
+            end
+
+            if overlay_on
+                toggle_menu.Text = 'Hide Cellpose Mask';
+            else
+                toggle_menu.Text = 'Show Cellpose Mask';
+            end
+            toggle_menu.MenuSelectedFcn = @(src, ~) Program.GUIHandling.show_cellpose_mask(src);
+            toggle_menu.Checked = Program.GUIHandling.checked_state_text(overlay_on);
+            setappdata(app.CELL_ID, 'cellpose_mask_overlay_menu_handle', toggle_menu);
+        end
+
+        function show_cellpose_mask(menu_handle)
+            app = Program.app;
+            if isempty(app) || ~isvalid(app) || ~isprop(app, 'CELL_ID') || isempty(app.CELL_ID) || ~isvalid(app.CELL_ID)
+                return
+            end
+
+            overlay_on = false;
+            if isappdata(app.CELL_ID, 'show_cellpose_mask_overlay')
+                overlay_on = logical(getappdata(app.CELL_ID, 'show_cellpose_mask_overlay'));
+            end
+            next_overlay_on = ~overlay_on;
+
+            if ~Program.GUIHandling.cellpose_masks_available(app)
+                setappdata(app.CELL_ID, 'show_cellpose_mask_overlay', false);
+                if nargin >= 1 && ~isempty(menu_handle) && isvalid(menu_handle)
+                    menu_handle.Text = 'Show Cellpose Mask';
+                    menu_handle.Checked = 'off';
+                end
+                uialert(app.CELL_ID, ...
+                    'Cellpose masks are not available for the current file yet. Run Cellpose detection first.', ...
+                    'No Cellpose Masks', 'Icon', 'warning');
+                return
+            end
+
+            setappdata(app.CELL_ID, 'show_cellpose_mask_overlay', next_overlay_on);
+            if nargin >= 1 && ~isempty(menu_handle) && isvalid(menu_handle)
+                if next_overlay_on
+                    menu_handle.Text = 'Hide Cellpose Mask';
+                else
+                    menu_handle.Text = 'Show Cellpose Mask';
+                end
+                menu_handle.Checked = Program.GUIHandling.checked_state_text(next_overlay_on);
+            end
+            Program.Routines.ID.render();
+        end
+
+        function tf = cellpose_masks_available(app)
+            tf = false;
+            if nargin < 1 || isempty(app) || ~isvalid(app)
+                return
+            end
+
+            mask_path = '';
+
+            if isprop(app, 'mp_params') && isstruct(app.mp_params) && ...
+                    isfield(app.mp_params, 'masks_mat_path') && ~isempty(app.mp_params.masks_mat_path)
+                mask_path = char(string(app.mp_params.masks_mat_path));
+            end
+
+            if isempty(mask_path) && isprop(app, 'id_file') && ~isempty(app.id_file) && isfile(app.id_file)
+                try
+                    id_payload = load(app.id_file, 'mp_params');
+                    if isfield(id_payload, 'mp_params') && isstruct(id_payload.mp_params) && ...
+                            isfield(id_payload.mp_params, 'masks_mat_path') && ~isempty(id_payload.mp_params.masks_mat_path)
+                        mask_path = char(string(id_payload.mp_params.masks_mat_path));
+                    end
+                catch
+                    mask_path = '';
+                end
+            end
+
+            tf = ~isempty(mask_path) && isfile(mask_path);
+        end
+
+        function value = checked_state_text(tf)
+            if logical(tf)
+                value = 'on';
+            else
+                value = 'off';
+            end
         end
 
         function prepare_unloaded_module_views(app)
@@ -412,6 +541,74 @@ classdef GUIHandling
                 catch
                 end
             end
+        end
+
+        function processing_roi_lock(app, action)
+            if nargin < 1 || isempty(app)
+                app = Program.app;
+            end
+
+            switch lower(string(action))
+                case {"unlock", "enable", "on"}
+                    state = 'on';
+                otherwise
+                    state = 'off';
+            end
+
+            target_names = Program.GUIHandling.processing_roi_lock_targets(app);
+            appdata_key = 'processing_roi_lock_state';
+
+            if strcmp(state, 'off')
+                saved = struct();
+                for n = 1:numel(target_names)
+                    name = target_names{n};
+                    if isprop(app, name) && isvalid(app.(name)) && isprop(app.(name), 'Enable')
+                        saved.(matlab.lang.makeValidName(name)) = app.(name).Enable;
+                        app.(name).Enable = 'off';
+                    end
+                end
+                setappdata(app.CELL_ID, appdata_key, saved);
+            else
+                saved = struct();
+                if isappdata(app.CELL_ID, appdata_key)
+                    saved = getappdata(app.CELL_ID, appdata_key);
+                    rmappdata(app.CELL_ID, appdata_key);
+                end
+
+                for n = 1:numel(target_names)
+                    name = target_names{n};
+                    if ~isprop(app, name) || ~isvalid(app.(name)) || ~isprop(app.(name), 'Enable')
+                        continue
+                    end
+
+                    key = matlab.lang.makeValidName(name);
+                    if isfield(saved, key)
+                        app.(name).Enable = saved.(key);
+                    else
+                        app.(name).Enable = 'on';
+                    end
+                end
+            end
+
+            Program.GUIHandling.update_processing_histogram_interactivity(app);
+            Program.GUIHandling.update_processing_zslider_visibility(app);
+        end
+
+        function target_names = processing_roi_lock_targets(app)
+            target_names = Program.GUIHandling.proc_components;
+            prefixes = Program.GUIHandling.pos_prefixes;
+            for n = 1:numel(prefixes)
+                target_names{end+1} = sprintf('%s_hist_slider', prefixes{n}); %#ok<AGROW>
+                target_names{end+1} = sprintf('%s_GammaEditField', prefixes{n}); %#ok<AGROW>
+            end
+
+            handles = Program.GUIHandling.threshold_stepper_handles(app);
+            if ~isempty(handles)
+                target_names = [target_names, ...
+                    {'ProcThresholdMinField', 'ProcThresholdMaxField'}]; %#ok<AGROW>
+            end
+
+            target_names = unique(target_names, 'stable');
         end
 
         function handle = window_fig()
@@ -814,6 +1011,7 @@ classdef GUIHandling
 
         function package = get_active_volume(app, varargin)
             Program.Handlers.loading.start('Chunk loading selection...');
+            loading_cleanup = onCleanup(@() Program.Handlers.loading.done());
             package = struct('state', {{}}, 'dims', {[]}, 'array', {[]}, 'coords', {[]});
             
             p = inputParser;
@@ -832,7 +1030,8 @@ classdef GUIHandling
             c_bools = channel_state.enabled_source_indices;
             c_max = channel_state.max_source_idx;
             c_load = 1:c_max;
-            t = app.proc_tSlider.Value;
+            t_limits = double(app.proc_tSlider.Limits);
+            t = min(max(round(double(app.proc_tSlider.Value)), t_limits(1)), t_limits(2));
 
             if isempty(p.Results.coords)
                 package.coords = [x y z t];
@@ -854,18 +1053,27 @@ classdef GUIHandling
                     package.state = lower(app.VolumeDropDown.Value);
 
                 case 'dims'
-                    if isempty(package.array)
-                        package.array = Program.GUIHandling.get_active_volume(app, 'request', 'array', 'coords', package.coords).array;
+                    switch char(string(app.VolumeDropDown.Value))
+                        case 'Colormap'
+                            package.dims = Program.Helpers.processing_colormap_context(app).dims;
+                        case 'Video'
+                            package.dims = [ ...
+                                app.video_info.ny, ...
+                                app.video_info.nx, ...
+                                app.video_info.nz, ...
+                                app.video_info.nc, ...
+                                app.video_info.nt];
+                        otherwise
+                            if isempty(package.array)
+                                package.array = Program.GUIHandling.get_active_volume(app, 'request', 'array', 'coords', package.coords).array;
+                            end
+                            package.dims = size(package.array);
                     end
 
-                    package.dims = size(package.array);
-
                 case 'array'
-                    source_array = [];
                     prefs = struct();
                     if strcmp(app.VolumeDropDown.Value, 'Colormap')
                         context = Program.Helpers.processing_colormap_context(app);
-                        source_array = context.volume;
                         prefs = context.prefs;
                     end
 
@@ -873,34 +1081,64 @@ classdef GUIHandling
                         switch app.VolumeDropDown.Value
                             case 'Colormap'
                                 safe_c = Program.Validation.noskip_index(c_max);
-                                if isempty(source_array)
-                                    slice = zeros(0, 0, 0, safe_c);
+                                if all(context.dims(1:4) > 0)
+                                    c_load = c_load(c_load <= context.dims(4));
+                                    if isempty(c_load)
+                                        slice = zeros(context.dims(1), context.dims(2), 1, 1, context.source_class);
+                                    else
+                                        slice = Program.Helpers.read_processing_colormap(app, ...
+                                            'channels', c_load, ...
+                                            'z', package.coords(3), ...
+                                            'mip', true);
+                                    end
                                 else
-                                    c_load = c_load(c_load <= size(source_array, 4));
-                                    slice = source_array(:, :, :, c_load);
+                                    slice = zeros(0, 0, 0, safe_c);
                                 end
                             case 'Video'
-                                slice = app.retrieve_frame(package.coords(4));
+                                views = app.retrieveVideoRenderViews( ...
+                                    package.coords(4), ...
+                                    package.coords(3), ...
+                                    min(max(round(package.coords(2)), 1), app.video_info.ny), ...
+                                    min(max(round(package.coords(1)), 1), app.video_info.nx), ...
+                                    true);
+                                slice = views.xy;
+                                c_load = c_load(c_load <= size(slice, 3));
+                                slice = slice(:, :, c_load);
+                                slice = reshape(slice, size(slice,1), size(slice,2), 1, size(slice,3));
                         end
                     else
                         switch app.VolumeDropDown.Value
                             case 'Colormap'
-                                [~, ~, nz_data, ~] = size(source_array);
+                                nz_data = context.dims(3);
                                 z_gui = Program.Helpers.gui_z_to_data_index(package.coords(3), nz_data, false);
                                 z_idx = Program.Helpers.gui_z_to_data_index( ...
                                     z_gui, nz_data, ...
                                     isfield(prefs, 'is_Z_flip') && prefs.is_Z_flip);
-                                c_load = c_load(c_load <= size(source_array, 4));
-                                slice = source_array(:, :, z_idx, c_load);
-                                if ndims(slice) == 3
-                                    slice = reshape(slice, size(slice,1), size(slice,2), 1, size(slice,3));
+                                if all(context.dims(1:4) > 0)
+                                    c_load = c_load(c_load <= context.dims(4));
+                                    if isempty(c_load)
+                                        slice = zeros(context.dims(1), context.dims(2), 1, 1, context.source_class);
+                                    else
+                                        slice = Program.Helpers.read_processing_colormap(app, ...
+                                            'channels', c_load, ...
+                                            'z', z_idx, ...
+                                            'mip', false);
+                                    end
+                                else
+                                    safe_c = Program.Validation.noskip_index(c_max);
+                                    slice = zeros(0, 0, 0, safe_c);
                                 end
                             case 'Video'
-                                slice = app.retrieve_frame(package.coords(4));
-                                slice = slice(:, :, package.coords(3), :);
-                                if ndims(slice) == 3
-                                    slice = reshape(slice, size(slice,1), size(slice,2), 1, size(slice,3));
-                                end
+                                views = app.retrieveVideoRenderViews( ...
+                                    package.coords(4), ...
+                                    package.coords(3), ...
+                                    min(max(round(package.coords(2)), 1), app.video_info.ny), ...
+                                    min(max(round(package.coords(1)), 1), app.video_info.nx), ...
+                                    false);
+                                slice = views.xy;
+                                c_load = c_load(c_load <= size(slice, 3));
+                                slice = slice(:, :, c_load);
+                                slice = reshape(slice, size(slice,1), size(slice,2), 1, size(slice,3));
                         end
                     end
 
@@ -909,8 +1147,16 @@ classdef GUIHandling
                         channel_state.g.source_idx, ...
                         channel_state.b.source_idx];
                     missing_rgb = rgb(~ismember(rgb, c_load));
-                    slice(:, :, :, missing_rgb) = 0;
-                    slice(:, :, :, [find(~ismember(c_load, c_bools))]) = 0;
+                    missing_rgb = missing_rgb(missing_rgb >= 1 & missing_rgb <= size(slice, 4));
+                    if ~isempty(missing_rgb)
+                        slice(:, :, :, missing_rgb) = 0;
+                    end
+
+                    disabled_loaded = find(~ismember(c_load, c_bools));
+                    disabled_loaded = disabled_loaded(disabled_loaded >= 1 & disabled_loaded <= size(slice, 4));
+                    if ~isempty(disabled_loaded)
+                        slice(:, :, :, disabled_loaded) = 0;
+                    end
                     package.array = slice;
 
                 case 'coords'
@@ -918,7 +1164,7 @@ classdef GUIHandling
 
             end
 
-            Program.Handlers.loading.done();
+            clear loading_cleanup
         end
 
         function tf = processing_colormap_available(app)
@@ -1087,6 +1333,7 @@ classdef GUIHandling
 
         function install_processing_slider_callbacks(app)
             Program.GUIHandling.install_processing_zslider_callbacks(app);
+            Program.GUIHandling.install_processing_tslider_callbacks(app);
             Program.GUIHandling.install_processing_downsample_callbacks(app);
             Program.GUIHandling.update_processing_zslider_visibility(app);
         end
@@ -1141,6 +1388,36 @@ classdef GUIHandling
                 end
             end
             rmappdata(app.CELL_ID, 'proc_zslider_event_listeners');
+        end
+
+        function install_processing_tslider_callbacks(app)
+            Program.GUIHandling.clear_processing_tslider_event_listeners(app);
+
+            app.proc_tSlider.ValueChangedFcn = @(src, event) ...
+                Program.GUIHandling.handle_processing_tslider_change(app, event.Value, false);
+            app.proc_tEditField.ValueChangedFcn = @(src, event) ...
+                Program.GUIHandling.handle_processing_tslider_change(app, event.Value, false);
+
+            if isprop(app.proc_tSlider, 'ValueChangingFcn')
+                app.proc_tSlider.ValueChangingFcn = @(src, event) [];
+            end
+
+            listener = addlistener(app.proc_tSlider, 'ValueChanging', @(src, event) ...
+                Program.GUIHandling.handle_processing_tslider_change(app, event.Value, true));
+            setappdata(app.CELL_ID, 'proc_tslider_event_listener', listener);
+        end
+
+        function clear_processing_tslider_event_listeners(app)
+            if ~isappdata(app.CELL_ID, 'proc_tslider_event_listener')
+                return
+            end
+
+            listener = getappdata(app.CELL_ID, 'proc_tslider_event_listener');
+            try
+                delete(listener);
+            catch
+            end
+            rmappdata(app.CELL_ID, 'proc_tslider_event_listener');
         end
 
         function suspend_processing_zslider_callbacks(app, tf)
@@ -1217,6 +1494,49 @@ classdef GUIHandling
                     rmappdata(app.CELL_ID, 'proc_live_z_value');
                 end
                 Program.Routines.Processing.render();
+            end
+        end
+
+        function handle_processing_tslider_change(app, value, is_live)
+            if nargin < 3
+                is_live = false;
+            end
+
+            t_value = Program.GUIHandling.clamp_processing_tslider_value(app, value);
+            if is_live && isappdata(app.CELL_ID, 'proc_live_t_value')
+                previous_live_t = getappdata(app.CELL_ID, 'proc_live_t_value');
+                if isequal(previous_live_t, t_value)
+                    return
+                end
+            end
+
+            Program.GUIHandling.sync_processing_tcontrols(app, t_value);
+            Program.GUIHandling.clear_processing_preview_cache(app);
+
+            if is_live
+                setappdata(app.CELL_ID, 'proc_live_t_value', t_value);
+                Program.Routines.Processing.render_live_slice();
+                drawnow limitrate nocallbacks;
+            else
+                if isappdata(app.CELL_ID, 'proc_live_t_value')
+                    rmappdata(app.CELL_ID, 'proc_live_t_value');
+                end
+                Program.Routines.Processing.render();
+            end
+        end
+
+        function t_value = clamp_processing_tslider_value(app, value)
+            t_limits = double(app.proc_tSlider.Limits);
+            t_value = min(max(round(double(value)), t_limits(1)), t_limits(2));
+        end
+
+        function sync_processing_tcontrols(app, t_value)
+            t_value = Program.GUIHandling.clamp_processing_tslider_value(app, t_value);
+            if app.proc_tSlider.Value ~= t_value
+                app.proc_tSlider.Value = t_value;
+            end
+            if app.proc_tEditField.Value ~= t_value
+                app.proc_tEditField.Value = t_value;
             end
         end
 
@@ -1300,7 +1620,8 @@ classdef GUIHandling
                 'proc_render_cache', ...
                 'proc_histogram_signature', ...
                 'proc_render_view_dims', ...
-                'proc_live_z_value'};
+                'proc_live_z_value', ...
+                'proc_live_t_value'};
 
             for n = 1:numel(cache_keys)
                 key = cache_keys{n};
@@ -1425,6 +1746,10 @@ classdef GUIHandling
                 app.ProcShowMIPCheckBox.ValueChangedFcn = @(src, event) ...
                     Program.GUIHandling.handle_processing_mip_toggled(app);
             end
+            if isprop(app, 'ProcPreviewZslowCheckBox') && isvalid(app.ProcPreviewZslowCheckBox)
+                app.ProcPreviewZslowCheckBox.ValueChangedFcn = @(src, event) ...
+                    Program.GUIHandling.handle_processing_preview_zslow_toggled(app);
+            end
             if isprop(app, 'VolumeDropDown') && isvalid(app.VolumeDropDown)
                 app.VolumeDropDown.ValueChangedFcn = @(src, event) ...
                     Program.GUIHandling.handle_processing_volume_changed(app, event);
@@ -1441,6 +1766,60 @@ classdef GUIHandling
 
         function handle_processing_mip_toggled(app)
             Program.GUIHandling.hide_percentile_noise_editor(app);
+            Program.GUIHandling.update_processing_zslider_visibility(app);
+            Program.GUIHandling.clear_processing_preview_cache(app);
+            Program.Routines.Processing.render();
+        end
+
+        function handle_processing_preview_zslow_toggled(app)
+            if app.ProcPreviewZslowCheckBox.Value
+                c_width = app.ProcAxGrid.ColumnWidth;
+                r_height = app.ProcAxGrid.RowHeight;
+
+                if numel(c_width) >= 3
+                    c_width{2} = 150;
+                    c_width{3} = 30;
+                    app.ProcAxGrid.ColumnWidth = c_width;
+                end
+                if numel(r_height) >= 4
+                    r_height{2} = 150;
+                    r_height{3} = 30;
+                    r_height{4} = 0;
+                    app.ProcAxGrid.RowHeight = r_height;
+                end
+
+                set(app.proc_xzAxes, 'Visible', 'on');
+                set(app.proc_yzAxes, 'Visible', 'on');
+                set(app.proc_xEditField, 'Enable', 'on');
+                set(app.proc_yEditField, 'Enable', 'on');
+            else
+                set(app.proc_xzAxes, 'Visible', 'off');
+                set(app.proc_yzAxes, 'Visible', 'off');
+                set(app.proc_xEditField, 'Enable', 'off');
+                set(app.proc_yEditField, 'Enable', 'off');
+
+                c_width = app.ProcAxGrid.ColumnWidth;
+                r_height = app.ProcAxGrid.RowHeight;
+                if numel(c_width) >= 3
+                    c_width{1} = '1x';
+                    c_width{2} = 0;
+                    c_width{3} = 0;
+                    app.ProcAxGrid.ColumnWidth = c_width;
+                end
+                if numel(r_height) >= 4
+                    r_height{1} = '1x';
+                    r_height{2} = 0;
+                    r_height{3} = 0;
+                    r_height{4} = 30;
+                    app.ProcAxGrid.RowHeight = r_height;
+                end
+            end
+
+            app.proc_xEditField.Value = round(app.proc_xSlider.Value);
+            app.proc_yEditField.Value = round(app.proc_ySlider.Value);
+            app.proc_zEditField.Value = round(app.proc_zSlider.Value);
+            app.proc_tEditField.Value = round(app.proc_tSlider.Value);
+
             Program.GUIHandling.update_processing_zslider_visibility(app);
             Program.GUIHandling.clear_processing_preview_cache(app);
             Program.Routines.Processing.render();
@@ -1784,9 +2163,19 @@ classdef GUIHandling
                 return
             end
 
-            app.ProcSavePanel.Layout.Row = 4;
-            app.ProcAdvancedOptionsButton.Layout.Row = 5;
-            app.SpectralUnmixingPanel.Layout.Row = 6;
+            has_advanced_button = isprop(app, 'ProcAdvancedOptionsButton') && ...
+                ~isempty(app.ProcAdvancedOptionsButton) && isvalid(app.ProcAdvancedOptionsButton);
+
+            if has_advanced_button
+                app.ProcSavePanel.Layout.Row = 4;
+                app.ProcAdvancedOptionsButton.Layout.Row = 5;
+                app.SpectralUnmixingPanel.Layout.Row = 6;
+            else
+                % Some local mlapp packages still use the older processing sidebar
+                % layout without a dedicated advanced-options button row.
+                app.SpectralUnmixingPanel.Layout.Row = 4;
+                app.ProcSavePanel.Layout.Row = 6;
+            end
 
             is_image_mode = strcmpi(char(string(app.VolumeDropDown.Value)), 'Colormap');
             row3_height = 72;
@@ -1798,26 +2187,43 @@ classdef GUIHandling
             catch
             end
 
-            row5_height = 0;
-            if is_image_mode
-                row6_height = 212;
-                app.SpectralUnmixingPanel.Visible = 'on';
+            if has_advanced_button
+                row5_height = 0;
+                if is_image_mode
+                    row6_height = 212;
+                    app.SpectralUnmixingPanel.Visible = 'on';
+                else
+                    row6_height = 0;
+                    app.SpectralUnmixingPanel.Visible = 'off';
+                end
+
+                app.ProcAdvancedOptionsButton.Visible = 'off';
+                if isprop(app.ProcAdvancedOptionsButton, 'Enable')
+                    app.ProcAdvancedOptionsButton.Enable = 'off';
+                end
+
+                app.ProcSideGrid.RowHeight = {95, 'fit', row3_height, 93, row5_height, row6_height};
             else
-                row6_height = 0;
-                app.SpectralUnmixingPanel.Visible = 'off';
-            end
+                row4_height = 212;
+                if is_image_mode
+                    app.SpectralUnmixingPanel.Visible = 'on';
+                else
+                    row4_height = 0;
+                    app.SpectralUnmixingPanel.Visible = 'off';
+                end
 
-            app.ProcAdvancedOptionsButton.Visible = 'off';
-            if isprop(app.ProcAdvancedOptionsButton, 'Enable')
-                app.ProcAdvancedOptionsButton.Enable = 'off';
+                app.ProcSideGrid.RowHeight = {95, 'fit', row3_height, row4_height, '1x', 93};
             end
-
-            app.ProcSideGrid.RowHeight = {95, 'fit', row3_height, 93, row5_height, row6_height};
         end
 
         function install_processing_advanced_callback(app)
             if nargin < 1 || isempty(app)
                 app = Program.app;
+            end
+
+            if ~isprop(app, 'ProcAdvancedOptionsButton') || isempty(app.ProcAdvancedOptionsButton) || ...
+                    ~isvalid(app.ProcAdvancedOptionsButton)
+                return
             end
 
             app.ProcAdvancedOptionsButton.Visible = 'off';
@@ -2391,8 +2797,7 @@ classdef GUIHandling
             end
 
             if exist("nt", 'var')
-                app.proc_tSlider.Limits = [1, nt];
-                app.proc_tSlider.MinorTicks = [];
+                Program.GUIHandling.configure_processing_tslider(app, nt);
             end
 
             app.proc_xSlider.Limits = [1, nx];
@@ -2437,6 +2842,46 @@ classdef GUIHandling
             end
         end
 
+        function configure_processing_tslider(app, nt)
+            nt = max(1, round(double(nt)));
+            max_limit = max(2, nt);
+            t_value = min(max(round(double(app.proc_tSlider.Value)), 1), nt);
+
+            if app.proc_tSlider.Value ~= t_value
+                app.proc_tSlider.Value = t_value;
+            end
+
+            app.proc_tSlider.Limits = [1, max_limit];
+            if nt <= 1
+                app.proc_tSlider.MajorTicks = 1;
+                app.proc_tSlider.MinorTicks = [];
+                if isprop(app.proc_tSlider, 'MajorTickLabels')
+                    app.proc_tSlider.MajorTickLabels = {'1'};
+                end
+                app.proc_tSlider.Enable = 'off';
+                return
+            end
+
+            if nt <= 50
+                major_ticks = 1:nt;
+            else
+                major_ticks = unique(round(linspace(1, nt, 13)));
+            end
+
+            app.proc_tSlider.MajorTicks = major_ticks;
+            if isprop(app.proc_tSlider, 'MajorTickLabels')
+                app.proc_tSlider.MajorTickLabels = arrayfun(@(t) sprintf('%d', t), major_ticks, ...
+                    'UniformOutput', false);
+            end
+
+            if nt <= 100
+                app.proc_tSlider.MinorTicks = 1:nt;
+            else
+                app.proc_tSlider.MinorTicks = [];
+            end
+            app.proc_tSlider.Enable = 'on';
+        end
+
         function crop_routine(app)
             mip_flag = 0;
 
@@ -2454,15 +2899,15 @@ classdef GUIHandling
 
             drawnow;
 
-            Program.GUIHandling.gui_lock(app, 'lock', 'processing_tab');
+            Program.GUIHandling.processing_roi_lock(app, 'lock');
+            roi_lock_cleanup = onCleanup(@() Program.GUIHandling.processing_roi_lock(app, 'unlock'));
             check = uiconfirm(app.CELL_ID, "Draw a bounding box on the volume to crop the image.", "NeuroPAL_ID", "Options", ["OK", "Cancel"]);
             if ~strcmp(check, "OK")
-                Program.GUIHandling.gui_lock(app, 'unlock', 'processing_tab');
                 return
             end
 
             roi = drawrectangle(app.proc_xyAxes,'Color','black','StripeColor','m');
-            Program.GUIHandling.gui_lock(app, 'unlock', 'processing_tab');
+            clear roi_lock_cleanup
 
             Program.crop_rotate_gui.draw(app, roi);
         end
@@ -2489,11 +2934,7 @@ classdef GUIHandling
             switch mode
                 case 'colormap'
                     context = Program.Helpers.processing_colormap_context(app);
-                    if isempty(context.volume)
-                        max_val = 255;
-                    else
-                        max_val = max(context.volume, [], "all");
-                    end
+                    max_val = Program.Helpers.processing_colormap_max(app);
 
                     chunk_prefs = context.prefs;
                     if ~isfield(chunk_prefs, 'gamma')
@@ -2507,7 +2948,7 @@ classdef GUIHandling
                     end
 
                 case 'video'
-                    max_val = max(app.retrieve_frame(app.proc_tSlider.Value), [], "all");
+                    max_val = Program.Helpers.video_display_max(app);
                     
                     for c=1:length(Program.GUIHandling.pos_prefixes)
                         app.(sprintf("%s_GammaEditField", Program.GUIHandling.pos_prefixes{c})).Value = 1;
@@ -2895,17 +3336,17 @@ classdef GUIHandling
 
             Program.GUIHandling.hide_percentile_noise_editor(app);
 
-            Program.GUIHandling.gui_lock(app, 'lock', 'processing_tab');
+            Program.GUIHandling.processing_roi_lock(app, 'lock');
+            roi_lock_cleanup = onCleanup(@() Program.GUIHandling.processing_roi_lock(app, 'unlock'));
             check = uiconfirm(app.CELL_ID, ...
                 'Draw a box on the current preview to estimate noise.', ...
                 'NeuroPAL_ID', 'Options', ["OK", "Cancel"]);
             if ~strcmp(check, "OK")
-                Program.GUIHandling.gui_lock(app, 'unlock', 'processing_tab');
                 return
             end
 
             roi = drawrectangle(app.proc_xyAxes, 'Color', 'black', 'StripeColor', 'm');
-            Program.GUIHandling.gui_lock(app, 'unlock', 'processing_tab');
+            clear roi_lock_cleanup
             mask = createMask(roi);
             delete(roi);
 
@@ -2917,7 +3358,7 @@ classdef GUIHandling
                     continue
                 end
 
-                min_value = mean(roi_values, 'all');
+                min_value = prctile(roi_values, 95, 'all');
                 Program.GUIHandling.set_processing_channel_min(app, channels(n).prefix, min_value);
                 updated = true;
             end
@@ -3202,6 +3643,7 @@ classdef GUIHandling
             channel_values = cell(1, 6);
             channel_enabled = false(1, 6);
             channel_roles = cell(1, 6);
+            fixed_channel_roles = {'Red', 'Green', 'Blue'};
             for c = 1:6
                 dd_handle = sprintf(Program.Handlers.channels.handles{'pp_dd'}, c);
                 cb_handle = sprintf(Program.Handlers.channels.handles{'pp_cb'}, c);
@@ -3209,7 +3651,9 @@ classdef GUIHandling
                 channel_values{c} = app.(dd_handle).Value;
                 channel_enabled(c) = logical(app.(cb_handle).Value);
 
-                if isprop(app.(ref_handle), 'Value')
+                if c <= numel(fixed_channel_roles)
+                    channel_roles{c} = fixed_channel_roles{c};
+                elseif isprop(app.(ref_handle), 'Value')
                     channel_roles{c} = app.(ref_handle).Value;
                 elseif isprop(app.(ref_handle), 'Text')
                     channel_roles{c} = app.(ref_handle).Text;
@@ -3261,6 +3705,7 @@ classdef GUIHandling
             end
 
             prefixes = Program.GUIHandling.pos_prefixes;
+            fixed_channel_roles = {'Red', 'Green', 'Blue'};
             for c = 1:min(6, numel(snapshot.channel_values))
                 dd_handle = sprintf(Program.Handlers.channels.handles{'pp_dd'}, c);
                 cb_handle = sprintf(Program.Handlers.channels.handles{'pp_cb'}, c);
@@ -3271,7 +3716,9 @@ classdef GUIHandling
                 end
                 app.(cb_handle).Value = logical(snapshot.channel_enabled(c));
 
-                if isprop(app.(ref_handle), 'Items') && isprop(app.(ref_handle), 'Value')
+                if c <= numel(fixed_channel_roles) && isprop(app.(ref_handle), 'Text')
+                    app.(ref_handle).Text = fixed_channel_roles{c};
+                elseif isprop(app.(ref_handle), 'Items') && isprop(app.(ref_handle), 'Value')
                     if any(strcmp(app.(ref_handle).Items, snapshot.channel_roles{c}))
                         app.(ref_handle).Value = snapshot.channel_roles{c};
                     end

@@ -82,10 +82,16 @@ function initialize()
             app.ToggleAutoIDUpdatesMenu.Text = 'Enable Auto-ID Updates';
         end
 
-        % Are we using matching pursuit (MP) to detect neurons?
-        if ~GUIPrefs.is_MP_detect
-            app.ToggleNeuronDetectionMenu.Text = 'Use MP-Detect Neurons';
+        % Update the detector toggle label from the saved backend.
+        switch GUIPrefs.get_detection_backend()
+            case 'mp'
+                app.ToggleNeuronDetectionMenu.Text = 'Use NN-Detect Neurons';
+            case 'nn'
+                app.ToggleNeuronDetectionMenu.Text = 'Use Cellpose-Detect Neurons';
+            case 'cellpose'
+                app.ToggleNeuronDetectionMenu.Text = 'Use MP-Detect Neurons';
         end
+        Program.GUIHandling.install_cellpose_mask_button(app);
 
         % This is a new user, give them some help!
     else

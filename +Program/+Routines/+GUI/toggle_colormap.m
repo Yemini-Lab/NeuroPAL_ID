@@ -4,8 +4,11 @@ function toggle_colormap()
     Program.Helpers.set_grid_height(app.ProcDownsamplingGrid, 4, 0);
     Program.GUIHandling.configure_processing_sidebar_layout(app);
 
-    if isstring(app.ProcAxGrid.RowHeight{end})
-        app.ProcAxGrid.RowHeight(end) = [];
+    if isequal(app.PlaceholderProcTimeline.Parent, app.ProcAxGrid)
+        timeline_row = app.PlaceholderProcTimeline.Layout.Row;
+        if timeline_row >= 1 && timeline_row <= numel(app.ProcAxGrid.RowHeight)
+            app.ProcAxGrid.RowHeight(timeline_row) = [];
+        end
     end
 
     app.PlaceholderProcTimeline.Parent = app.CELL_ID;

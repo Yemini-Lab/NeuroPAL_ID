@@ -8,6 +8,28 @@ function configure_slice_zslider(slider, n_slices, current_slice, show_labels)
     n_slices = max(1, round(double(n_slices)));
     current_slice = min(max(round(double(current_slice)), 1), n_slices);
 
+    if n_slices == 1
+        slider.Limits = [1, 2];
+        slider.MajorTicks = 1;
+        slider.MinorTicks = [];
+        slider.Value = 1;
+        if isprop(slider, 'MajorTickLabels')
+            if show_labels
+                slider.MajorTickLabels = {'1'};
+            else
+                slider.MajorTickLabels = {''};
+            end
+        end
+        if isprop(slider, 'Enable')
+            slider.Enable = 'off';
+        end
+        return
+    end
+
+    if isprop(slider, 'Enable')
+        slider.Enable = 'on';
+    end
+
     if n_slices <= 8
         major_ticks = 1:n_slices;
     else

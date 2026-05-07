@@ -5,9 +5,10 @@ function render()
 
     [package, package_info] = Program.Routines.Processing.get_cached_package(app);
     render_dims = local_volume_dims(package.render_volume);
-    view_reset_required = local_processing_view_reset_required(app, render_dims);
+    gui_limit_dims = local_gui_limit_dims(app, package, render_dims);
+    view_reset_required = local_processing_view_reset_required(app, gui_limit_dims);
     if view_reset_required
-        Program.GUIHandling.set_gui_limits(app, 'soft', render_dims);
+        Program.GUIHandling.set_gui_limits(app, 'soft', gui_limit_dims);
     end
 
     Program.Handlers.dialogue.step('Rendering volume data...');
@@ -26,6 +27,27 @@ function dims = local_volume_dims(volume)
 dims = size(volume);
 if numel(dims) < 4
     dims(4) = 1;
+end
+end
+
+function dims = local_gui_limit_dims(app, package, render_dims)
+dims = render_dims;
+if isfield(package, 'raw') && isstruct(package.raw) && isfield(package.raw, 'state')
+    switch lower(string(package.raw.state))
+        case "colormap"
+            if isfield(package.raw, 'dims') && numel(package.raw.dims) >= 4
+                dims = package.raw.dims;
+            end
+        case "video"
+            if isstruct(app.video_info) && isfield(app.video_info, 'nx')
+                dims = [ ...
+                    app.video_info.ny, ...
+                    app.video_info.nx, ...
+                    app.video_info.nz, ...
+                    max(render_dims(4), app.video_info.nc), ...
+                    app.video_info.nt];
+            end
+    end
 end
 end
 
